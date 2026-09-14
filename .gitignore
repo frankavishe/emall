@@ -1,0 +1,23 @@
+# Claude Code local state (may contain credentials/auth tokens)
+.claude/settings.local.json
+.claude/.credentials.json
+
+# Python / Django
+backend/.venv/
+backend/**/__pycache__/
+backend/**/*.pyc
+backend/media/
+backend/staticfiles/
+backend/.env
+*.sqlite3
+
+# Node / Next.js
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.env.local
+
+# OS
+Thumbs.db
+.DS_Store
+~$*
