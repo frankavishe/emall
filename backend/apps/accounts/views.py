@@ -20,8 +20,14 @@ from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.core.email import get_email_service
+from apps.vendors.serializers import ShopBriefSerializer
 
-from .serializers import LoginSerializer, RegisterCustomerSerializer, UserProfileSerializer
+from .serializers import (
+    LoginSerializer,
+    RegisterCustomerSerializer,
+    RegisterVendorSerializer,
+    UserProfileSerializer,
+)
 
 
 class TokenResponseMixin:
@@ -74,6 +80,33 @@ class RegisterCustomerView(TokenResponseMixin, APIView):
         access, refresh = self.issue_tokens(user)
         response = Response(
             {"access": access, "user": UserProfileSerializer(user).data},
+            status=status.HTTP_201_CREATED,
+        )
+        self.set_refresh_cookie(response, refresh)
+        return response
+
+
+class RegisterVendorView(TokenResponseMixin, APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = RegisterVendorSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        with transaction.atomic():
+            user, shop = serializer.save()
+
+        try:
+            get_email_service().send_verification_email(user, secrets.token_urlsafe(32))
+        except Exception:
+            pass
+
+        access, refresh = self.issue_tokens(user)
+        response = Response(
+            {
+                "access": access,
+                "user": UserProfileSerializer(user).data,
+                "shops": ShopBriefSerializer([shop], many=True).data,
+            },
             status=status.HTTP_201_CREATED,
         )
         self.set_refresh_cookie(response, refresh)
@@ -146,4 +179,7 @@ class MeView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        return Response(UserProfileSerializer(request.user).data)
+        data = UserProfileSerializer(request.user).data
+        if request.user.role == request.user.Role.VENDOR:
+            data["shops"] = ShopBriefSerializer(request.user.shops.all(), many=True).data
+        return Response(data)
