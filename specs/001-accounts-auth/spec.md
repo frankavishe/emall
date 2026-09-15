@@ -323,7 +323,9 @@ with the new password and fails with the old one — independently testable end 
   signed-in, PENDING-shop state in under 2 minutes.
 - **SC-003**: 100% of vendor-only actions are refused server-side for shops that are not APPROVED,
   verified by directly attempting those actions while bypassing the UI, for Vendors with a single
-  shop and for Vendors with multiple shops in mixed statuses.
+  shop and for Vendors with multiple shops in mixed statuses. (Within this feature, verified at the
+  permission-check level, since no vendor-only catalog/order action yet exists to call end-to-end;
+  full end-to-end verification follows once the Catalog feature is built.)
 - **SC-004**: 100% of attempts to log in with a wrong password or unregistered email are rejected
   with a generic, non-revealing error message.
 - **SC-005**: An Administrator can review and resolve (approve or reject) a pending shop request in

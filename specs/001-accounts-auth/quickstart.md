@@ -55,10 +55,15 @@ a connection error) and the frontend loads at `http://localhost:3000`.
 2. `POST /api/vendor/shops` with a second, different shop name.
    - **Expect**: `201`, a second shop for the same Vendor, also `status: "PENDING"`, independent
      of the first.
-3. Attempt a vendor-only action gated by shop approval (until catalog exists, this can be
-   validated with a lightweight stand-in check in the vendor shop serializer/permission tests —
-   see `tasks.md` for the exact test) on the PENDING shop.
-   - **Expect**: refused, explaining the shop is awaiting approval.
+3. Directly exercise `IsApprovedShopOwner.has_object_permission()`
+   (`backend/apps/vendors/permissions.py`) against both PENDING shops created above — see
+   `backend/tests/vendors/test_shop_gating.py` (tasks.md T038). No HTTP vendor-only action exists
+   yet in this feature (that arrives with the future Catalog feature); this permission check is
+   what a future catalog/order view will call.
+   - **Expect**: `has_object_permission` returns `False` for both shops (neither is APPROVED yet).
+     After Scenario 3 below approves one of them, re-run this check against that now-APPROVED shop
+     and confirm it returns `True` while the check against the Vendor's still-PENDING shop still
+     returns `False` — proving the gate is enforced per-shop, not per-account.
 4. Re-register a shop name that already exists (either vendor's).
    - **Expect**: `400` duplicate shop name.
 

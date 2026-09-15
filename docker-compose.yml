@@ -1,0 +1,17 @@
+services:
+  db:
+    image: postgres:16
+    container_name: emall-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: emall
+      POSTGRES_PASSWORD: emall_dev_password
+      POSTGRES_DB: emall
+    ports:
+      # Host 5433 -> container 5432, to avoid clashing with any local Postgres install
+      - "5433:5432"
+    volumes:
+      - emall_pg_data:/var/lib/postgresql/data
+
+volumes:
+  emall_pg_data:
