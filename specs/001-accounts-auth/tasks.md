@@ -133,55 +133,55 @@ confirm the session starts automatically (`access` token returned, refresh cooki
 
 > Write these tests FIRST, ensure they FAIL before implementation
 
-- [ ] T020 [P] [US1] Contract test `POST /api/auth/register/customer` — success (201, role
+- [x] T020 [P] [US1] Contract test `POST /api/auth/register/customer` — success (201, role
       CUSTOMER, access token + refresh cookie returned), duplicate email (400, spec FR-001 AC2),
       case-insensitive duplicate (`User@x.com` vs `user@x.com`, FR-004), weak password (400,
       FR-021) in `backend/tests/accounts/test_register_customer.py`
-- [ ] T021 [P] [US1] Contract test `POST /api/auth/login` — success (200), wrong password and
+- [x] T021 [P] [US1] Contract test `POST /api/auth/login` — success (200), wrong password and
       unregistered email both return the **same generic** 401 message (FR-008, SC-004) in
       `backend/tests/accounts/test_login.py`
-- [ ] T022 [P] [US1] Contract test `POST /api/auth/logout` — blacklists the current refresh token,
+- [x] T022 [P] [US1] Contract test `POST /api/auth/logout` — blacklists the current refresh token,
       clears the cookie, a subsequent `refresh` with that cookie fails 401 (FR-009, FR-012) in
       `backend/tests/accounts/test_logout.py`
-- [ ] T023 [P] [US1] Contract test `POST /api/auth/refresh` — valid refresh cookie yields a new
+- [x] T023 [P] [US1] Contract test `POST /api/auth/refresh` — valid refresh cookie yields a new
       access token (FR-011); missing/expired/blacklisted refresh cookie returns 401 (FR-010) in
       `backend/tests/accounts/test_refresh.py`
-- [ ] T024 [P] [US1] Contract test `GET /api/auth/me` — returns own profile (name, email, role,
+- [x] T024 [P] [US1] Contract test `GET /api/auth/me` — returns own profile (name, email, role,
       `is_email_verified`) for an authenticated request, 401 unauthenticated (FR-013) in
       `backend/tests/accounts/test_me.py`
 
 ### Implementation for User Story 1
 
-- [ ] T025 [US1] Implement `RegisterCustomerSerializer` in `backend/apps/accounts/serializers.py`:
+- [x] T025 [US1] Implement `RegisterCustomerSerializer` in `backend/apps/accounts/serializers.py`:
       `name`, `email`, `password` fields; validates password strength via Django's password
       validators (FR-021); `role` is hardcoded to `CUSTOMER` server-side, never accepted from the
       client (FR-003)
-- [ ] T026 [US1] Implement `RegisterCustomerView` in `backend/apps/accounts/views.py`: creates the
+- [x] T026 [US1] Implement `RegisterCustomerView` in `backend/apps/accounts/views.py`: creates the
       `User` (role=CUSTOMER) inside a DB transaction, issues tokens via T014's token view logic,
       and triggers `EmailService.send_verification_email` (fire-and-forget — failure to send must
       not fail registration) (depends on T009, T014, T015, T025)
-- [ ] T027 [US1] Implement `LoginView` in `backend/apps/accounts/views.py` built on T014: validates
+- [x] T027 [US1] Implement `LoginView` in `backend/apps/accounts/views.py` built on T014: validates
       email/password, returns the generic invalid-credentials message on failure without revealing
       which field was wrong (FR-008) (depends on T014)
-- [ ] T028 [US1] Implement `LogoutView` in `backend/apps/accounts/views.py`: blacklists the refresh
+- [x] T028 [US1] Implement `LogoutView` in `backend/apps/accounts/views.py`: blacklists the refresh
       token found in the request cookie via `simplejwt`'s blacklist app, clears the cookie (FR-009,
       FR-012) (depends on T013)
-- [ ] T029 [US1] Implement `RefreshView` in `backend/apps/accounts/views.py`: reads the refresh
+- [x] T029 [US1] Implement `RefreshView` in `backend/apps/accounts/views.py`: reads the refresh
       token from the httpOnly cookie (never the body), issues a new access token, rotates and
       re-sets the refresh cookie (FR-010, FR-011) (depends on T013, T014)
-- [ ] T030 [US1] Implement `MeView` in `backend/apps/accounts/views.py`: `GET` returns the
+- [x] T030 [US1] Implement `MeView` in `backend/apps/accounts/views.py`: `GET` returns the
       authenticated user's own `name`, `email`, `role`, `is_email_verified` (FR-013) (depends on
       T009)
-- [ ] T031 [US1] Wire `backend/apps/accounts/urls.py` (`register/customer`, `login`, `logout`,
+- [x] T031 [US1] Wire `backend/apps/accounts/urls.py` (`register/customer`, `login`, `logout`,
       `refresh`, `me`) and include it under `/api/auth/` in `backend/config/urls.py` (depends on
       T025–T030)
-- [ ] T032 [P] [US1] Build `frontend/src/app/register/page.tsx` (Customer variant): form for name,
+- [x] T032 [P] [US1] Build `frontend/src/app/register/page.tsx` (Customer variant): form for name,
       email, password; on success stores the access token via `auth-context` and redirects to
       `/account`
-- [ ] T033 [P] [US1] Build `frontend/src/app/login/page.tsx`: form for email/password; on success
+- [x] T033 [P] [US1] Build `frontend/src/app/login/page.tsx`: form for email/password; on success
       stores the access token via `auth-context`; on failure shows the generic error message
       returned by the API
-- [ ] T034 [US1] Build `frontend/src/app/account/page.tsx`: calls `GET /api/auth/me` on load via
+- [x] T034 [US1] Build `frontend/src/app/account/page.tsx`: calls `GET /api/auth/me` on load via
       `api-client`, displays name/email/role/verification status, and a logout button calling
       `POST /api/auth/logout` then clearing `auth-context` (depends on T018, T019, T032, T033)
 

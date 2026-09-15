@@ -138,8 +138,11 @@ SIMPLE_JWT = {
     "USER_ID_CLAIM": "user_id",
 }
 
-# Name of the httpOnly cookie carrying the refresh token (never read by frontend JS)
-REFRESH_TOKEN_COOKIE_NAME = "refresh_token"
+# Name of the httpOnly cookie carrying the refresh token (never read by frontend JS).
+# Namespaced (not a generic "refresh_token") because cookies are shared across all ports on
+# "localhost" in local dev — a generic name collides with other same-machine projects' cookies of
+# the same name, and Django's cookie parsing silently keeps only the last one it sees.
+REFRESH_TOKEN_COOKIE_NAME = env("REFRESH_TOKEN_COOKIE_NAME", default="emall_refresh_token")
 REFRESH_TOKEN_COOKIE_PATH = "/api/auth/"
 # Secure=False only makes sense over plain-HTTP local dev; flip to True behind HTTPS.
 REFRESH_TOKEN_COOKIE_SECURE = not DEBUG
