@@ -32,8 +32,15 @@ type AuthContextValue = {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   registerCustomer: (name: string, email: string, password: string) => Promise<void>;
+  registerVendor: (
+    name: string,
+    email: string,
+    password: string,
+    shopName: string,
+  ) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  requestShop: (name: string) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -91,6 +98,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(result.user);
   }, []);
 
+  const registerVendor = useCallback(
+    async (name: string, email: string, password: string, shopName: string) => {
+      const result = await apiFetch<LoginResponse & { shops: Shop[] }>(
+        "/api/auth/register/vendor",
+        {
+          method: "POST",
+          body: JSON.stringify({ name, email, password, shop_name: shopName }),
+        },
+      );
+      setAccessToken(result.access);
+      setUser({ ...result.user, shops: result.shops });
+    },
+    [],
+  );
+
+  const requestShop = useCallback(async (name: string) => {
+    await apiFetch<Shop>("/api/vendor/shops", {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    });
+    await refreshUser();
+  }, [refreshUser]);
+
   const logout = useCallback(async () => {
     try {
       await apiFetch("/api/auth/logout", { method: "POST" });
@@ -101,8 +131,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, isLoading, login, registerCustomer, logout, refreshUser }),
-    [user, isLoading, login, registerCustomer, logout, refreshUser],
+    () => ({
+      user,
+      isLoading,
+      login,
+      registerCustomer,
+      registerVendor,
+      logout,
+      refreshUser,
+      requestShop,
+    }),
+    [user, isLoading, login, registerCustomer, registerVendor, logout, refreshUser, requestShop],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

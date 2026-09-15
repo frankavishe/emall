@@ -5,12 +5,16 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { ApiError } from "@/lib/api-client";
 
+type AccountType = "customer" | "vendor";
+
 export default function RegisterPage() {
   const router = useRouter();
-  const { registerCustomer } = useAuth();
+  const { registerCustomer, registerVendor } = useAuth();
+  const [accountType, setAccountType] = useState<AccountType>("customer");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [shopName, setShopName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -19,7 +23,11 @@ export default function RegisterPage() {
     setError(null);
     setIsSubmitting(true);
     try {
-      await registerCustomer(name, email, password);
+      if (accountType === "vendor") {
+        await registerVendor(name, email, password, shopName);
+      } else {
+        await registerCustomer(name, email, password);
+      }
       router.push("/account");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
@@ -31,6 +39,26 @@ export default function RegisterPage() {
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6 py-12">
       <h1 className="mb-6 text-2xl font-semibold">Create your account</h1>
+      <div className="mb-4 flex gap-2 text-sm font-medium">
+        <button
+          type="button"
+          onClick={() => setAccountType("customer")}
+          className={`rounded-md border px-3 py-1.5 ${
+            accountType === "customer" ? "border-black bg-black text-white" : "border-black/15"
+          }`}
+        >
+          Customer
+        </button>
+        <button
+          type="button"
+          onClick={() => setAccountType("vendor")}
+          className={`rounded-md border px-3 py-1.5 ${
+            accountType === "vendor" ? "border-black bg-black text-white" : "border-black/15"
+          }`}
+        >
+          Vendor
+        </button>
+      </div>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <label className="flex flex-col gap-1 text-sm font-medium">
           Name
@@ -62,6 +90,18 @@ export default function RegisterPage() {
             className="rounded-md border border-black/15 px-3 py-2 text-base outline-none focus:border-black/40"
           />
         </label>
+        {accountType === "vendor" && (
+          <label className="flex flex-col gap-1 text-sm font-medium">
+            Shop name
+            <input
+              type="text"
+              required
+              value={shopName}
+              onChange={(e) => setShopName(e.target.value)}
+              className="rounded-md border border-black/15 px-3 py-2 text-base outline-none focus:border-black/40"
+            />
+          </label>
+        )}
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button
           type="submit"

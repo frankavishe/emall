@@ -205,17 +205,17 @@ regardless of the other shop's status.
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T035 [P] [US2] Contract test `POST /api/auth/register/vendor` — success creates `User`
+- [x] T035 [P] [US2] Contract test `POST /api/auth/register/vendor` — success creates `User`
       (role=VENDOR) + one `Shop` (status=PENDING) (FR-002), duplicate email (400), duplicate shop
       name (400, User Story 2 AC5), weak password (400) in
       `backend/tests/accounts/test_register_vendor.py`
-- [ ] T036 [P] [US2] Contract test `GET /api/vendor/shops` — returns only the authenticated
+- [x] T036 [P] [US2] Contract test `GET /api/vendor/shops` — returns only the authenticated
       Vendor's own shops, filtered at the queryset level by `owner=request.user` (Constitution
       "Security" NFR), 403 for non-Vendor roles in `backend/tests/vendors/test_list_shops.py`
-- [ ] T037 [P] [US2] Contract test `POST /api/vendor/shops` — creates an additional PENDING shop
+- [x] T037 [P] [US2] Contract test `POST /api/vendor/shops` — creates an additional PENDING shop
       for an existing Vendor (FR-019), rejects a duplicate shop name (400, FR-005) in
       `backend/tests/vendors/test_create_shop.py`
-- [ ] T038 [P] [US2] Unit test `IsApprovedShopOwner.has_object_permission()` (FR-015, depends on
+- [x] T038 [P] [US2] Unit test `IsApprovedShopOwner.has_object_permission()` (FR-015, depends on
       T044): given a Vendor with one APPROVED and one PENDING shop, permission returns `True` for
       the APPROVED shop and `False` for the PENDING shop (same Vendor), and `False` for either
       shop when requested by a different Vendor or a non-Vendor role — called directly against
@@ -225,36 +225,36 @@ regardless of the other shop's status.
 
 ### Implementation for User Story 2
 
-- [ ] T039 [US2] Create `Shop` model in `backend/apps/vendors/models.py` per data-model.md:
+- [x] T039 [US2] Create `Shop` model in `backend/apps/vendors/models.py` per data-model.md:
       `owner` (`ForeignKey(User, on_delete=CASCADE, related_name="shops")`, **not** unique — a
       Vendor may own multiple shops), `name` (`CharField`, `unique=True` across all shops),
       `status` (`CharField`, `choices=[("PENDING", ...), ("APPROVED", ...), ("REJECTED", ...)]`,
       `default="PENDING"`), `status_reason` (`TextField`, `null=True`, `blank=True`), `created_at`
       (`DateTimeField(auto_now_add=True)`), `status_changed_at` (`DateTimeField`, `null=True`,
       updated whenever `status` changes)
-- [ ] T040 [P] [US2] Generate and apply the initial `vendors` migration (`Shop` model) (depends on
+- [x] T040 [P] [US2] Generate and apply the initial `vendors` migration (`Shop` model) (depends on
       T039)
-- [ ] T041 [US2] Implement `RegisterVendorSerializer` in `backend/apps/accounts/serializers.py`:
+- [x] T041 [US2] Implement `RegisterVendorSerializer` in `backend/apps/accounts/serializers.py`:
       `name`, `email`, `password`, `shop_name`; validates password strength via Django's password
       validators (FR-021, same rule as T025); `role` hardcoded to `VENDOR` server-side (FR-003)
-- [ ] T042 [US2] Implement `RegisterVendorView` in `backend/apps/accounts/views.py`: creates the
+- [x] T042 [US2] Implement `RegisterVendorView` in `backend/apps/accounts/views.py`: creates the
       `User` (role=VENDOR) and its first `Shop` (status=PENDING) in one DB transaction
       (Constitution "Reliability"), issues tokens, triggers verification email (depends on T039,
       T041)
-- [ ] T043 [US2] Implement `ShopSerializer` and `VendorShopListCreateView` in
+- [x] T043 [US2] Implement `ShopSerializer` and `VendorShopListCreateView` in
       `backend/apps/vendors/views.py`, restricted to `IsVendor` (T016): `GET` lists shops filtered
       to `owner=request.user`; `POST` creates a new shop (status defaults to PENDING) for the
       authenticated Vendor (FR-019, FR-020) (depends on T016, T039)
-- [ ] T044 [US2] Implement `IsApprovedShopOwner` permission in `backend/apps/vendors/permissions.py`
+- [x] T044 [US2] Implement `IsApprovedShopOwner` permission in `backend/apps/vendors/permissions.py`
       that checks `shop.status == "APPROVED"` **and** `shop.owner == request.user` for the specific
       shop object being acted on — never account-wide (FR-015, research.md §5)
-- [ ] T045 [US2] Wire `backend/apps/vendors/urls.py` (`/api/vendor/shops`) and include it in
+- [x] T045 [US2] Wire `backend/apps/vendors/urls.py` (`/api/vendor/shops`) and include it in
       `backend/config/urls.py` (depends on T043)
-- [ ] T046 [US2] Extend `MeView` (`backend/apps/accounts/views.py`) to include a `shops` array
+- [x] T046 [US2] Extend `MeView` (`backend/apps/accounts/views.py`) to include a `shops` array
       (`id`, `name`, `status`) when `role == "VENDOR"` (FR-013) (depends on T030, T039)
-- [ ] T047 [P] [US2] Extend `frontend/src/app/register/page.tsx` with a Vendor variant (adds
+- [x] T047 [P] [US2] Extend `frontend/src/app/register/page.tsx` with a Vendor variant (adds
       `shop_name` field, posts to `register/vendor`) (depends on T032)
-- [ ] T048 [US2] Extend `frontend/src/app/account/page.tsx` to list every shop and its status for
+- [x] T048 [US2] Extend `frontend/src/app/account/page.tsx` to list every shop and its status for
       Vendors, plus a "request another shop" action calling `POST /api/vendor/shops` (depends on
       T034, T046)
 

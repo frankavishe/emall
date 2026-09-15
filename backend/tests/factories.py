@@ -2,6 +2,7 @@ import factory
 from factory.django import DjangoModelFactory
 
 from apps.accounts.models import User
+from apps.vendors.models import Shop
 
 
 class UserFactory(DjangoModelFactory):
@@ -19,3 +20,12 @@ class UserFactory(DjangoModelFactory):
         self.set_password(extracted or "a-strong-password-1")
         if create:
             self.save()
+
+
+class ShopFactory(DjangoModelFactory):
+    class Meta:
+        model = Shop
+
+    owner = factory.SubFactory(UserFactory, role=User.Role.VENDOR)
+    name = factory.Sequence(lambda n: f"Shop {n}")
+    status = Shop.Status.PENDING
