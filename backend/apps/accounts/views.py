@@ -16,19 +16,22 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.vendors.serializers import ShopBriefSerializer
 
-from .models import EmailVerificationToken
+from .models import EmailVerificationToken, PasswordResetToken, User
 from .serializers import (
     LoginSerializer,
+    PasswordResetConfirmSerializer,
+    PasswordResetRequestSerializer,
     RegisterCustomerSerializer,
     RegisterVendorSerializer,
     UserProfileSerializer,
     VerifyEmailConfirmSerializer,
 )
-from .services import issue_verification_token
+from .services import issue_password_reset_token, issue_verification_token
 
 
 class TokenResponseMixin:
@@ -224,3 +227,60 @@ class VerifyEmailConfirmView(APIView):
             token.user.save(update_fields=["is_email_verified"])
 
         return Response({"detail": "Email verified."}, status=status.HTTP_200_OK)
+
+
+class PasswordResetRequestView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data["email"].strip().lower()
+
+        user = User.objects.filter(email=email).first()
+        if user is not None:
+            issue_password_reset_token(user)
+
+        return Response(
+            {"detail": "If that email is registered, a reset link has been sent."},
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+
+class PasswordResetConfirmView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        raw_token = serializer.validated_data["token"]
+        new_password = serializer.validated_data["new_password"]
+
+        try:
+            token = PasswordResetToken.objects.select_related("user").get(token=raw_token)
+        except PasswordResetToken.DoesNotExist:
+            return Response(
+                {"detail": "This reset link is invalid or has expired."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not token.is_valid():
+            return Response(
+                {"detail": "This reset link is invalid or has expired."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with transaction.atomic():
+            token.used_at = timezone.now()
+            token.save(update_fields=["used_at"])
+
+            user = token.user
+            user.set_password(new_password)
+            user.save(update_fields=["password"])
+
+            for outstanding in OutstandingToken.objects.filter(user=user):
+                BlacklistedToken.objects.get_or_create(token=outstanding)
+
+        return Response(
+            {"detail": "Password updated. Please log in again."}, status=status.HTTP_200_OK
+        )

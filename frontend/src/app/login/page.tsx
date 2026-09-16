@@ -66,6 +66,11 @@ export default function LoginPage() {
           Register
         </a>
       </p>
+      <p className="mt-2 text-sm text-black/60">
+        <a href="/forgot-password" className="underline">
+          Forgot your password?
+        </a>
+      </p>
     </main>
   );
 }

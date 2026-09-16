@@ -66,3 +66,16 @@ class LoginSerializer(serializers.Serializer):
 
 class VerifyEmailConfirmSerializer(serializers.Serializer):
     token = serializers.CharField()
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    token = serializers.CharField()
+    new_password = serializers.CharField(write_only=True)
+
+    def validate_new_password(self, value):
+        validate_password(value)
+        return value

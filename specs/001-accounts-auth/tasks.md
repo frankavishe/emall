@@ -386,36 +386,36 @@ and confirm a pre-reset refresh cookie no longer works.
 
 ### Tests for User Story 5 ⚠️
 
-- [ ] T071 [P] [US5] Contract test `POST /api/auth/password-reset/request` — registered and
+- [x] T071 [P] [US5] Contract test `POST /api/auth/password-reset/request` — registered and
       unregistered emails receive the **identical** 202 response (FR-028, SC-010) in
       `backend/tests/accounts/test_password_reset_request.py`
-- [ ] T072 [P] [US5] Contract test `POST /api/auth/password-reset/confirm` — valid token sets the
+- [x] T072 [P] [US5] Contract test `POST /api/auth/password-reset/confirm` — valid token sets the
       new password and blacklists all of the account's outstanding refresh tokens (FR-030,
       FR-031); expired/already-used token returns 400 (FR-032); weak new password returns 400
       (FR-021) in `backend/tests/accounts/test_password_reset_confirm.py`
 
 ### Implementation for User Story 5
 
-- [ ] T073 [US5] Create `PasswordResetToken` model in `backend/apps/accounts/models.py` per
+- [x] T073 [US5] Create `PasswordResetToken` model in `backend/apps/accounts/models.py` per
       data-model.md: same shape as `EmailVerificationToken` (T062) but `related_name=
       "password_reset_tokens"` and `expires_at = created_at + 1h` per research.md §3 (shorter than
       verification — higher-risk action)
-- [ ] T074 [P] [US5] Generate and apply the migration adding `PasswordResetToken` (depends on T073)
-- [ ] T075 [US5] Implement `PasswordResetRequestView` in `backend/apps/accounts/views.py`
+- [x] T074 [P] [US5] Generate and apply the migration adding `PasswordResetToken` (depends on T073)
+- [x] T075 [US5] Implement `PasswordResetRequestView` in `backend/apps/accounts/views.py`
       (unauthenticated): always returns the same 202 response regardless of whether the email
       matches an account; when it does, invalidates the account's prior unused reset tokens, issues
       a new one, and calls `EmailService.send_password_reset_email` (T015) (FR-027, FR-028, FR-029,
       FR-032) (depends on T015, T073)
-- [ ] T076 [US5] Implement `PasswordResetConfirmView` in `backend/apps/accounts/views.py`
+- [x] T076 [US5] Implement `PasswordResetConfirmView` in `backend/apps/accounts/views.py`
       (unauthenticated, token is the credential): inside one DB transaction — validates the token
       per T073's validity rule, validates the new password's strength (FR-021), sets the new
       hashed password, marks the token used, and blacklists every outstanding refresh token for
       that user via `simplejwt`'s blacklist app (FR-030, FR-031) (depends on T013, T073)
-- [ ] T077 [US5] Wire `password-reset/request` and `password-reset/confirm` in
+- [x] T077 [US5] Wire `password-reset/request` and `password-reset/confirm` in
       `backend/apps/accounts/urls.py` (depends on T075, T076)
-- [ ] T078 [P] [US5] Build `frontend/src/app/forgot-password/page.tsx`: submits an email, always
+- [x] T078 [P] [US5] Build `frontend/src/app/forgot-password/page.tsx`: submits an email, always
       shows the same generic confirmation message
-- [ ] T079 [P] [US5] Build `frontend/src/app/reset-password/page.tsx`: reads `token` from the URL
+- [x] T079 [P] [US5] Build `frontend/src/app/reset-password/page.tsx`: reads `token` from the URL
       query string, submits a new password, redirects to `/login` on success
 
 **Checkpoint**: All five user stories are independently functional — the full Accounts &
