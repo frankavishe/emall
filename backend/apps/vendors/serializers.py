@@ -23,3 +23,21 @@ class ShopSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         return Shop.objects.create(owner=self.context["request"].user, **validated_data)
+
+
+class AdminShopListSerializer(serializers.ModelSerializer):
+    owner_name = serializers.CharField(source="owner.name", read_only=True)
+    owner_email = serializers.CharField(source="owner.email", read_only=True)
+
+    class Meta:
+        model = Shop
+        fields = [
+            "id",
+            "name",
+            "status",
+            "status_reason",
+            "created_at",
+            "owner_name",
+            "owner_email",
+        ]
+        read_only_fields = fields

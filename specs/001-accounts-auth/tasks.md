@@ -274,37 +274,37 @@ independently of the Vendor's other shops.
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T049 [P] [US3] Contract test `GET /api/admin/shops?status=PENDING` — paginated (Constitution
+- [x] T049 [P] [US3] Contract test `GET /api/admin/shops?status=PENDING` — paginated (Constitution
       "Resource Utilization"), filterable by status, 403 for non-Administrator roles (FR-016) in
       `backend/tests/vendors/test_admin_list_shops.py`
-- [ ] T050 [P] [US3] Contract test `POST /api/admin/shops/{id}/approve` — PENDING→APPROVED (200),
+- [x] T050 [P] [US3] Contract test `POST /api/admin/shops/{id}/approve` — PENDING→APPROVED (200),
       rejects (400/409) if the shop is not currently PENDING, 403 for non-Administrator (FR-017)
       in `backend/tests/vendors/test_admin_approve.py`
-- [ ] T051 [P] [US3] Contract test `POST /api/admin/shops/{id}/reject` — PENDING→REJECTED with an
+- [x] T051 [P] [US3] Contract test `POST /api/admin/shops/{id}/reject` — PENDING→REJECTED with an
       optional `reason` persisted and visible to the owning Vendor (FR-018) in
       `backend/tests/vendors/test_admin_reject.py`
-- [ ] T052 [P] [US3] Contract test: `register/customer` and `register/vendor` never accept or
+- [x] T052 [P] [US3] Contract test: `register/customer` and `register/vendor` never accept or
       expose a way to set `role=ADMINISTRATOR` (FR-003, spec User Story 3 AC4) in
       `backend/tests/accounts/test_no_admin_self_register.py`
 
 ### Implementation for User Story 3
 
-- [ ] T053 [US3] Implement `AdminShopListSerializer` (includes owner name/email) and
+- [x] T053 [US3] Implement `AdminShopListSerializer` (includes owner name/email) and
       `AdminShopListView` in `backend/apps/vendors/views.py`: paginated, filterable by `?status=`
       query param, restricted to `IsAdministrator` (T016) (depends on T016, T039)
-- [ ] T054 [US3] Implement `AdminShopApproveView` in `backend/apps/vendors/views.py`: transitions a
+- [x] T054 [US3] Implement `AdminShopApproveView` in `backend/apps/vendors/views.py`: transitions a
       PENDING shop to APPROVED inside a DB transaction, sets `status_changed_at`, rejects the
       transition from any other status (depends on T016, T039)
-- [ ] T055 [US3] Implement `AdminShopRejectView` in `backend/apps/vendors/views.py`: transitions a
+- [x] T055 [US3] Implement `AdminShopRejectView` in `backend/apps/vendors/views.py`: transitions a
       PENDING shop to REJECTED inside a DB transaction, stores the optional `reason` in
       `status_reason`, sets `status_changed_at` (depends on T016, T039)
-- [ ] T056 [US3] Wire admin shop URLs (`/api/admin/shops`, `/api/admin/shops/{id}/approve`,
+- [x] T056 [US3] Wire admin shop URLs (`/api/admin/shops`, `/api/admin/shops/{id}/approve`,
       `/api/admin/shops/{id}/reject`) in `backend/apps/vendors/urls.py` (depends on T053–T055)
-- [ ] T057 [US3] Add a `seed_admin` Django management command in
+- [x] T057 [US3] Add a `seed_admin` Django management command in
       `backend/apps/accounts/management/commands/seed_admin.py` that creates a `User`
       (role=ADMINISTRATOR) from env-provided credentials, per spec Assumptions ("Administrator
       accounts are provisioned via a seed/management process outside this spec's UI flows")
-- [ ] T058 [P] [US3] Build `frontend/src/app/admin/shops/page.tsx`: lists shops filterable by
+- [x] T058 [P] [US3] Build `frontend/src/app/admin/shops/page.tsx`: lists shops filterable by
       status, with approve/reject actions calling the admin endpoints (depends on T018, T019)
 
 **Checkpoint**: All three core roles now work independently — Customer, Vendor (multi-shop), and
