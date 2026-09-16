@@ -37,7 +37,9 @@ export default function VerifyEmailForm() {
         if (cancelled) return;
         setStatus("error");
         setMessage(
-          err instanceof ApiError ? err.message : "This verification link is invalid or has expired.",
+          err instanceof ApiError
+            ? err.message
+            : "This verification link is invalid or has expired.",
         );
       }
     })();
@@ -54,7 +56,9 @@ export default function VerifyEmailForm() {
       await resendVerificationEmail();
       setResendMessage("A new verification link has been sent.");
     } catch (err) {
-      setResendMessage(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
+      setResendMessage(
+        err instanceof ApiError ? err.message : "Something went wrong. Please try again.",
+      );
     } finally {
       setIsResending(false);
     }

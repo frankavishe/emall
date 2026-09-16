@@ -1,7 +1,7 @@
 import pytest
 from django.utils import timezone
 
-from apps.accounts.models import PasswordResetToken, User
+from apps.accounts.models import PasswordResetToken
 from tests.factories import UserFactory
 
 pytestmark = pytest.mark.django_db

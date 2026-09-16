@@ -60,7 +60,9 @@ export default function AdminShopsPage() {
         if (!cancelled) setShops(response.results);
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
+          setError(
+            err instanceof ApiError ? err.message : "Something went wrong. Please try again.",
+          );
         }
       } finally {
         if (!cancelled) setIsLoadingShops(false);

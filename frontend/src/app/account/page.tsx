@@ -31,7 +31,9 @@ export default function AccountPage() {
       await requestShop(newShopName);
       setNewShopName("");
     } catch (err) {
-      setShopError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
+      setShopError(
+        err instanceof ApiError ? err.message : "Something went wrong. Please try again.",
+      );
     } finally {
       setIsRequestingShop(false);
     }
@@ -81,9 +83,7 @@ export default function AccountPage() {
                 <span className="text-black/60">{shop.status}</span>
               </li>
             ))}
-            {(user.shops ?? []).length === 0 && (
-              <li className="text-black/60">No shops yet.</li>
-            )}
+            {(user.shops ?? []).length === 0 && <li className="text-black/60">No shops yet.</li>}
           </ul>
           <form onSubmit={handleRequestShop} className="mt-4 flex flex-col gap-2">
             <label className="flex flex-col gap-1 text-sm font-medium">

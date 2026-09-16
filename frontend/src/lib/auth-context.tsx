@@ -114,13 +114,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const requestShop = useCallback(async (name: string) => {
-    await apiFetch<Shop>("/api/vendor/shops", {
-      method: "POST",
-      body: JSON.stringify({ name }),
-    });
-    await refreshUser();
-  }, [refreshUser]);
+  const requestShop = useCallback(
+    async (name: string) => {
+      await apiFetch<Shop>("/api/vendor/shops", {
+        method: "POST",
+        body: JSON.stringify({ name }),
+      });
+      await refreshUser();
+    },
+    [refreshUser],
+  );
 
   const resendVerificationEmail = useCallback(async () => {
     await apiFetch("/api/auth/verify-email/request", { method: "POST" });
