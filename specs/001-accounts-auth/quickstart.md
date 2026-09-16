@@ -72,12 +72,19 @@ a connection error) and the frontend loads at `http://localhost:3000`.
 1. Log in as the seeded Administrator account.
 2. `GET /api/admin/shops?status=PENDING`.
    - **Expect**: both shops from Scenario 2 listed.
-3. `POST /api/admin/shops/{id}/approve` on the first shop.
+3. Shop approval is a verification-gated action (spec.md Assumptions), so first verify the
+   Vendor's email from Scenario 2: while authenticated as that Vendor,
+   `POST /api/auth/verify-email/request`, then `POST /api/auth/verify-email/confirm` with the
+   token from the console output.
+   - **Expect**: `200` on confirm, `is_email_verified: true` on the Vendor's `/me`. Attempting
+     step 4 below against a shop whose owner still has `is_email_verified: false` returns `403`
+     ("This action requires a verified email address.") instead of approving.
+4. `POST /api/admin/shops/{id}/approve` on the first shop.
    - **Expect**: `200`, `status: "APPROVED"`; re-checking the Vendor's `/me` shows that shop
      APPROVED and the other still PENDING (independent per-shop status — spec AC3).
-4. `POST /api/admin/shops/{id}/reject` on the second shop with a reason.
+5. `POST /api/admin/shops/{id}/reject` on the second shop with a reason.
    - **Expect**: `200`, `status: "REJECTED"`, reason visible via the Vendor's `/me`/shops list.
-5. Attempt to register a new account with `role: "ADMINISTRATOR"` via the public registration
+6. Attempt to register a new account with `role: "ADMINISTRATOR"` via the public registration
    endpoints.
    - **Expect**: not possible — no such option exists on `register/customer` or `register/vendor`.
 
