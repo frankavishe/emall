@@ -427,18 +427,18 @@ Authentication feature works end to end.
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T080 [P] Confirm `AdminShopListView` (T053) pagination is active and default page size is
+- [x] T080 [P] Confirm `AdminShopListView` (T053) pagination is active and default page size is
       sane, per Constitution "Resource Utilization" ("list endpoints MUST be paginated") in
       `backend/apps/vendors/views.py`
-- [ ] T081 [P] Add DRF throttle classes to `login`, `password-reset/request`, and
+- [x] T081 [P] Add DRF throttle classes to `login`, `password-reset/request`, and
       `verify-email/request` in `backend/config/settings.py` / relevant views, to bound
       brute-force/spam attempts (Constitution "Security & Non-Functional Requirements")
-- [ ] T082 Run all five `quickstart.md` scenarios end to end against a real PostgreSQL database
+- [x] T082 Run all five `quickstart.md` scenarios end to end against a real PostgreSQL database
       with migrations applied, per Constitution Principle V ("verified as actually working —
       migrations run, API exercised ... before moving to the next chunk")
-- [ ] T083 [P] Write `backend/README.md` (or extend `docs/`) with setup/run instructions for this
+- [x] T083 [P] Write `backend/README.md` (or extend `docs/`) with setup/run instructions for this
       feature: env vars required, `migrate`, `seed_admin`, `runserver`, `npm run dev`
-- [ ] T084 Security review pass: confirm no plaintext password ever appears in the database or in
+- [x] T084 Security review pass: confirm no plaintext password ever appears in the database or in
       server logs (SC-007); confirm all secrets are sourced from environment variables, none
       committed (Constitution Principle III)
 

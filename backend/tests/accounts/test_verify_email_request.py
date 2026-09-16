@@ -37,3 +37,15 @@ def test_verify_email_request_issues_new_token_and_invalidates_prior(api_client)
 def test_verify_email_request_unauthenticated_returns_401(api_client):
     response = api_client.post("/api/auth/verify-email/request")
     assert response.status_code == 401
+
+
+def test_verify_email_request_is_throttled_after_repeated_attempts(api_client):
+    user = UserFactory(is_email_verified=False)
+    _authenticate(api_client, user)
+
+    for _ in range(5):
+        response = api_client.post("/api/auth/verify-email/request")
+        assert response.status_code == 202
+
+    response = api_client.post("/api/auth/verify-email/request")
+    assert response.status_code == 429
