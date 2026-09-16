@@ -41,3 +41,14 @@ def test_login_unregistered_email_returns_same_generic_message(api_client):
 
     assert response.status_code == 401
     assert response.data["detail"] == "Invalid email or password."
+
+
+def test_login_is_throttled_after_repeated_attempts(api_client):
+    payload = {"email": "nobody@example.com", "password": "totally-wrong"}
+
+    for _ in range(5):
+        response = api_client.post("/api/auth/login", payload, format="json")
+        assert response.status_code == 401
+
+    response = api_client.post("/api/auth/login", payload, format="json")
+    assert response.status_code == 429

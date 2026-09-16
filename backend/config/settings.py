@@ -118,6 +118,11 @@ REST_FRAMEWORK = {
     ),
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 20,
+    "DEFAULT_THROTTLE_RATES": {
+        "login": "5/min",
+        "password_reset": "5/min",
+        "verify_email": "5/min",
+    },
 }
 
 # --- simplejwt (task T013) -----------------------------------------------
