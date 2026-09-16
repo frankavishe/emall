@@ -16,7 +16,8 @@ def _authenticate(api_client, user, password="a-strong-password-1"):
 
 def test_admin_approve_pending_shop_returns_200(api_client):
     admin = UserFactory(role=User.Role.ADMINISTRATOR)
-    shop = ShopFactory(status=Shop.Status.PENDING)
+    vendor = UserFactory(role=User.Role.VENDOR, is_email_verified=True)
+    shop = ShopFactory(owner=vendor, status=Shop.Status.PENDING)
 
     _authenticate(api_client, admin)
     response = api_client.post(f"/api/admin/shops/{shop.id}/approve")

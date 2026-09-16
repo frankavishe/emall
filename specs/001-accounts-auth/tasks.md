@@ -326,47 +326,47 @@ verification-gated action is refused, follow the (console-logged) verification l
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T059 [P] [US4] Contract test `POST /api/auth/verify-email/confirm` — valid unexpired token
+- [x] T059 [P] [US4] Contract test `POST /api/auth/verify-email/confirm` — valid unexpired token
       verifies the account (200, FR-023); expired or already-used token returns 400 with a clear
       message (FR-026, spec User Story 4 AC5); an already-verified account following an old link
       gets a non-error "already verified" message (AC6) in
       `backend/tests/accounts/test_verify_email_confirm.py`
-- [ ] T060 [P] [US4] Contract test `POST /api/auth/verify-email/request` — issues a new token and
+- [x] T060 [P] [US4] Contract test `POST /api/auth/verify-email/request` — issues a new token and
       invalidates the account's prior unused verification tokens, so only the newest link works
       (FR-025, FR-026) in `backend/tests/accounts/test_verify_email_request.py`
-- [ ] T061 [P] [US4] Test verification-gated action (shop approval eligibility) is refused while
+- [x] T061 [P] [US4] Test verification-gated action (shop approval eligibility) is refused while
       the owning Vendor's email is unverified, and succeeds once verified (FR-024) in
       `backend/tests/accounts/test_verification_gate.py`
 
 ### Implementation for User Story 4
 
-- [ ] T062 [US4] Create `EmailVerificationToken` model in `backend/apps/accounts/models.py` per
+- [x] T062 [US4] Create `EmailVerificationToken` model in `backend/apps/accounts/models.py` per
       data-model.md: `user` (`ForeignKey(User, on_delete=CASCADE, related_name="email_verification_tokens")`),
       `token` (`CharField`, `unique=True`, indexed, generated via `secrets.token_urlsafe(32)`),
       `created_at` (`DateTimeField(auto_now_add=True)`), `expires_at` (`DateTimeField`, set to
       `created_at + 24h` per research.md §3), `used_at` (`DateTimeField`, `null=True`) — valid iff
       `used_at is None and expires_at > now()`
-- [ ] T063 [P] [US4] Generate and apply the migration adding `EmailVerificationToken` (depends on
+- [x] T063 [P] [US4] Generate and apply the migration adding `EmailVerificationToken` (depends on
       T062)
-- [ ] T064 [US4] Implement `issue_verification_token(user)` in `backend/apps/accounts/services.py`:
+- [x] T064 [US4] Implement `issue_verification_token(user)` in `backend/apps/accounts/services.py`:
       marks the user's other unused `EmailVerificationToken` rows used, creates and returns a new
       one, and calls `EmailService.send_verification_email` (T015) (depends on T015, T062)
-- [ ] T065 [US4] Implement `VerifyEmailRequestView` in `backend/apps/accounts/views.py`
+- [x] T065 [US4] Implement `VerifyEmailRequestView` in `backend/apps/accounts/views.py`
       (authenticated) calling T064 (FR-025) (depends on T064)
-- [ ] T066 [US4] Implement `VerifyEmailConfirmView` in `backend/apps/accounts/views.py`
+- [x] T066 [US4] Implement `VerifyEmailConfirmView` in `backend/apps/accounts/views.py`
       (unauthenticated, token is the credential): validates the token per T062's validity rule,
       sets `used_at` and `user.is_email_verified=True`; returns "already verified" (not an error)
       if the account is already verified; returns 400 for invalid/expired/used tokens (FR-023,
       FR-026) (depends on T062)
-- [ ] T067 [US4] Wire `verify-email/request` and `verify-email/confirm` in
+- [x] T067 [US4] Wire `verify-email/request` and `verify-email/confirm` in
       `backend/apps/accounts/urls.py` (depends on T065, T066)
-- [ ] T068 [US4] Implement a reusable `require_verified_email(user)` check in
+- [x] T068 [US4] Implement a reusable `require_verified_email(user)` check in
       `backend/apps/core/permissions.py`, raising a permission-denied response when
       `not user.is_email_verified` (FR-024), for reuse by this feature and future
       catalog/checkout features
-- [ ] T069 [US4] Apply T068's check inside `AdminShopApproveView` (T054) so a shop cannot be moved
+- [x] T069 [US4] Apply T068's check inside `AdminShopApproveView` (T054) so a shop cannot be moved
       to APPROVED while its owning Vendor's email is unverified (FR-024) (depends on T054, T068)
-- [ ] T070 [P] [US4] Build `frontend/src/app/verify-email/page.tsx`: reads `token` from the URL
+- [x] T070 [P] [US4] Build `frontend/src/app/verify-email/page.tsx`: reads `token` from the URL
       query string, calls `verify-email/confirm`, shows the result, and offers a "resend" action
       calling `verify-email/request` when appropriate
 

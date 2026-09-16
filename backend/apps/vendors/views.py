@@ -6,7 +6,7 @@ from rest_framework.generics import ListAPIView, ListCreateAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.core.permissions import IsAdministrator, IsVendor
+from apps.core.permissions import IsAdministrator, IsVendor, require_verified_email
 from apps.vendors.models import Shop
 from apps.vendors.serializers import AdminShopListSerializer, ShopSerializer
 
@@ -43,12 +43,15 @@ class AdminShopApproveView(APIView):
 
     def post(self, request, shop_id):
         with transaction.atomic():
-            shop = get_object_or_404(Shop.objects.select_for_update(), pk=shop_id)
+            shop = get_object_or_404(
+                Shop.objects.select_related("owner").select_for_update(), pk=shop_id
+            )
             if shop.status != Shop.Status.PENDING:
                 return Response(
                     {"detail": "Only a pending shop can be approved."},
                     status=status.HTTP_409_CONFLICT,
                 )
+            require_verified_email(shop.owner)
             shop.status = Shop.Status.APPROVED
             shop.status_changed_at = timezone.now()
             shop.save(update_fields=["status", "status_changed_at"])

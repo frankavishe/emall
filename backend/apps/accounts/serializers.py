@@ -62,3 +62,7 @@ class RegisterVendorSerializer(serializers.Serializer):
 class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
+
+
+class VerifyEmailConfirmSerializer(serializers.Serializer):
+    token = serializers.CharField()

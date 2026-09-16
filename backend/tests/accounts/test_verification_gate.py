@@ -1,0 +1,40 @@
+import pytest
+
+from apps.accounts.models import User
+from apps.vendors.models import Shop
+from tests.factories import ShopFactory, UserFactory
+
+pytestmark = pytest.mark.django_db
+
+
+def _authenticate(api_client, user, password="a-strong-password-1"):
+    login_response = api_client.post(
+        "/api/auth/login", {"email": user.email, "password": password}, format="json"
+    )
+    api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {login_response.data['access']}")
+
+
+def test_shop_approval_refused_while_owner_email_unverified(api_client):
+    admin = UserFactory(role=User.Role.ADMINISTRATOR)
+    vendor = UserFactory(role=User.Role.VENDOR, is_email_verified=False)
+    shop = ShopFactory(owner=vendor, status=Shop.Status.PENDING)
+
+    _authenticate(api_client, admin)
+    response = api_client.post(f"/api/admin/shops/{shop.id}/approve")
+
+    assert response.status_code in (400, 403)
+    shop.refresh_from_db()
+    assert shop.status == Shop.Status.PENDING
+
+
+def test_shop_approval_succeeds_once_owner_email_verified(api_client):
+    admin = UserFactory(role=User.Role.ADMINISTRATOR)
+    vendor = UserFactory(role=User.Role.VENDOR, is_email_verified=True)
+    shop = ShopFactory(owner=vendor, status=Shop.Status.PENDING)
+
+    _authenticate(api_client, admin)
+    response = api_client.post(f"/api/admin/shops/{shop.id}/approve")
+
+    assert response.status_code == 200
+    shop.refresh_from_db()
+    assert shop.status == Shop.Status.APPROVED

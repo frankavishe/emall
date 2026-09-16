@@ -41,6 +41,7 @@ type AuthContextValue = {
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   requestShop: (name: string) => Promise<void>;
+  resendVerificationEmail: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -121,6 +122,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await refreshUser();
   }, [refreshUser]);
 
+  const resendVerificationEmail = useCallback(async () => {
+    await apiFetch("/api/auth/verify-email/request", { method: "POST" });
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       await apiFetch("/api/auth/logout", { method: "POST" });
@@ -140,8 +145,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout,
       refreshUser,
       requestShop,
+      resendVerificationEmail,
     }),
-    [user, isLoading, login, registerCustomer, registerVendor, logout, refreshUser, requestShop],
+    [
+      user,
+      isLoading,
+      login,
+      registerCustomer,
+      registerVendor,
+      logout,
+      refreshUser,
+      requestShop,
+      resendVerificationEmail,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

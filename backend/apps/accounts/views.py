@@ -6,11 +6,10 @@ tokens are set *exclusively* as an httpOnly/Secure/SameSite cookie, never in a J
 (Constitution Principle III, research.md §1).
 """
 
-import secrets
-
 from django.conf import settings
 from django.contrib.auth import authenticate
 from django.db import transaction
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -19,15 +18,17 @@ from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.core.email import get_email_service
 from apps.vendors.serializers import ShopBriefSerializer
 
+from .models import EmailVerificationToken
 from .serializers import (
     LoginSerializer,
     RegisterCustomerSerializer,
     RegisterVendorSerializer,
     UserProfileSerializer,
+    VerifyEmailConfirmSerializer,
 )
+from .services import issue_verification_token
 
 
 class TokenResponseMixin:
@@ -69,11 +70,8 @@ class RegisterCustomerView(TokenResponseMixin, APIView):
         with transaction.atomic():
             user = serializer.save()
 
-        # No EmailVerificationToken model yet (that lands in the email-verification phase) — send
-        # with a throwaway opaque value for now; issue_verification_token() will replace this once
-        # a real, storable/consumable token exists.
         try:
-            get_email_service().send_verification_email(user, secrets.token_urlsafe(32))
+            issue_verification_token(user)
         except Exception:
             pass
 
@@ -96,7 +94,7 @@ class RegisterVendorView(TokenResponseMixin, APIView):
             user, shop = serializer.save()
 
         try:
-            get_email_service().send_verification_email(user, secrets.token_urlsafe(32))
+            issue_verification_token(user)
         except Exception:
             pass
 
@@ -183,3 +181,46 @@ class MeView(APIView):
         if request.user.role == request.user.Role.VENDOR:
             data["shops"] = ShopBriefSerializer(request.user.shops.all(), many=True).data
         return Response(data)
+
+
+class VerifyEmailRequestView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if not request.user.is_email_verified:
+            issue_verification_token(request.user)
+        return Response(status=status.HTTP_202_ACCEPTED)
+
+
+class VerifyEmailConfirmView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = VerifyEmailConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        raw_token = serializer.validated_data["token"]
+
+        try:
+            token = EmailVerificationToken.objects.select_related("user").get(token=raw_token)
+        except EmailVerificationToken.DoesNotExist:
+            return Response(
+                {"detail": "This verification link is invalid or has expired."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if token.user.is_email_verified:
+            return Response({"detail": "Email already verified."}, status=status.HTTP_200_OK)
+
+        if not token.is_valid():
+            return Response(
+                {"detail": "This verification link is invalid or has expired."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        with transaction.atomic():
+            token.used_at = timezone.now()
+            token.save(update_fields=["used_at"])
+            token.user.is_email_verified = True
+            token.user.save(update_fields=["is_email_verified"])
+
+        return Response({"detail": "Email verified."}, status=status.HTTP_200_OK)
