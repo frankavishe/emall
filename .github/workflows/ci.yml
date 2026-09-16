@@ -1,0 +1,175 @@
+name: CI/CD
+
+on:
+  pull_request:
+    branches: [development, staging, main]
+  push:
+    branches: [development, staging, main]
+
+concurrency:
+  group: pipeline-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+  BACKEND_IMAGE: ghcr.io/${{ github.repository_owner }}/emall-backend
+  FRONTEND_IMAGE: ghcr.io/${{ github.repository_owner }}/emall-frontend
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+            frontend:
+              - 'frontend/**'
+
+  backend-test:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: emall
+          POSTGRES_PASSWORD: emall_ci_password
+          POSTGRES_DB: emall
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://emall:emall_ci_password@localhost:5432/emall
+      SECRET_KEY: ci-test-secret-key-not-for-production
+      DEBUG: "True"
+      ALLOWED_HOSTS: localhost,127.0.0.1
+      CORS_ALLOWED_ORIGINS: http://localhost:3000
+      EMAIL_BACKEND: django.core.mail.backends.console.EmailBackend
+      DEFAULT_FROM_EMAIL: no-reply@emall.local
+      ACCESS_TOKEN_LIFETIME_MINUTES: "15"
+      REFRESH_TOKEN_LIFETIME_DAYS: "7"
+      ADMIN_SEED_EMAIL: admin@emall.local
+      ADMIN_SEED_PASSWORD: ci-placeholder-password
+      ADMIN_SEED_NAME: CI Admin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - run: ruff check .
+      - run: pytest
+
+  frontend-check:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run build
+
+  backend-image:
+    needs: backend-test
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compute image tags
+        id: tags
+        shell: bash
+        run: |
+          case "${{ github.ref_name }}" in
+            development) prefix=dev ;;
+            staging) prefix=staging ;;
+            main) prefix=prod ;;
+          esac
+          sha_short=$(echo "${{ github.sha }}" | cut -c1-7)
+          tags="${{ env.BACKEND_IMAGE }}:${prefix}-${sha_short}"
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            tags="${tags},${{ env.BACKEND_IMAGE }}:latest"
+          else
+            tags="${tags},${{ env.BACKEND_IMAGE }}:${prefix}-latest"
+          fi
+          echo "tags=${tags}" >> "$GITHUB_OUTPUT"
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: backend
+          file: backend/Dockerfile
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+
+  frontend-image:
+    needs: frontend-check
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compute image tags
+        id: tags
+        shell: bash
+        run: |
+          case "${{ github.ref_name }}" in
+            development) prefix=dev ;;
+            staging) prefix=staging ;;
+            main) prefix=prod ;;
+          esac
+          sha_short=$(echo "${{ github.sha }}" | cut -c1-7)
+          tags="${{ env.FRONTEND_IMAGE }}:${prefix}-${sha_short}"
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            tags="${tags},${{ env.FRONTEND_IMAGE }}:latest"
+          else
+            tags="${tags},${{ env.FRONTEND_IMAGE }}:${prefix}-latest"
+          fi
+          echo "tags=${tags}" >> "$GITHUB_OUTPUT"
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          file: frontend/Dockerfile
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          build-args: |
+            NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
