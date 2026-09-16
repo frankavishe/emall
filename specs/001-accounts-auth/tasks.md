@@ -326,47 +326,47 @@ verification-gated action is refused, follow the (console-logged) verification l
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T059 [P] [US4] Contract test `POST /api/auth/verify-email/confirm` — valid unexpired token
+- [x] T059 [P] [US4] Contract test `POST /api/auth/verify-email/confirm` — valid unexpired token
       verifies the account (200, FR-023); expired or already-used token returns 400 with a clear
       message (FR-026, spec User Story 4 AC5); an already-verified account following an old link
       gets a non-error "already verified" message (AC6) in
       `backend/tests/accounts/test_verify_email_confirm.py`
-- [ ] T060 [P] [US4] Contract test `POST /api/auth/verify-email/request` — issues a new token and
+- [x] T060 [P] [US4] Contract test `POST /api/auth/verify-email/request` — issues a new token and
       invalidates the account's prior unused verification tokens, so only the newest link works
       (FR-025, FR-026) in `backend/tests/accounts/test_verify_email_request.py`
-- [ ] T061 [P] [US4] Test verification-gated action (shop approval eligibility) is refused while
+- [x] T061 [P] [US4] Test verification-gated action (shop approval eligibility) is refused while
       the owning Vendor's email is unverified, and succeeds once verified (FR-024) in
       `backend/tests/accounts/test_verification_gate.py`
 
 ### Implementation for User Story 4
 
-- [ ] T062 [US4] Create `EmailVerificationToken` model in `backend/apps/accounts/models.py` per
+- [x] T062 [US4] Create `EmailVerificationToken` model in `backend/apps/accounts/models.py` per
       data-model.md: `user` (`ForeignKey(User, on_delete=CASCADE, related_name="email_verification_tokens")`),
       `token` (`CharField`, `unique=True`, indexed, generated via `secrets.token_urlsafe(32)`),
       `created_at` (`DateTimeField(auto_now_add=True)`), `expires_at` (`DateTimeField`, set to
       `created_at + 24h` per research.md §3), `used_at` (`DateTimeField`, `null=True`) — valid iff
       `used_at is None and expires_at > now()`
-- [ ] T063 [P] [US4] Generate and apply the migration adding `EmailVerificationToken` (depends on
+- [x] T063 [P] [US4] Generate and apply the migration adding `EmailVerificationToken` (depends on
       T062)
-- [ ] T064 [US4] Implement `issue_verification_token(user)` in `backend/apps/accounts/services.py`:
+- [x] T064 [US4] Implement `issue_verification_token(user)` in `backend/apps/accounts/services.py`:
       marks the user's other unused `EmailVerificationToken` rows used, creates and returns a new
       one, and calls `EmailService.send_verification_email` (T015) (depends on T015, T062)
-- [ ] T065 [US4] Implement `VerifyEmailRequestView` in `backend/apps/accounts/views.py`
+- [x] T065 [US4] Implement `VerifyEmailRequestView` in `backend/apps/accounts/views.py`
       (authenticated) calling T064 (FR-025) (depends on T064)
-- [ ] T066 [US4] Implement `VerifyEmailConfirmView` in `backend/apps/accounts/views.py`
+- [x] T066 [US4] Implement `VerifyEmailConfirmView` in `backend/apps/accounts/views.py`
       (unauthenticated, token is the credential): validates the token per T062's validity rule,
       sets `used_at` and `user.is_email_verified=True`; returns "already verified" (not an error)
       if the account is already verified; returns 400 for invalid/expired/used tokens (FR-023,
       FR-026) (depends on T062)
-- [ ] T067 [US4] Wire `verify-email/request` and `verify-email/confirm` in
+- [x] T067 [US4] Wire `verify-email/request` and `verify-email/confirm` in
       `backend/apps/accounts/urls.py` (depends on T065, T066)
-- [ ] T068 [US4] Implement a reusable `require_verified_email(user)` check in
+- [x] T068 [US4] Implement a reusable `require_verified_email(user)` check in
       `backend/apps/core/permissions.py`, raising a permission-denied response when
       `not user.is_email_verified` (FR-024), for reuse by this feature and future
       catalog/checkout features
-- [ ] T069 [US4] Apply T068's check inside `AdminShopApproveView` (T054) so a shop cannot be moved
+- [x] T069 [US4] Apply T068's check inside `AdminShopApproveView` (T054) so a shop cannot be moved
       to APPROVED while its owning Vendor's email is unverified (FR-024) (depends on T054, T068)
-- [ ] T070 [P] [US4] Build `frontend/src/app/verify-email/page.tsx`: reads `token` from the URL
+- [x] T070 [P] [US4] Build `frontend/src/app/verify-email/page.tsx`: reads `token` from the URL
       query string, calls `verify-email/confirm`, shows the result, and offers a "resend" action
       calling `verify-email/request` when appropriate
 
@@ -386,36 +386,36 @@ and confirm a pre-reset refresh cookie no longer works.
 
 ### Tests for User Story 5 ⚠️
 
-- [ ] T071 [P] [US5] Contract test `POST /api/auth/password-reset/request` — registered and
+- [x] T071 [P] [US5] Contract test `POST /api/auth/password-reset/request` — registered and
       unregistered emails receive the **identical** 202 response (FR-028, SC-010) in
       `backend/tests/accounts/test_password_reset_request.py`
-- [ ] T072 [P] [US5] Contract test `POST /api/auth/password-reset/confirm` — valid token sets the
+- [x] T072 [P] [US5] Contract test `POST /api/auth/password-reset/confirm` — valid token sets the
       new password and blacklists all of the account's outstanding refresh tokens (FR-030,
       FR-031); expired/already-used token returns 400 (FR-032); weak new password returns 400
       (FR-021) in `backend/tests/accounts/test_password_reset_confirm.py`
 
 ### Implementation for User Story 5
 
-- [ ] T073 [US5] Create `PasswordResetToken` model in `backend/apps/accounts/models.py` per
+- [x] T073 [US5] Create `PasswordResetToken` model in `backend/apps/accounts/models.py` per
       data-model.md: same shape as `EmailVerificationToken` (T062) but `related_name=
       "password_reset_tokens"` and `expires_at = created_at + 1h` per research.md §3 (shorter than
       verification — higher-risk action)
-- [ ] T074 [P] [US5] Generate and apply the migration adding `PasswordResetToken` (depends on T073)
-- [ ] T075 [US5] Implement `PasswordResetRequestView` in `backend/apps/accounts/views.py`
+- [x] T074 [P] [US5] Generate and apply the migration adding `PasswordResetToken` (depends on T073)
+- [x] T075 [US5] Implement `PasswordResetRequestView` in `backend/apps/accounts/views.py`
       (unauthenticated): always returns the same 202 response regardless of whether the email
       matches an account; when it does, invalidates the account's prior unused reset tokens, issues
       a new one, and calls `EmailService.send_password_reset_email` (T015) (FR-027, FR-028, FR-029,
       FR-032) (depends on T015, T073)
-- [ ] T076 [US5] Implement `PasswordResetConfirmView` in `backend/apps/accounts/views.py`
+- [x] T076 [US5] Implement `PasswordResetConfirmView` in `backend/apps/accounts/views.py`
       (unauthenticated, token is the credential): inside one DB transaction — validates the token
       per T073's validity rule, validates the new password's strength (FR-021), sets the new
       hashed password, marks the token used, and blacklists every outstanding refresh token for
       that user via `simplejwt`'s blacklist app (FR-030, FR-031) (depends on T013, T073)
-- [ ] T077 [US5] Wire `password-reset/request` and `password-reset/confirm` in
+- [x] T077 [US5] Wire `password-reset/request` and `password-reset/confirm` in
       `backend/apps/accounts/urls.py` (depends on T075, T076)
-- [ ] T078 [P] [US5] Build `frontend/src/app/forgot-password/page.tsx`: submits an email, always
+- [x] T078 [P] [US5] Build `frontend/src/app/forgot-password/page.tsx`: submits an email, always
       shows the same generic confirmation message
-- [ ] T079 [P] [US5] Build `frontend/src/app/reset-password/page.tsx`: reads `token` from the URL
+- [x] T079 [P] [US5] Build `frontend/src/app/reset-password/page.tsx`: reads `token` from the URL
       query string, submits a new password, redirects to `/login` on success
 
 **Checkpoint**: All five user stories are independently functional — the full Accounts &

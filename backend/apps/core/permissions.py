@@ -2,7 +2,13 @@
 checks MUST NOT be relied upon for authorization).
 """
 
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import BasePermission
+
+
+def require_verified_email(user):
+    if not user.is_email_verified:
+        raise PermissionDenied("This action requires a verified email address.")
 
 
 def IsRole(role):
