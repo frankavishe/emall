@@ -78,9 +78,8 @@ class VendorProductWriteSerializer(serializers.ModelSerializer):
     def validate_images(self, value):
         for image in value:
             if image.size > MAX_PRODUCT_IMAGE_SIZE_BYTES:
-                raise serializers.ValidationError(
-                    f"Each image must be {MAX_PRODUCT_IMAGE_SIZE_BYTES // (1024 * 1024)}MB or smaller."
-                )
+                max_mb = MAX_PRODUCT_IMAGE_SIZE_BYTES // (1024 * 1024)
+                raise serializers.ValidationError(f"Each image must be {max_mb}MB or smaller.")
         return value
 
     def validate(self, attrs):
