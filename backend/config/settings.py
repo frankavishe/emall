@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "apps.core",
     "apps.accounts",
     "apps.vendors",
+    "apps.catalog",
 ]
 
 MIDDLEWARE = [
@@ -106,6 +107,12 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Product images (feature 002-product-catalog) — local disk for dev, behind Django's Storage
+# API so swapping to a cloud backend later is a settings change, not a rewrite (Constitution
+# Principle IV: Real Core, Mocked Edges).
+MEDIA_URL = "media/"
+MEDIA_ROOT = BASE_DIR / "media"
 
 
 # --- REST Framework -----------------------------------------------------
