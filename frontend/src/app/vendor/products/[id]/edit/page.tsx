@@ -145,8 +145,7 @@ export default function EditVendorProductPage() {
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6 py-12">
       <h1 className="mb-2 text-2xl font-semibold">Edit product</h1>
       <p className="mb-6 text-sm text-black/60">
-        Shop: {product.shop.name} &middot; Status:{" "}
-        {product.is_published ? "Published" : "Draft"}
+        Shop: {product.shop.name} &middot; Status: {product.is_published ? "Published" : "Draft"}
       </p>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <label className="flex flex-col gap-1 text-sm font-medium">

@@ -137,9 +137,7 @@ export default function VendorProductsPage() {
       {isLoadingProducts ? (
         <p className="text-sm text-black/60">Loading products…</p>
       ) : products.length === 0 ? (
-        <p className="text-sm text-black/60">
-          You haven&apos;t created any products yet.
-        </p>
+        <p className="text-sm text-black/60">You haven&apos;t created any products yet.</p>
       ) : (
         <ul className="flex flex-col gap-4">
           {products.map((product) => (
@@ -151,8 +149,8 @@ export default function VendorProductsPage() {
                     Shop: {product.shop.name} ({product.shop.status})
                   </p>
                   <p className="mt-1 text-sm text-black/60">
-                    Price: {product.price ?? "—"} &middot; Stock:{" "}
-                    {product.stock_quantity ?? "—"} &middot; Category: {product.category ?? "—"}
+                    Price: {product.price ?? "—"} &middot; Stock: {product.stock_quantity ?? "—"}{" "}
+                    &middot; Category: {product.category ?? "—"}
                   </p>
                   <p className="mt-1 text-sm text-black/60">
                     Status: {product.is_published ? "Published" : "Draft"}
