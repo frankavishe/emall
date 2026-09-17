@@ -233,27 +233,35 @@ a direct API call (not the UI) and confirm the server rejects it with `403`.
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T024 [P] [US2] Contract test: `POST /api/vendor/products/` and
+- [x] T024 [P] [US2] Contract test: `POST /api/vendor/products/` and
       `POST /api/vendor/products/{id}/publish/` against a PENDING shop the Vendor owns → `403`
       with a clear "shop not approved" message, no product created/published (FR-002) in
       `backend/tests/catalog/test_shop_approval_gate.py`
-- [ ] T025 [P] [US2] Contract test: same two calls against a REJECTED shop → `403`, same message
+- [x] T025 [P] [US2] Contract test: same two calls against a REJECTED shop → `403`, same message
       (FR-002) in `backend/tests/catalog/test_shop_approval_gate.py`
-- [ ] T026 [US2] Contract test: a Vendor who owns one APPROVED shop and one PENDING shop can
+- [x] T026 [US2] Contract test: a Vendor who owns one APPROVED shop and one PENDING shop can
       create/publish under the APPROVED shop while the PENDING shop still `403`s in the same test
       run, proving the gate is enforced per-shop, not per-account (spec User Story 2 Scenario 3)
-      in `backend/tests/catalog/test_shop_approval_gate.py` (depends on T024, T025)
+      in `backend/tests/catalog/test_shop_approval_gate.py` (depends on T024, T025). **All 3 tests
+      (T024–T026) passed against the existing implementation on the first run** — no gap found (see
+      T027).
 
 ### Implementation for User Story 2
 
-- [ ] T027 [US2] Verify (and fix if T024–T026 expose a gap) that `shop.status` is re-checked on
+- [x] T027 [US2] Verify (and fix if T024–T026 expose a gap) that `shop.status` is re-checked on
       *both* the create serializer's `shop_id` validation (T016) and the `publish` action (T019) —
       not only at creation time — since a shop's status could change between a product's creation
       and its publish (contracts/catalog-api.md) in `backend/apps/catalog/serializers.py` /
-      `backend/apps/catalog/views.py` (depends on T018, T019, T024, T025, T026)
+      `backend/apps/catalog/views.py` (depends on T018, T019, T024, T025, T026). **No gap**:
+      `VendorProductWriteSerializer.validate()` (T016) already re-checks `shop.status ==
+      Shop.Status.APPROVED` on create, and `VendorProductPublishView` (T019) already uses
+      `IsApprovedShopOwnerForProduct.has_object_permission`, which checks the *current*
+      `obj.shop.status` at request time (not a value cached from creation) — so a shop demoted to
+      PENDING/REJECTED after a product was created already lost publish access before this phase
+      added tests for it. No code changes were needed; T024–T026 passed on the first run.
 
 **Checkpoint**: Both P1 stories done — the approval gate is proven server-side via direct API
-calls independent of the UI (SC-002).
+calls independent of the UI (SC-002). Full backend suite re-run clean: 81 passed (78 + 3 new).
 
 ---
 
