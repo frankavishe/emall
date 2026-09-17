@@ -2,6 +2,7 @@ import factory
 from factory.django import DjangoModelFactory
 
 from apps.accounts.models import User
+from apps.catalog.models import Category, Product
 from apps.vendors.models import Shop
 
 
@@ -29,3 +30,25 @@ class ShopFactory(DjangoModelFactory):
     owner = factory.SubFactory(UserFactory, role=User.Role.VENDOR)
     name = factory.Sequence(lambda n: f"Shop {n}")
     status = Shop.Status.PENDING
+
+
+class CategoryFactory(DjangoModelFactory):
+    class Meta:
+        model = Category
+        django_get_or_create = ("slug",)
+
+    name = factory.Sequence(lambda n: f"Category {n}")
+    slug = factory.Sequence(lambda n: f"category-{n}")
+
+
+class ProductFactory(DjangoModelFactory):
+    class Meta:
+        model = Product
+
+    shop = factory.SubFactory(ShopFactory, status=Shop.Status.APPROVED)
+    category = factory.SubFactory(CategoryFactory)
+    name = factory.Sequence(lambda n: f"Product {n}")
+    description = "A test product."
+    price = "9.99"
+    stock_quantity = 10
+    is_published = False

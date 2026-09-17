@@ -45,7 +45,9 @@ async function parseBody(response: Response): Promise<unknown> {
 
 function buildRequestInit(options: RequestInit): RequestInit {
   const headers = new Headers(options.headers);
-  if (!headers.has("Content-Type") && options.body) {
+  // FormData bodies (e.g. product image uploads) must NOT get an explicit Content-Type — the
+  // browser sets multipart/form-data with the correct boundary itself.
+  if (!headers.has("Content-Type") && options.body && !(options.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
   if (accessToken) {

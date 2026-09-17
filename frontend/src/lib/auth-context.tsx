@@ -81,14 +81,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [refreshUser]);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const result = await apiFetch<LoginResponse>("/api/auth/login", {
-      method: "POST",
-      body: JSON.stringify({ email, password }),
-    });
-    setAccessToken(result.access);
-    setUser(result.user);
-  }, []);
+  const login = useCallback(
+    async (email: string, password: string) => {
+      // Fetches the full profile via refreshUser() (/api/auth/me) rather than trusting the
+      // login response's `user` field directly — that field omits `shops` for a Vendor, which
+      // previously left a Vendor who logged in (as opposed to just registering) with no shops
+      // showing until an unrelated page reload happened to trigger restoreSession()/refreshUser().
+      const result = await apiFetch<LoginResponse>("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      });
+      setAccessToken(result.access);
+      await refreshUser();
+    },
+    [refreshUser],
+  );
 
   const registerCustomer = useCallback(async (name: string, email: string, password: string) => {
     const result = await apiFetch<LoginResponse>("/api/auth/register/customer", {

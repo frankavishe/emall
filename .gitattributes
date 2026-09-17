@@ -1,0 +1,39 @@
+# Normalize all text files to LF in the repository, regardless of the
+# committer's OS or local core.autocrlf setting. Prevents Windows checkouts
+# (autocrlf=true) from showing false "modified" files that are actually
+# byte-identical except for line endings.
+* text=auto eol=lf
+
+# Explicit text types (redundant with the auto-detect above, but documents intent)
+*.py text eol=lf
+*.md text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.mjs text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.css text eol=lf
+*.toml text eol=lf
+*.txt text eol=lf
+*.example text eol=lf
+*.gitignore text eol=lf
+*.dockerignore text eol=lf
+*.prettierignore text eol=lf
+Dockerfile text eol=lf
+
+# Windows-specific scripts keep CRLF
+*.ps1 text eol=crlf
+
+# Binary files: never touch, never diff as text
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.docx binary
+
+# SVG is XML text but treat as text=auto default (LF) is fine; kept explicit for clarity
+*.svg text eol=lf
