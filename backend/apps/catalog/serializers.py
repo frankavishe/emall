@@ -119,6 +119,66 @@ class VendorProductWriteSerializer(serializers.ModelSerializer):
         return instance
 
 
+class CatalogShopSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Shop
+        fields = ["id", "name"]
+        read_only_fields = fields
+
+
+class CatalogProductListSerializer(serializers.ModelSerializer):
+    """Public list shape (contracts/catalog-api.md) — never exposes the raw `stock_quantity`,
+    only the derived `in_stock` boolean (FR-011)."""
+
+    category = serializers.SlugRelatedField(slug_field="slug", read_only=True)
+    in_stock = serializers.SerializerMethodField()
+    shop_name = serializers.CharField(source="shop.name", read_only=True)
+    thumbnail_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Product
+        fields = ["id", "name", "price", "category", "in_stock", "shop_name", "thumbnail_url"]
+        read_only_fields = fields
+
+    def get_in_stock(self, obj):
+        return bool(obj.stock_quantity)
+
+    def get_thumbnail_url(self, obj):
+        image = obj.images.first()
+        if not image:
+            return None
+        request = self.context.get("request")
+        url = image.image.url
+        return request.build_absolute_uri(url) if request else url
+
+
+class CatalogProductDetailSerializer(serializers.ModelSerializer):
+    """Public detail shape (contracts/catalog-api.md) — `stock_status` is derived, the raw
+    `stock_quantity` count is never exposed (FR-011)."""
+
+    category = CategorySerializer(read_only=True)
+    stock_status = serializers.SerializerMethodField()
+    shop = CatalogShopSerializer(read_only=True)
+    images = ProductImageReadSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Product
+        fields = [
+            "id",
+            "name",
+            "description",
+            "price",
+            "category",
+            "stock_status",
+            "shop",
+            "images",
+        ]
+        read_only_fields = fields
+
+    def get_stock_status(self, obj):
+        return "in_stock" if obj.stock_quantity else "out_of_stock"
+
+
 class VendorProductListSerializer(serializers.ModelSerializer):
     """Read shape for the Vendor's own product list/detail. Includes `description` (beyond what
     contracts/catalog-api.md's list example shows) so the frontend edit page can prefill a form

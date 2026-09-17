@@ -4,6 +4,12 @@ from . import views
 
 urlpatterns = [
     path("categories", views.CategoryListView.as_view(), name="catalog-categories"),
+    path("products", views.CatalogProductListView.as_view(), name="catalog-products"),
+    path(
+        "products/<int:product_id>",
+        views.CatalogProductDetailView.as_view(),
+        name="catalog-product-detail",
+    ),
 ]
 
 vendor_urlpatterns = [
