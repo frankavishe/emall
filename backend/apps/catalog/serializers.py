@@ -27,6 +27,9 @@ class ProductImageReadSerializer(serializers.ModelSerializer):
         return request.build_absolute_uri(url) if request else url
 
 
+MAX_PRODUCT_IMAGE_SIZE_BYTES = 5 * 1024 * 1024
+
+
 class VendorProductWriteSerializer(serializers.ModelSerializer):
     """Create/update for the Vendor-owned side. `shop_id` is required on create (validated
     against ownership + approval — FR-002) and ignored on update (a product's shop is immutable
@@ -70,6 +73,13 @@ class VendorProductWriteSerializer(serializers.ModelSerializer):
     def validate_stock_quantity(self, value):
         if value is not None and value < 0:
             raise serializers.ValidationError("Stock quantity cannot be negative.")
+        return value
+
+    def validate_images(self, value):
+        for image in value:
+            if image.size > MAX_PRODUCT_IMAGE_SIZE_BYTES:
+                max_mb = MAX_PRODUCT_IMAGE_SIZE_BYTES // (1024 * 1024)
+                raise serializers.ValidationError(f"Each image must be {max_mb}MB or smaller.")
         return value
 
     def validate(self, attrs):
@@ -117,6 +127,66 @@ class VendorProductWriteSerializer(serializers.ModelSerializer):
             for position, image in enumerate(images):
                 ProductImage.objects.create(product=instance, image=image, position=position)
         return instance
+
+
+class CatalogShopSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Shop
+        fields = ["id", "name"]
+        read_only_fields = fields
+
+
+class CatalogProductListSerializer(serializers.ModelSerializer):
+    """Public list shape (contracts/catalog-api.md) — never exposes the raw `stock_quantity`,
+    only the derived `in_stock` boolean (FR-011)."""
+
+    category = serializers.SlugRelatedField(slug_field="slug", read_only=True)
+    in_stock = serializers.SerializerMethodField()
+    shop_name = serializers.CharField(source="shop.name", read_only=True)
+    thumbnail_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Product
+        fields = ["id", "name", "price", "category", "in_stock", "shop_name", "thumbnail_url"]
+        read_only_fields = fields
+
+    def get_in_stock(self, obj):
+        return bool(obj.stock_quantity)
+
+    def get_thumbnail_url(self, obj):
+        image = obj.images.first()
+        if not image:
+            return None
+        request = self.context.get("request")
+        url = image.image.url
+        return request.build_absolute_uri(url) if request else url
+
+
+class CatalogProductDetailSerializer(serializers.ModelSerializer):
+    """Public detail shape (contracts/catalog-api.md) — `stock_status` is derived, the raw
+    `stock_quantity` count is never exposed (FR-011)."""
+
+    category = CategorySerializer(read_only=True)
+    stock_status = serializers.SerializerMethodField()
+    shop = CatalogShopSerializer(read_only=True)
+    images = ProductImageReadSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Product
+        fields = [
+            "id",
+            "name",
+            "description",
+            "price",
+            "category",
+            "stock_status",
+            "shop",
+            "images",
+        ]
+        read_only_fields = fields
+
+    def get_stock_status(self, obj):
+        return "in_stock" if obj.stock_quantity else "out_of_stock"
 
 
 class VendorProductListSerializer(serializers.ModelSerializer):

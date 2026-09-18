@@ -1,3 +1,4 @@
+from django.db import models
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
@@ -10,11 +11,14 @@ from rest_framework.views import APIView
 from apps.catalog.models import Category, Product
 from apps.catalog.permissions import IsApprovedShopOwnerForProduct, IsProductOwner
 from apps.catalog.serializers import (
+    CatalogProductDetailSerializer,
+    CatalogProductListSerializer,
     CategorySerializer,
     VendorProductListSerializer,
     VendorProductWriteSerializer,
 )
 from apps.core.permissions import IsVendor
+from apps.vendors.models import Shop
 
 
 class CategoryListView(ListAPIView):
@@ -26,6 +30,58 @@ class CategoryListView(ListAPIView):
     pagination_class = None
     serializer_class = CategorySerializer
     queryset = Category.objects.order_by("name")
+
+
+class CatalogProductListView(ListAPIView):
+    """Public browse/search/filter (FR-007, FR-008, FR-009, FR-011). Restricted server-side to
+    published, non-deleted products from APPROVED shops regardless of any client-supplied
+    filter (contracts/catalog-api.md)."""
+
+    permission_classes = [AllowAny]
+    serializer_class = CatalogProductListSerializer
+
+    def get_queryset(self):
+        queryset = (
+            Product.objects.filter(is_published=True, shop__status=Shop.Status.APPROVED)
+            .select_related("shop", "category")
+            .prefetch_related("images")
+            .order_by("-created_at")
+        )
+        params = self.request.query_params
+        q = params.get("q")
+        if q:
+            queryset = queryset.filter(
+                models.Q(name__icontains=q) | models.Q(description__icontains=q)
+            )
+        category = params.get("category")
+        if category:
+            queryset = queryset.filter(category__slug=category)
+        min_price = params.get("min_price")
+        if min_price:
+            queryset = queryset.filter(price__gte=min_price)
+        max_price = params.get("max_price")
+        if max_price:
+            queryset = queryset.filter(price__lte=max_price)
+        return queryset
+
+
+class CatalogProductDetailView(APIView):
+    """Uniform `404` for nonexistent, unpublished, soft-deleted, or non-APPROVED-shop products
+    (FR-010, FR-011) — an anonymous caller can't distinguish "never existed" from "exists but
+    hidden" (contracts/catalog-api.md)."""
+
+    permission_classes = [AllowAny]
+
+    def get(self, request, product_id):
+        product = get_object_or_404(
+            Product.objects.filter(
+                is_published=True, shop__status=Shop.Status.APPROVED
+            ).select_related("shop", "category").prefetch_related("images"),
+            pk=product_id,
+        )
+        return Response(
+            CatalogProductDetailSerializer(product, context={"request": request}).data
+        )
 
 
 class VendorProductListCreateView(ListCreateAPIView):
