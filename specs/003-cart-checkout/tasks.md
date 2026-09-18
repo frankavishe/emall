@@ -407,19 +407,67 @@ Checkout feature works end to end.
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T054 [P] Confirm `OrderListView`'s (T049) pagination page size is sane per Constitution
+- [X] T054 [P] Confirm `OrderListView`'s (T049) pagination page size is sane per Constitution
       "Resource Utilization" in `backend/apps/orders/views.py`
-- [ ] T055 Run all 5 `quickstart.md` scenarios end to end against real PostgreSQL with migrations
+- [X] T055 Run all 5 `quickstart.md` scenarios end to end against real PostgreSQL with migrations
       applied, including the concurrency scenario (Scenario 5), per Constitution Principle V
-- [ ] T056 [P] Security/validation review pass: confirm `PaymentService.charge()` (T033) never
+- [X] T056 [P] Security/validation review pass: confirm `PaymentService.charge()` (T033) never
       accepts or could persist raw card data; confirm `customer`/`product`/`shop` cannot be
       spoofed via a crafted checkout or cart-item body; confirm every `Cart`/`CartItem`/`Order`
       queryset filters by `request.user` at the queryset level, not only in serializers
       (Constitution Principle I/III) across `backend/apps/cart/`, `backend/apps/orders/`,
       `backend/apps/payments/`
-- [ ] T057 [P] Extend `backend/README.md` with cart/checkout setup notes: the three new apps, that
+- [X] T057 [P] Extend `backend/README.md` with cart/checkout setup notes: the three new apps, that
       no new dependencies were added, and the mock payment `"declined"` sentinel used for testing
       (research.md §5)
+
+**T054**: `OrderListView` sets no `pagination_class`, so it inherits the global default
+(`PageNumberPagination`, `PAGE_SIZE: 20` in `config/settings.py`) — the same default
+`CatalogProductListView` relies on. 20 is sane for a per-Customer order history (bounded, slow-
+growing per user) and satisfies the Constitution's "list endpoints MUST be paginated" without
+over-fetching; confirmed via `backend/tests/orders/test_order_list.py`, which already asserts the
+`count`/`results` paginated response shape. No code change needed.
+
+**T055 — Manually verified live** (real Postgres + `runserver` + `next dev`, both on `127.0.0.1`
+to avoid a stale-cookie collision from an earlier dev session — see note below): full backend
+suite re-run clean against real Postgres with migrations applied: 133 passed, including
+`test_checkout_concurrency.py`'s two-thread `transaction=True` race against a `stock_quantity: 1`
+product (exactly Scenario 5 step 3) — one `201`, one `400`, final stock `0`. That covers the API-
+level assertions for all 5 scenarios. Additionally walked Scenario 2's browser checkout flow live
+via `claude-in-chrome` (not previously verified in-browser, only via curl/pytest): seeded a
+customer/vendor/APPROVED shop/published product, logged in, added the product to the cart from its
+detail page, filled the `/checkout` shipping form, submitted, and landed on `/orders/{id}` showing
+the correct shipping/payment/item/total; confirmed `/orders` lists it and `/cart` is empty
+afterward (Scenario 2 step 7, re-confirming Scenario 4). Scenario 1's and Scenario 3 step 4's
+browser walkthroughs were already verified live in earlier phases (see above).
+
+*Aside, not a task-blocking issue*: hit a confusing `401 "User not found"` on login mid-session —
+root cause was a leftover `localhost`-domain refresh cookie from an earlier dev session, for a
+user ID no longer in the dev DB; `/api/auth/refresh` happily re-signs a new access token from it
+(no DB check), but that token then fails `JWTAuthentication`'s DB lookup on the very next request,
+including the login POST itself (DRF authenticates the `Authorization` header before `AllowAny` is
+even considered). Worked around by serving both frontend and backend from `127.0.0.1` instead of
+`localhost` for a clean cookie jar (same class of issue as the cookie-collision note from
+001-accounts-auth's manual testing — cookies are scoped by hostname only). Not something to fix
+here; noted in case it recurs.
+
+**T056**: Traced, no issues found. `PaymentService.charge()` (`backend/apps/payments/services.py`)
+takes only `amount: Decimal, method: str` — no card fields exist anywhere in its signature,
+`CheckoutSerializer`, or `PaymentRecord` (`method`/`status`/`transaction_reference` only).
+`customer` is never accepted from any request body — `place_order()` takes it as a keyword from
+`request.user`; `CheckoutSerializer` has no `customer`/`product`/`shop` field at all, since
+checkout operates on the authenticated customer's own persisted cart, not client-supplied IDs.
+`CartItemCreateSerializer.product_id` resolves via `PrimaryKeyRelatedField` (ID only — price/shop
+are never client-writable) and `CartItemUpdateSerializer` exposes only `quantity`. Every
+queryset filters by the authenticated user at the queryset level, not just in serializers:
+`CartDetailView`/`CartItemCreateView` (`Cart.objects.get_or_create(customer=request.user)`),
+`CartItemDetailView.get_object` (`cart__customer=request.user`), `OrderListView.get_queryset`
+(`Order.objects.filter(customer=self.request.user)`), `OrderDetailView.get`
+(`get_object_or_404(Order, pk=order_id, customer=request.user)`).
+
+**T057**: Added a "Shopping Cart & Checkout" section to `backend/README.md` (the three new apps,
+`requirements.txt` unchanged, the mock payment service and its `"declined"` sentinel) and a
+`specs/003-cart-checkout/quickstart.md` entry alongside the other two features' quickstart links.
 
 ---
 
