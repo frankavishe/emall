@@ -123,6 +123,20 @@ export type OrderDetail = {
   payment: { method: string; status: string };
 };
 
+export type OrderSummary = {
+  id: number;
+  placed_at: string;
+  status: string;
+  total: string;
+};
+
+export type PaginatedResponse<T> = {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
+};
+
 /** `POST /api/checkout` (task T038, contracts/cart-checkout-api.md). */
 export async function checkout(
   shippingData: ShippingDetails,
@@ -132,4 +146,14 @@ export async function checkout(
     method: "POST",
     body: JSON.stringify({ shipping: shippingData, payment_method: paymentMethod }),
   });
+}
+
+/** `GET /api/orders` (task T052, contracts/cart-checkout-api.md). */
+export async function listOrders(page = 1): Promise<PaginatedResponse<OrderSummary>> {
+  return apiFetch<PaginatedResponse<OrderSummary>>(`/api/orders?page=${page}`);
+}
+
+/** `GET /api/orders/{id}` (task T052, contracts/cart-checkout-api.md). */
+export async function getOrder(orderId: number | string): Promise<OrderDetail> {
+  return apiFetch<OrderDetail>(`/api/orders/${orderId}`);
 }

@@ -365,31 +365,38 @@ matches what was ordered.
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T046 [P] [US4] Contract test `GET /api/orders/` — lists only the requester's own orders,
+- [X] T046 [P] [US4] Contract test `GET /api/orders/` — lists only the requester's own orders,
       paginated, most recent first (FR-020) in `backend/tests/orders/test_order_list.py`
-- [ ] T047 [P] [US4] Contract test `GET /api/orders/{id}/` — full detail: every line item
+- [X] T047 [P] [US4] Contract test `GET /api/orders/{id}/` — full detail: every line item
       (product, quantity, price paid), shipping details, and each line's current `status` (FR-019,
       FR-020) in `backend/tests/orders/test_order_detail.py`
-- [ ] T048 [P] [US4] Contract test `GET /api/orders/{id}/` using another Customer's order ID —
+- [X] T048 [P] [US4] Contract test `GET /api/orders/{id}/` using another Customer's order ID —
       `404`, not that order's data, in both cases indistinguishable from a nonexistent ID (FR-021,
       research.md §6) in `backend/tests/orders/test_order_detail_isolation.py`
 
 ### Implementation for User Story 4
 
-- [ ] T049 [US4] Implement `OrderListView` in `backend/apps/orders/views.py`: queryset
+- [X] T049 [US4] Implement `OrderListView` in `backend/apps/orders/views.py`: queryset
       `Order.objects.filter(customer=request.user).order_by("-placed_at")`, paginated,
       `IsCustomer` (depends on T035)
-- [ ] T050 [US4] Implement `OrderDetailView` in `backend/apps/orders/views.py`: queryset filtered
+- [X] T050 [US4] Implement `OrderDetailView` in `backend/apps/orders/views.py`: queryset filtered
       to `customer=request.user` at the queryset level so another Customer's order ID 404s
       (research.md §6), `IsCustomer` (depends on T035)
-- [ ] T051 [US4] Wire the default `urlpatterns` (`orders/`, `orders/<int:order_id>/`) in
+- [X] T051 [US4] Wire the default `urlpatterns` (`orders/`, `orders/<int:order_id>/`) in
       `backend/apps/orders/urls.py` and include under `/api/orders/` in
       `backend/config/urls.py` (depends on T049, T050)
-- [ ] T052 [US4] Add `listOrders`/`getOrder` calls to `frontend/src/lib/api-client.ts` (depends on
+- [X] T052 [US4] Add `listOrders`/`getOrder` calls to `frontend/src/lib/api-client.ts` (depends on
       T051)
-- [ ] T053 [P] [US4] Build `frontend/src/app/orders/page.tsx` (order history list) and
+- [X] T053 [P] [US4] Build `frontend/src/app/orders/page.tsx` (order history list) and
       `frontend/src/app/orders/[id]/page.tsx` (order detail — also the page T039's checkout
       confirmation redirects to) (depends on T052)
+
+**Manually verified live** (real Postgres + `runserver` + `next dev`): seeded a customer, placed
+two orders via the real checkout flow, and confirmed `/orders` lists both (most recent first,
+correct summaries) and `/orders/{id}` shows full shipping/items/payment detail; confirmed
+`/orders/999999` renders "This order doesn't exist." Full backend suite re-run clean: 133 passed
+(126 existing + 7 new: 3 list, 2 detail, 1 isolation, plus a role-check test added alongside
+T046).
 
 **Checkpoint**: All four user stories independently functional — the full Shopping Cart &
 Checkout feature works end to end.

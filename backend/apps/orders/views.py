@@ -1,9 +1,16 @@
+from django.shortcuts import get_object_or_404
 from rest_framework import status
+from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.permissions import IsCustomer
-from apps.orders.serializers import CheckoutSerializer, OrderDetailSerializer
+from apps.orders.models import Order
+from apps.orders.serializers import (
+    CheckoutSerializer,
+    OrderDetailSerializer,
+    OrderSerializer,
+)
 from apps.orders.services import CheckoutError, place_order
 
 
@@ -31,3 +38,24 @@ class CheckoutView(APIView):
             return Response(body, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(OrderDetailSerializer(order).data, status=status.HTTP_201_CREATED)
+
+
+class OrderListView(ListAPIView):
+    """Lists only the requester's own orders, most recent first (FR-020)."""
+
+    permission_classes = [IsCustomer]
+    serializer_class = OrderSerializer
+
+    def get_queryset(self):
+        return Order.objects.filter(customer=self.request.user).order_by("-placed_at")
+
+
+class OrderDetailView(APIView):
+    """Scoped to the requester's own orders at the queryset level, so another Customer's order
+    ID 404s rather than 403ing (FR-021, research.md §6)."""
+
+    permission_classes = [IsCustomer]
+
+    def get(self, request, order_id):
+        order = get_object_or_404(Order, pk=order_id, customer=request.user)
+        return Response(OrderDetailSerializer(order).data)
