@@ -20,6 +20,7 @@ from django.contrib import admin
 from django.urls import include, path
 
 from apps.catalog.urls import vendor_urlpatterns as catalog_vendor_urlpatterns
+from apps.orders.urls import checkout_urlpatterns
 from apps.vendors.urls import admin_urlpatterns as vendor_admin_urlpatterns
 
 urlpatterns = [
@@ -30,6 +31,7 @@ urlpatterns = [
     path("api/catalog/", include("apps.catalog.urls")),
     path("api/admin/", include(vendor_admin_urlpatterns)),
     path("api/", include("apps.cart.urls")),
+    path("api/", include(checkout_urlpatterns)),
 ]
 
 if settings.DEBUG:

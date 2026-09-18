@@ -92,3 +92,44 @@ export async function apiFetch<T = unknown>(
   }
   return body as T;
 }
+
+export type ShippingDetails = {
+  recipient_name: string;
+  address_line: string;
+  city: string;
+  region: string;
+  postal_code: string;
+  country: string;
+  phone: string;
+};
+
+export type OrderItem = {
+  id: number;
+  product: { id: number; name: string };
+  shop_name: string;
+  quantity: number;
+  unit_price: string;
+  subtotal: string;
+  status: string;
+};
+
+export type OrderDetail = {
+  id: number;
+  placed_at: string;
+  status: string;
+  total: string;
+  shipping: ShippingDetails;
+  items: OrderItem[];
+  payment: { method: string; status: string };
+};
+
+/** `POST /api/checkout` (task T038, contracts/cart-checkout-api.md). */
+export async function checkout(
+  shippingData: ShippingDetails,
+  paymentMethod: string,
+): Promise<OrderDetail> {
+  return apiFetch<OrderDetail>("/api/checkout", {
+    method: "POST",
+    body: JSON.stringify({ shipping: shippingData, payment_method: paymentMethod }),
+  });
+}

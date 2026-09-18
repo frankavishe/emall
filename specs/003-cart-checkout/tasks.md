@@ -212,26 +212,26 @@ was decremented by the ordered amounts, and that the cart is now empty.
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T022 [P] [US2] Contract test `POST /api/checkout/` happy path, single-vendor cart — `201`,
+- [X] T022 [P] [US2] Contract test `POST /api/checkout/` happy path, single-vendor cart — `201`,
       an `Order` with one `OrderItem` per cart line (correct product/quantity/`unit_price`
       captured), cart emptied, each ordered product's `stock_quantity` decremented by the ordered
       amount (FR-012, FR-014, FR-017) in `backend/tests/orders/test_checkout_success.py`
-- [ ] T023 [P] [US2] Contract test `POST /api/checkout/` with a cart spanning two vendors' shops —
+- [X] T023 [P] [US2] Contract test `POST /api/checkout/` with a cart spanning two vendors' shops —
       `201`, a single `Order` whose `items` include lines from both shops, each carrying its own
       `status` independently (FR-013) in `backend/tests/orders/test_checkout_multi_vendor.py`
-- [ ] T024 [P] [US2] Contract test `POST /api/checkout/` with an empty cart — `400`, no `Order`
+- [X] T024 [P] [US2] Contract test `POST /api/checkout/` with an empty cart — `400`, no `Order`
       created (FR-011) in `backend/tests/orders/test_checkout_empty_cart.py`
-- [ ] T025 [P] [US2] Contract test `POST /api/checkout/` where a cart line's quantity now exceeds
+- [X] T025 [P] [US2] Contract test `POST /api/checkout/` where a cart line's quantity now exceeds
       current stock (stock reduced after the item was added) — `400` naming the specific line, no
       `Order` created, no stock decremented (FR-008, Edge Cases) in
       `backend/tests/orders/test_checkout_stale_stock.py`
-- [ ] T026 [P] [US2] Contract test `POST /api/checkout/` with `payment_method: "declined"`
+- [X] T026 [P] [US2] Contract test `POST /api/checkout/` with `payment_method: "declined"`
       (research.md §5 sentinel) — `400`, no `Order` created, no stock decremented, cart unchanged
       afterward (FR-016) in `backend/tests/orders/test_checkout_payment_failure.py`
-- [ ] T027 [P] [US2] Contract test `POST /api/checkout/` with a missing/invalid shipping field —
+- [X] T027 [P] [US2] Contract test `POST /api/checkout/` with a missing/invalid shipping field —
       `400` with a field-level error naming the failed field, no `Order` created (FR-009, FR-010)
       in `backend/tests/orders/test_checkout_shipping_validation.py`
-- [ ] T028 [P] [US2] Concurrency test: two different Customers' carts each hold `quantity: 1` of a
+- [X] T028 [P] [US2] Concurrency test: two different Customers' carts each hold `quantity: 1` of a
       product with `stock_quantity: 1`; fire both checkouts concurrently (separate threads/DB
       connections) — exactly one `201`, the other a `400` stock-conflict, final `stock_quantity`
       is `0`, never negative, and no partial `Order` is left behind (Edge Cases, research.md §4)
@@ -239,12 +239,12 @@ was decremented by the ordered amounts, and that the cart is now empty.
 
 ### Implementation for User Story 2
 
-- [ ] T029 [US2] Create `Order` model in `backend/apps/orders/models.py` per data-model.md:
+- [X] T029 [US2] Create `Order` model in `backend/apps/orders/models.py` per data-model.md:
       `customer` (`ForeignKey(User, related_name="orders", on_delete=CASCADE)`), `status`
       (`CharField`, `choices=Order.Status`, only `PLACED` reachable in this feature), shipping
       fields `recipient_name`, `address_line`, `city`, `region`, `postal_code`, `country`, `phone`
       (all required `CharField`, FR-009), `placed_at` (`auto_now_add=True`)
-- [ ] T030 [US2] Create `OrderItem` model in `backend/apps/orders/models.py` per data-model.md:
+- [X] T030 [US2] Create `OrderItem` model in `backend/apps/orders/models.py` per data-model.md:
       `order` (`ForeignKey(Order, related_name="items", on_delete=CASCADE)`), `product`
       (`ForeignKey("catalog.Product", related_name="order_items", on_delete=PROTECT)` — `PROTECT`,
       never `CASCADE`, so a referenced product row can never be removed out from under a
@@ -252,24 +252,24 @@ was decremented by the ordered amounts, and that the cart is now empty.
       (`DecimalField(max_digits=10, decimal_places=2)`, frozen at order-creation time), `status`
       (`CharField`, `choices=OrderItem.Status`, only `PENDING` reachable in this feature —
       Constitution Principle VI, FR-013) (depends on T029)
-- [ ] T031 [P] [US2] Create `PaymentRecord` model in `backend/apps/payments/models.py` per
+- [X] T031 [P] [US2] Create `PaymentRecord` model in `backend/apps/payments/models.py` per
       data-model.md: `order` (`OneToOneField("orders.Order", related_name="payment", on_delete=
       CASCADE)`), `method` (`CharField(max_length=50)` — a label only, never raw card data,
       Constitution Principle III), `status` (`CharField`, `choices=PaymentRecord.Status`, only
       `SUCCEEDED` reachable — a failed attempt never reaches row creation, research.md §5),
       `transaction_reference` (`CharField(max_length=64, unique=True)`, a generated opaque
       reference), `created_at` (`auto_now_add=True`) (depends on T029)
-- [ ] T032 Generate and apply the `orders` and `payments` migrations
+- [X] T032 Generate and apply the `orders` and `payments` migrations
       (`python manage.py makemigrations orders payments && python manage.py migrate`) (depends on
       T030, T031)
-- [ ] T033 [US2] Implement `PaymentService` (ABC, one `charge(*, amount, method) -> PaymentResult`
+- [X] T033 [US2] Implement `PaymentService` (ABC, one `charge(*, amount, method) -> PaymentResult`
       method) and `MockPaymentService` in `backend/apps/payments/services.py`, plus a
       `get_payment_service()` factory, mirroring `apps/core/email.py`'s `EmailService` /
       `DjangoEmailService` / `get_email_service()` pattern exactly; `charge()` accepts only an
       opaque `method` label, never card fields; the case-insensitive sentinel method value
       `"declined"` deterministically fails, everything else succeeds (research.md §5) (depends on
       T031)
-- [ ] T034 [US2] Implement `place_order(customer, shipping_data, payment_method)` in
+- [X] T034 [US2] Implement `place_order(customer, shipping_data, payment_method)` in
       `backend/apps/orders/services.py`: one `transaction.atomic()` block; `select_for_update()`
       on the touched `Product` rows, always acquired in ascending `product_id` order to avoid
       deadlocks (research.md §4); re-validate every cart line via T006's `is_available`/current
@@ -279,19 +279,19 @@ was decremented by the ordered amounts, and that the cart is now empty.
       live `product.price`, FR-012) + `PaymentRecord`, decrement each `Product.stock_quantity` by
       the ordered amount (FR-014), and delete the Customer's `CartItem` rows (FR-017) (depends on
       T006, T029, T030, T031, T033)
-- [ ] T035 [US2] Implement `CheckoutSerializer` (nested shipping fields + `payment_method`) and
+- [X] T035 [US2] Implement `CheckoutSerializer` (nested shipping fields + `payment_method`) and
       `OrderSerializer`/`OrderDetailSerializer` in `backend/apps/orders/serializers.py` matching
       contracts/cart-checkout-api.md's request/response shapes (depends on T029, T030)
-- [ ] T036 [US2] Implement `CheckoutView` in `backend/apps/orders/views.py`: `IsCustomer`,
+- [X] T036 [US2] Implement `CheckoutView` in `backend/apps/orders/views.py`: `IsCustomer`,
       validates the request with T035's `CheckoutSerializer`, calls T034's `place_order()`, and
       translates its error cases to the `400` response shapes in contracts/cart-checkout-api.md
       (empty cart, stale lines, payment declined, shipping validation) (depends on T034, T035)
-- [ ] T037 [US2] Wire a `checkout_urlpatterns` list (`checkout/`) in
+- [X] T037 [US2] Wire a `checkout_urlpatterns` list (`checkout/`) in
       `backend/apps/orders/urls.py`, included directly at `/api/` in `backend/config/urls.py`
       alongside T018's cart include (research.md §8) (depends on T036)
-- [ ] T038 [US2] Add a `checkout(shippingData, paymentMethod)` call to
+- [X] T038 [US2] Add a `checkout(shippingData, paymentMethod)` call to
       `frontend/src/lib/api-client.ts` (depends on T037)
-- [ ] T039 [US2] Build `frontend/src/app/checkout/page.tsx`: shipping form + payment method
+- [X] T039 [US2] Build `frontend/src/app/checkout/page.tsx`: shipping form + payment method
       selector + confirm action, redirecting to the order confirmation on success (T053) and
       showing the specific error (empty cart / stale line / payment declined / field validation)
       on failure (depends on T038)
