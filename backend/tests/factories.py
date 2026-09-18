@@ -2,6 +2,7 @@ import factory
 from factory.django import DjangoModelFactory
 
 from apps.accounts.models import User
+from apps.cart.models import Cart, CartItem
 from apps.catalog.models import Category, Product
 from apps.vendors.models import Shop
 
@@ -52,3 +53,19 @@ class ProductFactory(DjangoModelFactory):
     price = "9.99"
     stock_quantity = 10
     is_published = False
+
+
+class CartFactory(DjangoModelFactory):
+    class Meta:
+        model = Cart
+
+    customer = factory.SubFactory(UserFactory, role=User.Role.CUSTOMER)
+
+
+class CartItemFactory(DjangoModelFactory):
+    class Meta:
+        model = CartItem
+
+    cart = factory.SubFactory(CartFactory)
+    product = factory.SubFactory(ProductFactory, is_published=True)
+    quantity = 1

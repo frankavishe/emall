@@ -29,6 +29,7 @@ urlpatterns = [
     path("api/vendor/", include(catalog_vendor_urlpatterns)),
     path("api/catalog/", include("apps.catalog.urls")),
     path("api/admin/", include(vendor_admin_urlpatterns)),
+    path("api/", include("apps.cart.urls")),
 ]
 
 if settings.DEBUG:
