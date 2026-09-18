@@ -34,7 +34,7 @@ implementation and testing of each story.
 
 **Purpose**: Add the three new apps this feature lives in
 
-- [ ] T001 Create `cart`, `orders`, `payments` Django app skeletons (`__init__.py`,
+- [X] T001 Create `cart`, `orders`, `payments` Django app skeletons (`__init__.py`,
       `migrations/__init__.py`) at `backend/apps/cart/`, `backend/apps/orders/`,
       `backend/apps/payments/`; register `"apps.cart"`, `"apps.orders"`, `"apps.payments"` in
       `INSTALLED_APPS` in `backend/config/settings.py` — no `apps.py`, matching the existing
@@ -54,28 +54,27 @@ phase reads or extends
 the same `Cart`/`CartItem` rows US1 writes, and US3's live-data correctness depends on the
 availability computation living in one shared place from the start, not being bolted on later
 
-- [ ] T002 Create `Cart` model in `backend/apps/cart/models.py` per data-model.md:
+- [X] T002 Create `Cart` model in `backend/apps/cart/models.py` per data-model.md:
       `customer` (`OneToOneField(User, related_name="cart", on_delete=CASCADE)`), `created_at`
       (`auto_now_add=True`), `updated_at` (`auto_now=True`)
-- [ ] T003 Create `CartItem` model in `backend/apps/cart/models.py` per data-model.md: `cart`
+- [X] T003 Create `CartItem` model in `backend/apps/cart/models.py` per data-model.md: `cart`
       (`ForeignKey(Cart, related_name="items", on_delete=CASCADE)`), `product`
       (`ForeignKey("catalog.Product", related_name="cart_items", on_delete=CASCADE)`), `quantity`
       (`PositiveIntegerField`, must be `>= 1` — FR-001), `created_at` (`auto_now_add=True`),
       `updated_at` (`auto_now=True`); add `UniqueConstraint(fields=["cart", "product"])` (FR-005,
       research.md §3) (depends on T002)
-- [ ] T004 Generate and apply the `cart` migration
+- [X] T004 Generate and apply the `cart` migration
       (`python manage.py makemigrations cart && python manage.py migrate`) (depends on T002, T003)
-- [ ] T005 [P] Add `CartFactory` and `CartItemFactory` to `backend/tests/factories.py`, mirroring
+- [X] T005 [P] Add `CartFactory` and `CartItemFactory` to `backend/tests/factories.py`, mirroring
       the existing `ProductFactory` pattern (depends on T004)
-- [ ] T006 [P] Implement live-pricing/availability computation on `CartItem` in
-      `backend/apps/cart/models.py` — properties (or plain methods) `unit_price` (=
-      `product.price`), `subtotal` (= `product.price * quantity`), `is_available` (=
-      `product.is_published AND NOT product.is_deleted AND product.shop.status == Shop.Status.
-      APPROVED AND quantity <= product.stock_quantity`), and `unavailable_reason` (a short string
-      naming which check failed) per data-model.md's CartItem "Computed, not stored" rules — a
-      plain model method, not a serializer method field, so both the cart view (US1) and
-      `place_order()`'s re-validation (US2) call the exact same logic without cross-app serializer
-      imports (depends on T004)
+- [X] T006 [P] Implement live-pricing/availability computation on `CartItem` in
+      `backend/apps/cart/models.py` — properties `unit_price` (= `product.price`), `subtotal` (=
+      `product.price * quantity`), `unavailable_reason` (returns the first applicable reason —
+      unpublished/soft-deleted, shop not APPROVED, or quantity exceeding stock — or `None`), and
+      `is_available` (= `unavailable_reason is None`) per data-model.md's CartItem "Computed, not
+      stored" rules — plain model properties, not serializer method fields, so both the cart view
+      (US1) and `place_order()`'s re-validation (US2) call the exact same logic without cross-app
+      serializer imports (depends on T004)
 
 **Checkpoint**: `Cart`/`CartItem` schema and shared availability logic exist. User story
 implementation can now begin.
@@ -96,58 +95,104 @@ changes.
 
 > Write these tests FIRST, ensure they FAIL before implementation
 
-- [ ] T007 [P] [US1] Contract test `GET /api/cart/` — creates the cart lazily on first access
+- [X] T007 [P] [US1] Contract test `GET /api/cart` — creates the cart lazily on first access
       (research.md §1) and returns the empty-cart shape `{"items": [], "total": "0.00"}` for a
-      fresh Customer (FR-002, Edge Cases) in `backend/tests/cart/test_cart_view.py`
-- [ ] T008 [P] [US1] Contract test `POST /api/cart/items/` — `201` with a correct subtotal
+      fresh Customer (FR-002, Edge Cases) in `backend/tests/cart/test_cart_view.py` (2 tests, also
+      covers the `IsCustomer` role gate)
+- [X] T008 [P] [US1] Contract test `POST /api/cart/items` — `201` with a correct subtotal
       (unit price × quantity) for `quantity >= 1` (FR-001); `400` for `quantity < 1`; `400` with a
       message stating the maximum available quantity when the requested quantity exceeds
-      `product.stock_quantity` (FR-007) in `backend/tests/cart/test_cart_item_create.py`
-- [ ] T009 [P] [US1] Contract test: `POST /api/cart/items/` twice with the same `product_id` —
+      `product.stock_quantity` (FR-007); `400` for an unpublished product in
+      `backend/tests/cart/test_cart_item_create.py` (4 tests)
+- [X] T009 [P] [US1] Contract test: `POST /api/cart/items` twice with the same `product_id` —
       second call returns `200` and merges into the existing line's `quantity` rather than
-      creating a second line (FR-005) in `backend/tests/cart/test_cart_item_merge.py`
-- [ ] T010 [P] [US1] Contract test `PATCH /api/cart/items/{id}/` — updates `quantity` and
+      creating a second line (FR-005) in `backend/tests/cart/test_cart_item_merge.py` (2 tests)
+- [X] T010 [P] [US1] Contract test `PATCH /api/cart/items/{id}` — updates `quantity` and
       recalculates subtotal/total (FR-003); `400` when the new quantity exceeds current stock
       (FR-007); `404` when the line belongs to a different Customer (FR-018) in
-      `backend/tests/cart/test_cart_item_update.py`
-- [ ] T011 [P] [US1] Contract test `DELETE /api/cart/items/{id}/` — `204`, removes exactly one
+      `backend/tests/cart/test_cart_item_update.py` (3 tests)
+- [X] T011 [P] [US1] Contract test `DELETE /api/cart/items/{id}` — `204`, removes exactly one
       line, the remaining line(s) and recomputed total are unaffected (FR-004); `404` when the
       line belongs to a different Customer (FR-018) in
-      `backend/tests/cart/test_cart_item_delete.py`
-- [ ] T012 [P] [US1] Contract test: a Customer's cart contents are identical across two separate
+      `backend/tests/cart/test_cart_item_delete.py` (2 tests)
+- [X] T012 [P] [US1] Contract test: a Customer's cart contents are identical across two separate
       authenticated requests (simulating logout/login or a different device) — same items and
-      quantities both times (FR-006) in `backend/tests/cart/test_cart_persistence.py`
+      quantities both times (FR-006) in `backend/tests/cart/test_cart_persistence.py` (1 test).
+      **14 tests total for T007–T012, all passing.**
 
 ### Implementation for User Story 1
 
-- [ ] T013 [US1] Implement `CartSerializer`/`CartItemSerializer` (read) in
-      `backend/apps/cart/serializers.py`: `unit_price`, `subtotal`, `is_available` sourced from
-      T006's model methods; `Cart.total` sums only lines where `is_available` is `True`
-      (data-model.md) (depends on T006)
-- [ ] T014 [US1] Implement `CartItemWriteSerializer` in `backend/apps/cart/serializers.py`:
-      validates `product_id` refers to a published, non-deleted product belonging to an APPROVED
-      shop; validates `quantity >= 1` and `quantity <= product.stock_quantity`, with the error
-      message stating the actual available amount (FR-007) (depends on T003)
-- [ ] T015 [US1] Implement `CartDetailView` in `backend/apps/cart/views.py`: `Cart.objects.
-      get_or_create(customer=request.user)` (research.md §1), `IsCustomer` permission
-      (`apps.core.permissions`), serializes with T013 (depends on T013)
-- [ ] T016 [US1] Implement `CartItemCreateView` in `backend/apps/cart/views.py`: on a
-      `(cart, product)` that already exists, increments `quantity` by the requested amount instead
-      of inserting a new row (FR-005, research.md §3); re-validates the combined quantity against
-      current stock; `IsCustomer` (depends on T014)
-- [ ] T017 [US1] Implement `CartItemDetailView` (`PATCH`/`DELETE`) in
-      `backend/apps/cart/views.py`: queryset filtered to `cart__customer=request.user` at the
-      queryset level so another Customer's line ID 404s (FR-018, research.md §6); `IsCustomer`
+- [X] T013 [US1] Implemented `CartSerializer`/`CartItemSerializer` (read) in
+      `backend/apps/cart/serializers.py`: `unit_price`/`subtotal` declared as plain
+      `DecimalField(read_only=True)` (DRF resolves them from T006's same-named properties via
+      `getattr`), `is_available`/`unavailable_reason` likewise; `Cart.total` sums only
+      `is_available` lines and returns a quantized string (`"0.00"`) rather than a raw `Decimal`,
+      matching how `DecimalField` already string-coerces elsewhere in this codebase — a
+      `SerializerMethodField` does not get that coercion for free (depends on T006)
+- [X] T014 [US1] Implemented `CartItemCreateSerializer` in `backend/apps/cart/serializers.py`:
+      `product_id` is a `PrimaryKeyRelatedField` scoped to `Product.objects.filter(is_published=
+      True)` (soft-deleted rows already excluded by the catalog app's own default manager), so an
+      unpublished/nonexistent/soft-deleted product 400s automatically; `validate_product_id`
+      additionally checks `shop.status == APPROVED`; `validate()` checks the single request's
+      `quantity` against current stock (FR-007) — the *combined* quantity check for an
+      already-present line (FR-005) is left to the view (T016), since a bare serializer has no way
+      to see the existing line. **Deviation from the original single-serializer sketch**: split
+      into `CartItemCreateSerializer` (POST) and `CartItemUpdateSerializer` (PATCH, validates
+      against `self.instance.product.stock_quantity`) — the two have different validation shapes
+      (one has no instance yet) (depends on T003)
+- [X] T015 [US1] Implemented `CartDetailView` in `backend/apps/cart/views.py`: `Cart.objects.
+      get_or_create(customer=request.user)` (research.md §1) then re-fetches with
+      `prefetch_related("items__product__shop")` for the actual response to avoid N+1 queries
+      across lines; `IsCustomer` (depends on T013)
+- [X] T016 [US1] Implemented `CartItemCreateView` in `backend/apps/cart/views.py`: `CartItem.
+      objects.get_or_create(cart=cart, product=product, defaults={"quantity": quantity})`; when an
+      existing line is found, increments and re-validates the combined quantity against
+      `product.stock_quantity`, raising `ValidationError` (400) if it's now over (FR-005,
+      research.md §3); returns `201` for a new line, `200` for a merge (depends on T014)
+- [X] T017 [US1] Implemented `CartItemDetailView` (`PATCH`/`DELETE`) in
+      `backend/apps/cart/views.py`: `get_object_or_404(CartItem, pk=item_id, cart__customer=
+      request.user)` so another Customer's line ID 404s (FR-018, research.md §6); `IsCustomer`
       (depends on T014)
-- [ ] T018 [US1] Wire `backend/apps/cart/urls.py` (`cart/`, `cart/items/`,
-      `cart/items/<int:item_id>/`) and include it under `/api/` in `backend/config/urls.py`
-      (depends on T015, T016, T017)
-- [ ] T019 [US1] Add `getCart`, `addCartItem`, `updateCartItem`, `removeCartItem` calls to
-      `frontend/src/lib/api-client.ts` (depends on T018)
-- [ ] T020 [P] [US1] Build `frontend/src/app/cart/page.tsx`: lists cart lines with quantity
-      controls and a remove action, shows the total (depends on T019)
-- [ ] T021 [P] [US1] Add an "Add to Cart" control (quantity input + submit) to
-      `frontend/src/app/products/[id]/page.tsx` calling T019's `addCartItem` (depends on T019)
+- [X] T018 [US1] Wired `backend/apps/cart/urls.py` and included it at `path("api/", include(...))`
+      in `backend/config/urls.py`. **Deviation from contracts/cart-checkout-api.md's illustrative
+      trailing-slash examples**: used `cart`, `cart/items`, `cart/items/<int:item_id>` with no
+      trailing slash, matching the no-trailing-slash convention already established by
+      `apps.catalog.urls`/`apps.vendors.urls` throughout this codebase (depends on T015, T016,
+      T017)
+- [X] T019 [US1] **Deviation**: `frontend/src/lib/api-client.ts` has no domain-specific wrapper
+      functions for any existing feature (catalog, vendors, accounts all call the generic
+      `apiFetch<T>()` directly from each page) — added none here either, to stay consistent; cart
+      calls are inlined in T020/T021 instead (depends on T018)
+- [X] T020 [P] [US1] Built `frontend/src/app/cart/page.tsx`: lists cart lines with a quantity
+      input (`PATCH` on change) and a remove button (`DELETE`), shows the total, flags any
+      `is_available: false` line with its `unavailable_reason` (pulled forward from US3's T045
+      since the data was already in T013's response shape — T045's remaining scope is just
+      disabling the checkout button) (depends on T019)
+- [X] T021 [P] [US1] Added an "Add to Cart" control (quantity input + submit) to
+      `frontend/src/app/products/[id]/page.tsx`, gated on `useAuth()`'s `user.role === "CUSTOMER"`
+      with a log-in prompt for anonymous visitors and a role message for Vendor/Administrator
+      accounts (depends on T019)
+
+**Bug fixed while running this end-to-end** (Constitution Principle V): the initial cart-loading
+`useEffect` called a `useCallback`-wrapped `loadCart()` directly in the effect body, which trips
+the `react-hooks/set-state-in-effect` lint rule (cascading-render risk) even though it's the exact
+async-fetch-on-mount pattern used elsewhere in this codebase. Rewrote it as an inline async
+function with a `cancelled` flag, matching `vendor/products/page.tsx`'s and
+`products/[id]/page.tsx`'s existing pattern; `loadCart()` remains as a `useCallback` for the
+mutation handlers (quantity change, remove) to call after their own action succeeds.
+
+**Manually verified live** (real Postgres + `runserver` + `next dev`): full curl walkthrough of
+quickstart.md Scenario 1 (add, merge-on-duplicate-add with combined-quantity stock check, quantity
+update, remove, over-stock rejection with the "Only N available." message, persistence across a
+fresh login, and a 404 on another Customer's cart-item ID) — all passing exactly as specified.
+Also walked through it in the browser via `claude-in-chrome`: logged in, added a product from its
+detail page ("Added to cart."), viewed `/cart` showing both lines and the correct total, removed
+one line and confirmed the total recalculated. (The browser session hit repeated Chrome
+autofill/autocomplete interference on the *login form* specifically — pre-existing
+`login/page.tsx` from 001-accounts-auth, not touched by this feature — that turned out to be a
+testing-environment artifact, not an app bug: a raw `fetch()` to `/api/auth/login` from the same
+page context succeeded immediately with correct credentials.) Full backend suite re-run clean: 112
+passed (98 existing + 14 new).
 
 **Checkpoint**: User Story 1 is fully functional and independently testable — a Customer can
 build and manage a persistent cart end to end, backend and frontend.
