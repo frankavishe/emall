@@ -326,16 +326,16 @@ works end to end.
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T039 [P] Confirm `VendorProductViewSet` (T018) and `CatalogProductListView` (T033)
+- [X] T039 [P] Confirm `VendorProductViewSet` (T018) and `CatalogProductListView` (T033)
       pagination page sizes are sane per Constitution "Resource Utilization" in
       `backend/apps/catalog/views.py`
-- [ ] T040 Run all 5 `quickstart.md` scenarios end to end against real PostgreSQL with migrations
+- [X] T040 Run all 5 `quickstart.md` scenarios end to end against real PostgreSQL with migrations
       applied and at least one seeded APPROVED + one PENDING shop, per Constitution Principle V
-- [ ] T041 [P] Security/validation review pass: confirm image uploads are restricted to image
+- [X] T041 [P] Security/validation review pass: confirm image uploads are restricted to image
       content types and a bounded file size at the serializer layer, and that `shop_id`/ownership
       cannot be spoofed via a crafted `PATCH` body (Constitution Principle I/III) in
       `backend/apps/catalog/serializers.py`
-- [ ] T042 [P] Extend `backend/README.md` with catalog setup notes: the `Pillow` dependency, media
+- [X] T042 [P] Extend `backend/README.md` with catalog setup notes: the `Pillow` dependency, media
       settings, and the category seed migration
 
 ---

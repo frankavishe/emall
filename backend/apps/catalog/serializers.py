@@ -27,6 +27,9 @@ class ProductImageReadSerializer(serializers.ModelSerializer):
         return request.build_absolute_uri(url) if request else url
 
 
+MAX_PRODUCT_IMAGE_SIZE_BYTES = 5 * 1024 * 1024
+
+
 class VendorProductWriteSerializer(serializers.ModelSerializer):
     """Create/update for the Vendor-owned side. `shop_id` is required on create (validated
     against ownership + approval — FR-002) and ignored on update (a product's shop is immutable
@@ -70,6 +73,13 @@ class VendorProductWriteSerializer(serializers.ModelSerializer):
     def validate_stock_quantity(self, value):
         if value is not None and value < 0:
             raise serializers.ValidationError("Stock quantity cannot be negative.")
+        return value
+
+    def validate_images(self, value):
+        for image in value:
+            if image.size > MAX_PRODUCT_IMAGE_SIZE_BYTES:
+                max_mb = MAX_PRODUCT_IMAGE_SIZE_BYTES // (1024 * 1024)
+                raise serializers.ValidationError(f"Each image must be {max_mb}MB or smaller.")
         return value
 
     def validate(self, attrs):
