@@ -317,28 +317,38 @@ displays current data and checkout enforces it.
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T040 [P] [US3] Contract test: change a cart product's `price` via the catalog API after it
+- [X] T040 [P] [US3] Contract test: change a cart product's `price` via the catalog API after it
       was added to the cart — `GET /api/cart/` reflects the new price and a recalculated subtotal,
       never the add-time price (Scenario 1) in `backend/tests/cart/test_cart_live_price.py`
-- [ ] T041 [P] [US3] Contract test: unpublish a cart product — `GET /api/cart/` flags that line
+- [X] T041 [P] [US3] Contract test: unpublish a cart product — `GET /api/cart/` flags that line
       `is_available: false` with an `unavailable_reason`, and `total` excludes its subtotal
       (Scenario 2) in `backend/tests/cart/test_cart_unavailable_unpublished.py`
-- [ ] T042 [P] [US3] Contract test: change a cart product's owning shop to PENDING or REJECTED —
+- [X] T042 [P] [US3] Contract test: change a cart product's owning shop to PENDING or REJECTED —
       the line shows the same `is_available: false` behavior as an unpublished product (Edge
       Cases) in `backend/tests/cart/test_cart_unavailable_shop_unapproved.py`
-- [ ] T043 [P] [US3] Contract test `POST /api/checkout/` with an unavailable line still present —
+- [X] T043 [P] [US3] Contract test `POST /api/checkout/` with an unavailable line still present —
       `400`, checkout blocked until the Customer removes or adjusts that line, same response shape
       as T025 (Scenario 3) in `backend/tests/orders/test_checkout_unavailable_line.py`
 
 ### Implementation for User Story 3
 
-- [ ] T044 [US3] Fix any gap T040–T042 expose in `CartItem.is_available`/`unavailable_reason`
+- [X] T044 [US3] Fix any gap T040–T042 expose in `CartItem.is_available`/`unavailable_reason`
       (T006) so all three staleness cases (price — already live by construction; unpublished; shop
       no longer APPROVED) are correctly flagged in `backend/apps/cart/models.py` (depends on T006,
-      T040, T041, T042)
-- [ ] T045 [P] [US3] Update `frontend/src/app/cart/page.tsx` to visually flag unavailable lines
+      T040, T041, T042). **No gap found**: T006's original implementation already handled all
+      three cases correctly; T040–T043 passed against it unmodified.
+- [X] T045 [P] [US3] Update `frontend/src/app/cart/page.tsx` to visually flag unavailable lines
       (badge + reason text) and disable the checkout button while any unavailable line remains
-      (depends on T020, T044)
+      (depends on T020, T044). Unavailable-line badge/reason text was already in place from T020;
+      this task added the `hasUnavailableItem` check that disables the Checkout button/link and
+      shows a "Remove or adjust..." message while any line is unavailable.
+
+**Manually verified live** (real Postgres + `runserver` + `next dev`, quickstart.md Scenario 3 step
+4): seeded a customer/vendor/shop/product directly via Django shell, added the product to the
+cart, confirmed it rendered available with Checkout enabled, then unpublished the product as the
+vendor and reloaded `/cart` — the line showed "Unavailable: no longer published", the total
+excluded it, and the Checkout button rendered disabled with the "Remove or adjust..." message.
+Full backend suite re-run clean: 126 passed (121 existing + 5 new).
 
 **Checkpoint**: All three P1/P2 stories are independently functional — the cart's correctness/
 trust safeguard is proven end to end.
