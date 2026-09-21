@@ -114,6 +114,8 @@ export default function CartPage() {
     );
   }
 
+  const hasUnavailableItem = cart?.items.some((item) => !item.is_available) ?? false;
+
   return (
     <main className="mx-auto flex min-h-screen max-w-3xl flex-col px-6 py-12">
       <h1 className="mb-6 text-2xl font-semibold">Your cart</h1>
@@ -171,14 +173,31 @@ export default function CartPage() {
             ))}
           </ul>
 
-          <div className="mt-6 flex items-center justify-between border-t border-black/15 pt-6">
-            <p className="text-lg font-semibold">Total: ${cart.total}</p>
-            <Link
-              href="/checkout"
-              className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white"
-            >
-              Checkout
-            </Link>
+          <div className="mt-6 flex flex-col items-end gap-2 border-t border-black/15 pt-6">
+            <div className="flex w-full items-center justify-between">
+              <p className="text-lg font-semibold">Total: ${cart.total}</p>
+              {hasUnavailableItem ? (
+                <button
+                  type="button"
+                  disabled
+                  className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white opacity-50"
+                >
+                  Checkout
+                </button>
+              ) : (
+                <Link
+                  href="/checkout"
+                  className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white"
+                >
+                  Checkout
+                </Link>
+              )}
+            </div>
+            {hasUnavailableItem && (
+              <p className="text-sm text-red-600">
+                Remove or adjust the unavailable item(s) above before checking out.
+              </p>
+            )}
           </div>
         </>
       )}
