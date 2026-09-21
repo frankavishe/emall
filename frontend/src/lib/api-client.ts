@@ -169,9 +169,7 @@ export type VendorOrderItem = {
 };
 
 /** `GET /api/vendor/order-items` (task T015, contracts/order-fulfillment-api.md). */
-export async function listVendorOrderItems(
-  page = 1,
-): Promise<PaginatedResponse<VendorOrderItem>> {
+export async function listVendorOrderItems(page = 1): Promise<PaginatedResponse<VendorOrderItem>> {
   return apiFetch<PaginatedResponse<VendorOrderItem>>(`/api/vendor/order-items?page=${page}`);
 }
 
@@ -198,8 +196,6 @@ export type AdminOrderItem = {
 };
 
 /** `GET /api/admin/order-items` (task T026, contracts/order-fulfillment-api.md). */
-export async function listAdminOrderItems(
-  page = 1,
-): Promise<PaginatedResponse<AdminOrderItem>> {
+export async function listAdminOrderItems(page = 1): Promise<PaginatedResponse<AdminOrderItem>> {
   return apiFetch<PaginatedResponse<AdminOrderItem>>(`/api/admin/order-items?page=${page}`);
 }

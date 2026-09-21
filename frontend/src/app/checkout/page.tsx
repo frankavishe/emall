@@ -56,13 +56,11 @@ export default function CheckoutPage() {
       router.push(`/orders/${order.id}`);
     } catch (err) {
       if (err instanceof ApiError) {
-        const body = err.body as
-          | {
-              detail?: string;
-              shipping?: Record<string, string[]>;
-              lines?: { reason: string }[];
-            }
-          | null;
+        const body = err.body as {
+          detail?: string;
+          shipping?: Record<string, string[]>;
+          lines?: { reason: string }[];
+        } | null;
         if (body?.shipping) {
           const nextFieldErrors: FieldErrors = {};
           for (const [field, messages] of Object.entries(body.shipping)) {
