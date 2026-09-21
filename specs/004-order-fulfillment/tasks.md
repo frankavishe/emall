@@ -243,19 +243,19 @@ visibility, and Administrator oversight all work end to end.
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T028 [P] Confirm `VendorOrderItemListView`'s and `AdminOrderItemListView`'s (T012, T024)
+- [X] T028 [P] Confirm `VendorOrderItemListView`'s and `AdminOrderItemListView`'s (T012, T024)
       pagination page size matches the existing `PAGE_SIZE = 20` DRF default (`config/settings.py`)
       that `OrderListView` already inherits (Constitution "Resource Utilization" — consistent list
       pagination across the app) in `backend/apps/orders/views.py`
-- [ ] T029 Run all 5 `quickstart.md` scenarios end to end against real PostgreSQL with migrations
+- [X] T029 Run all 5 `quickstart.md` scenarios end to end against real PostgreSQL with migrations
       applied, per Constitution Principle V
-- [ ] T030 [P] Security/validation review pass: confirm every Vendor/Administrator `OrderItem`
+- [X] T030 [P] Security/validation review pass: confirm every Vendor/Administrator `OrderItem`
       queryset filters by `request.user`'s own shop ownership or `IsAdministrator` at the
       queryset level, not only in serializers; confirm `VendorOrderItemStatusUpdateView` never
       trusts a client-supplied shop/vendor identifier, only the authenticated `request.user`
       resolved through `product__shop__owner` (Constitution Principle I) across
       `backend/apps/orders/`
-- [ ] T031 [P] Extend `backend/README.md` with vendor-fulfillment setup notes: the widened
+- [X] T031 [P] Extend `backend/README.md` with vendor-fulfillment setup notes: the widened
       `OrderItem.Status` choices, the new `OrderItemStatusEvent` history table, and the new
       `/api/vendor/order-items` / `/api/admin/order-items` endpoints
 
