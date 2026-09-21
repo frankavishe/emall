@@ -276,44 +276,44 @@ page — all unauthenticated.
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T028 [P] [US3] Contract test `GET /api/catalog/products/` — returns only published,
+- [X] T028 [P] [US3] Contract test `GET /api/catalog/products/` — returns only published,
       non-deleted products from APPROVED shops; a `q` with no matches returns `200` with
       `"results": []`, not an error (FR-007, FR-011, Edge Cases) in
       `backend/tests/catalog/test_catalog_list.py`
-- [ ] T029 [P] [US3] Contract test `GET /api/catalog/products/` with `q`, `category`,
+- [X] T029 [P] [US3] Contract test `GET /api/catalog/products/` with `q`, `category`,
       `min_price`/`max_price` — each filter works alone and combined with the others (FR-008,
       FR-009) in `backend/tests/catalog/test_catalog_filters.py`
-- [ ] T030 [P] [US3] Contract test `GET /api/catalog/products/{id}/` — full detail shape including
+- [X] T030 [P] [US3] Contract test `GET /api/catalog/products/{id}/` — full detail shape including
       `stock_status`; returns the same `404` (not a different status) for a nonexistent,
       unpublished, soft-deleted, or non-APPROVED-shop product, so none are distinguishable to an
       anonymous caller (FR-010, FR-011) in `backend/tests/catalog/test_catalog_detail.py`
-- [ ] T031 [P] [US3] Contract test: a published product with `stock_quantity=0` still appears in
+- [X] T031 [P] [US3] Contract test: a published product with `stock_quantity=0` still appears in
       both list (`in_stock: false`) and detail (`stock_status: "out_of_stock"`) rather than being
       hidden (FR-011, Edge Cases) in `backend/tests/catalog/test_catalog_stock_status.py`
 
 ### Implementation for User Story 3
 
-- [ ] T032 [US3] Implement `CatalogProductListSerializer` and `CatalogProductDetailSerializer`
+- [X] T032 [US3] Implement `CatalogProductListSerializer` and `CatalogProductDetailSerializer`
       (read-only) in `backend/apps/catalog/serializers.py` matching contracts/catalog-api.md's
       public shapes; derive `in_stock`/`stock_status` from `stock_quantity > 0`, never expose the
       raw count (FR-011) (depends on T005, T006)
-- [ ] T033 [US3] Implement `CatalogProductListView` in `backend/apps/catalog/views.py`: base
+- [X] T033 [US3] Implement `CatalogProductListView` in `backend/apps/catalog/views.py`: base
       queryset `Product.objects.filter(is_published=True, shop__status=Shop.Status.APPROVED)`
       (soft-deleted rows already excluded by T007's manager); applies `q`
       (`Q(name__icontains=...) | Q(description__icontains=...)`), `category` (exact slug),
       `min_price`/`max_price` (`gte`/`lte` on `price`) query params (research.md §2); paginated;
       `AllowAny` (depends on T032)
-- [ ] T034 [US3] Implement `CatalogProductDetailView` in `backend/apps/catalog/views.py`: same base
+- [X] T034 [US3] Implement `CatalogProductDetailView` in `backend/apps/catalog/views.py`: same base
       queryset as T033, `get_object_or_404` so a hidden/nonexistent product returns a uniform
       `404`; `AllowAny` (depends on T032)
-- [ ] T035 [P] [US3] Implement `CategoryListView` (read-only, `AllowAny`) in
+- [X] T035 [P] [US3] Implement `CategoryListView` (read-only, `AllowAny`) in
       `backend/apps/catalog/views.py` returning all seeded categories (depends on T004, T009)
-- [ ] T036 [US3] Wire the public `urlpatterns` (`products/`, `products/<id>/`, `categories/`) in
+- [X] T036 [US3] Wire the public `urlpatterns` (`products/`, `products/<id>/`, `categories/`) in
       `backend/apps/catalog/urls.py` and include under `/api/catalog/` in `backend/config/urls.py`
       (depends on T033, T034, T035)
-- [ ] T037 [P] [US3] Build `frontend/src/app/products/page.tsx`: catalog grid with a search box and
+- [X] T037 [P] [US3] Build `frontend/src/app/products/page.tsx`: catalog grid with a search box and
       category/price filter controls, calling `GET /api/catalog/products/` (depends on T036)
-- [ ] T038 [P] [US3] Build `frontend/src/app/products/[id]/page.tsx`: product detail page calling
+- [X] T038 [P] [US3] Build `frontend/src/app/products/[id]/page.tsx`: product detail page calling
       `GET /api/catalog/products/{id}/`, showing price, images, stock status, and selling shop name
       (depends on T036)
 
@@ -326,16 +326,16 @@ works end to end.
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T039 [P] Confirm `VendorProductViewSet` (T018) and `CatalogProductListView` (T033)
+- [X] T039 [P] Confirm `VendorProductViewSet` (T018) and `CatalogProductListView` (T033)
       pagination page sizes are sane per Constitution "Resource Utilization" in
       `backend/apps/catalog/views.py`
-- [ ] T040 Run all 5 `quickstart.md` scenarios end to end against real PostgreSQL with migrations
+- [X] T040 Run all 5 `quickstart.md` scenarios end to end against real PostgreSQL with migrations
       applied and at least one seeded APPROVED + one PENDING shop, per Constitution Principle V
-- [ ] T041 [P] Security/validation review pass: confirm image uploads are restricted to image
+- [X] T041 [P] Security/validation review pass: confirm image uploads are restricted to image
       content types and a bounded file size at the serializer layer, and that `shop_id`/ownership
       cannot be spoofed via a crafted `PATCH` body (Constitution Principle I/III) in
       `backend/apps/catalog/serializers.py`
-- [ ] T042 [P] Extend `backend/README.md` with catalog setup notes: the `Pillow` dependency, media
+- [X] T042 [P] Extend `backend/README.md` with catalog setup notes: the `Pillow` dependency, media
       settings, and the category seed migration
 
 ---
