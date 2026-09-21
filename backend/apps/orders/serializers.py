@@ -5,6 +5,7 @@ from rest_framework import serializers
 from apps.catalog.models import Product
 from apps.orders.models import Order, OrderItem, OrderItemStatusEvent
 from apps.payments.models import PaymentRecord
+from apps.vendors.models import Shop
 
 
 class ShippingSerializer(serializers.Serializer):
@@ -71,6 +72,46 @@ class VendorOrderItemSerializer(serializers.ModelSerializer):
 
     def get_shipping(self, obj):
         return VendorOrderItemShippingSerializer(obj.order).data
+
+
+class OrderItemStatusEventSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrderItemStatusEvent
+        fields = ["status", "changed_at"]
+        read_only_fields = fields
+
+
+class AdminOrderItemShopSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Shop
+        fields = ["id", "name"]
+        read_only_fields = fields
+
+
+class AdminOrderItemSerializer(serializers.ModelSerializer):
+    """Administrator oversight row — the only response shape that ever includes
+    `status_history` (Clarifications session 2026-09-21)."""
+
+    order_id = serializers.IntegerField(source="order.id", read_only=True)
+    product = OrderItemProductSerializer(read_only=True)
+    shop = AdminOrderItemShopSerializer(source="product.shop", read_only=True)
+    status_history = OrderItemStatusEventSerializer(
+        source="status_events", many=True, read_only=True
+    )
+
+    class Meta:
+        model = OrderItem
+        fields = [
+            "id",
+            "order_id",
+            "product",
+            "shop",
+            "quantity",
+            "unit_price",
+            "status",
+            "status_history",
+        ]
+        read_only_fields = fields
 
 
 class OrderItemStatusUpdateSerializer(serializers.Serializer):

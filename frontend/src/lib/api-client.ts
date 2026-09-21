@@ -185,3 +185,21 @@ export async function updateOrderItemStatus(
     body: JSON.stringify({ status: newStatus }),
   });
 }
+
+export type AdminOrderItem = {
+  id: number;
+  order_id: number;
+  product: { id: number; name: string };
+  shop: { id: number; name: string };
+  quantity: number;
+  unit_price: string;
+  status: string;
+  status_history: { status: string; changed_at: string }[];
+};
+
+/** `GET /api/admin/order-items` (task T026, contracts/order-fulfillment-api.md). */
+export async function listAdminOrderItems(
+  page = 1,
+): Promise<PaginatedResponse<AdminOrderItem>> {
+  return apiFetch<PaginatedResponse<AdminOrderItem>>(`/api/admin/order-items?page=${page}`);
+}

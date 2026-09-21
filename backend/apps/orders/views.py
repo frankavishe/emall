@@ -1,3 +1,4 @@
+from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied
@@ -5,9 +6,10 @@ from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.core.permissions import IsCustomer, IsVendor
-from apps.orders.models import Order, OrderItem
+from apps.core.permissions import IsAdministrator, IsCustomer, IsVendor
+from apps.orders.models import Order, OrderItem, OrderItemStatusEvent
 from apps.orders.serializers import (
+    AdminOrderItemSerializer,
     CheckoutSerializer,
     OrderDetailSerializer,
     OrderItemStatusUpdateSerializer,
@@ -109,3 +111,23 @@ class VendorOrderItemStatusUpdateView(APIView):
             return Response({"status": [str(error)]}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(VendorOrderItemSerializer(order_item).data)
+
+
+class AdminOrderItemListView(ListAPIView):
+    """Read-only oversight across every shop/vendor's order lines, each with its full
+    status-change history (FR-007, FR-008, FR-009)."""
+
+    permission_classes = [IsAdministrator]
+    serializer_class = AdminOrderItemSerializer
+
+    def get_queryset(self):
+        return (
+            OrderItem.objects.select_related("product", "product__shop", "order")
+            .prefetch_related(
+                Prefetch(
+                    "status_events",
+                    queryset=OrderItemStatusEvent.objects.order_by("changed_at"),
+                )
+            )
+            .order_by("-order__placed_at")
+        )

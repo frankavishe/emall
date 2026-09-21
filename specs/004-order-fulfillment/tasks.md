@@ -203,34 +203,34 @@ that path accepts a mutation.
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T020 [P] [US3] Contract test `GET /api/admin/order-items` — lists line items across every
+- [X] T020 [P] [US3] Contract test `GET /api/admin/order-items` — lists line items across every
       shop/vendor, paginated, each including shop/vendor identity and a `status_history` array
       ordered oldest-first (FR-007, FR-009) in `backend/tests/orders/test_admin_order_item_list.py`
-- [ ] T021 [P] [US3] Contract test: `PATCH`/`POST`/`DELETE` on `/api/admin/order-items` (and its
+- [X] T021 [P] [US3] Contract test: `PATCH`/`POST`/`DELETE` on `/api/admin/order-items` (and its
       detail path) are all rejected — oversight is read-only (FR-008, Acceptance Scenario 2) in
       `backend/tests/orders/test_admin_order_item_readonly.py`
-- [ ] T022 [P] [US3] Contract test: `status_history` is present only in the Administrator's
+- [X] T022 [P] [US3] Contract test: `status_history` is present only in the Administrator's
       response — the Vendor list/update response (US1) and the Customer order-detail response
       (US2) for the same line never include it (Clarifications session 2026-09-21) in
       `backend/tests/orders/test_order_item_history_visibility.py`
 
 ### Implementation for User Story 3
 
-- [ ] T023 [US3] Implement `OrderItemStatusEventSerializer` (`status`, `changed_at`) and
+- [X] T023 [US3] Implement `OrderItemStatusEventSerializer` (`status`, `changed_at`) and
       `AdminOrderItemSerializer` (adds shop `{id, name}` and `status_history` — the nested
       `OrderItemStatusEventSerializer` list, ordered by `changed_at` ascending — to the same base
       fields as `VendorOrderItemSerializer`) in `backend/apps/orders/serializers.py` (depends on
       T001, T002, T011)
-- [ ] T024 [US3] Implement `AdminOrderItemListView` in `backend/apps/orders/views.py`:
+- [X] T024 [US3] Implement `AdminOrderItemListView` in `backend/apps/orders/views.py`:
       `IsAdministrator`; queryset `OrderItem.objects.select_related("product__shop", "order")
       .prefetch_related("status_events")` across all shops, paginated (Constitution Resource
       Utilization) (depends on T023)
-- [ ] T025 [US3] Wire `admin_urlpatterns` (`admin/order-items`) in `backend/apps/orders/urls.py`;
+- [X] T025 [US3] Wire `admin_urlpatterns` (`admin/order-items`) in `backend/apps/orders/urls.py`;
       include at `api/admin/` in `backend/config/urls.py` alongside the existing
       `apps.vendors.urls` admin include (depends on T024)
-- [ ] T026 [P] [US3] Add `listAdminOrderItems(page)` call to `frontend/src/lib/api-client.ts`
+- [X] T026 [P] [US3] Add `listAdminOrderItems(page)` call to `frontend/src/lib/api-client.ts`
       (depends on T025)
-- [ ] T027 [P] [US3] Build `frontend/src/app/admin/orders/page.tsx`: read-only list across shops
+- [X] T027 [P] [US3] Build `frontend/src/app/admin/orders/page.tsx`: read-only list across shops
       showing current status, shop/vendor name, and each line's expandable status history (depends
       on T026)
 

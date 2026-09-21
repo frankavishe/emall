@@ -23,3 +23,11 @@ vendor_urlpatterns = [
         name="vendor-order-item-status-update",
     ),
 ]
+
+admin_urlpatterns = [
+    path(
+        "order-items",
+        views.AdminOrderItemListView.as_view(),
+        name="admin-order-item-list",
+    ),
+]
