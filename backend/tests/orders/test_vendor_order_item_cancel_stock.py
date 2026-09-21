@@ -5,7 +5,6 @@ from django.db import connections
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User
-from apps.catalog.models import Product
 from apps.vendors.models import Shop
 from tests.factories import ProductFactory, ShopFactory, UserFactory
 

@@ -25,7 +25,9 @@ def _authenticate(api_client, user, password="a-strong-password-1"):
 
 def _place_order(api_client, price="9.99", quantity=1):
     product = ProductFactory(is_published=True, price=price, stock_quantity=10)
-    api_client.post("/api/cart/items", {"product_id": product.id, "quantity": quantity}, format="json")
+    api_client.post(
+        "/api/cart/items", {"product_id": product.id, "quantity": quantity}, format="json"
+    )
     response = api_client.post(
         "/api/checkout", {"shipping": SHIPPING, "payment_method": "card"}, format="json"
     )

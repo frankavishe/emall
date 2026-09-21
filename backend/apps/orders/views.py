@@ -16,7 +16,12 @@ from apps.orders.serializers import (
     OrderSerializer,
     VendorOrderItemSerializer,
 )
-from apps.orders.services import CheckoutError, TransitionError, advance_order_item_status, place_order
+from apps.orders.services import (
+    CheckoutError,
+    TransitionError,
+    advance_order_item_status,
+    place_order,
+)
 from apps.vendors.models import Shop
 
 
