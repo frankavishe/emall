@@ -212,26 +212,26 @@ was decremented by the ordered amounts, and that the cart is now empty.
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T022 [P] [US2] Contract test `POST /api/checkout/` happy path, single-vendor cart — `201`,
+- [X] T022 [P] [US2] Contract test `POST /api/checkout/` happy path, single-vendor cart — `201`,
       an `Order` with one `OrderItem` per cart line (correct product/quantity/`unit_price`
       captured), cart emptied, each ordered product's `stock_quantity` decremented by the ordered
       amount (FR-012, FR-014, FR-017) in `backend/tests/orders/test_checkout_success.py`
-- [ ] T023 [P] [US2] Contract test `POST /api/checkout/` with a cart spanning two vendors' shops —
+- [X] T023 [P] [US2] Contract test `POST /api/checkout/` with a cart spanning two vendors' shops —
       `201`, a single `Order` whose `items` include lines from both shops, each carrying its own
       `status` independently (FR-013) in `backend/tests/orders/test_checkout_multi_vendor.py`
-- [ ] T024 [P] [US2] Contract test `POST /api/checkout/` with an empty cart — `400`, no `Order`
+- [X] T024 [P] [US2] Contract test `POST /api/checkout/` with an empty cart — `400`, no `Order`
       created (FR-011) in `backend/tests/orders/test_checkout_empty_cart.py`
-- [ ] T025 [P] [US2] Contract test `POST /api/checkout/` where a cart line's quantity now exceeds
+- [X] T025 [P] [US2] Contract test `POST /api/checkout/` where a cart line's quantity now exceeds
       current stock (stock reduced after the item was added) — `400` naming the specific line, no
       `Order` created, no stock decremented (FR-008, Edge Cases) in
       `backend/tests/orders/test_checkout_stale_stock.py`
-- [ ] T026 [P] [US2] Contract test `POST /api/checkout/` with `payment_method: "declined"`
+- [X] T026 [P] [US2] Contract test `POST /api/checkout/` with `payment_method: "declined"`
       (research.md §5 sentinel) — `400`, no `Order` created, no stock decremented, cart unchanged
       afterward (FR-016) in `backend/tests/orders/test_checkout_payment_failure.py`
-- [ ] T027 [P] [US2] Contract test `POST /api/checkout/` with a missing/invalid shipping field —
+- [X] T027 [P] [US2] Contract test `POST /api/checkout/` with a missing/invalid shipping field —
       `400` with a field-level error naming the failed field, no `Order` created (FR-009, FR-010)
       in `backend/tests/orders/test_checkout_shipping_validation.py`
-- [ ] T028 [P] [US2] Concurrency test: two different Customers' carts each hold `quantity: 1` of a
+- [X] T028 [P] [US2] Concurrency test: two different Customers' carts each hold `quantity: 1` of a
       product with `stock_quantity: 1`; fire both checkouts concurrently (separate threads/DB
       connections) — exactly one `201`, the other a `400` stock-conflict, final `stock_quantity`
       is `0`, never negative, and no partial `Order` is left behind (Edge Cases, research.md §4)
@@ -239,12 +239,12 @@ was decremented by the ordered amounts, and that the cart is now empty.
 
 ### Implementation for User Story 2
 
-- [ ] T029 [US2] Create `Order` model in `backend/apps/orders/models.py` per data-model.md:
+- [X] T029 [US2] Create `Order` model in `backend/apps/orders/models.py` per data-model.md:
       `customer` (`ForeignKey(User, related_name="orders", on_delete=CASCADE)`), `status`
       (`CharField`, `choices=Order.Status`, only `PLACED` reachable in this feature), shipping
       fields `recipient_name`, `address_line`, `city`, `region`, `postal_code`, `country`, `phone`
       (all required `CharField`, FR-009), `placed_at` (`auto_now_add=True`)
-- [ ] T030 [US2] Create `OrderItem` model in `backend/apps/orders/models.py` per data-model.md:
+- [X] T030 [US2] Create `OrderItem` model in `backend/apps/orders/models.py` per data-model.md:
       `order` (`ForeignKey(Order, related_name="items", on_delete=CASCADE)`), `product`
       (`ForeignKey("catalog.Product", related_name="order_items", on_delete=PROTECT)` — `PROTECT`,
       never `CASCADE`, so a referenced product row can never be removed out from under a
@@ -252,24 +252,24 @@ was decremented by the ordered amounts, and that the cart is now empty.
       (`DecimalField(max_digits=10, decimal_places=2)`, frozen at order-creation time), `status`
       (`CharField`, `choices=OrderItem.Status`, only `PENDING` reachable in this feature —
       Constitution Principle VI, FR-013) (depends on T029)
-- [ ] T031 [P] [US2] Create `PaymentRecord` model in `backend/apps/payments/models.py` per
+- [X] T031 [P] [US2] Create `PaymentRecord` model in `backend/apps/payments/models.py` per
       data-model.md: `order` (`OneToOneField("orders.Order", related_name="payment", on_delete=
       CASCADE)`), `method` (`CharField(max_length=50)` — a label only, never raw card data,
       Constitution Principle III), `status` (`CharField`, `choices=PaymentRecord.Status`, only
       `SUCCEEDED` reachable — a failed attempt never reaches row creation, research.md §5),
       `transaction_reference` (`CharField(max_length=64, unique=True)`, a generated opaque
       reference), `created_at` (`auto_now_add=True`) (depends on T029)
-- [ ] T032 Generate and apply the `orders` and `payments` migrations
+- [X] T032 Generate and apply the `orders` and `payments` migrations
       (`python manage.py makemigrations orders payments && python manage.py migrate`) (depends on
       T030, T031)
-- [ ] T033 [US2] Implement `PaymentService` (ABC, one `charge(*, amount, method) -> PaymentResult`
+- [X] T033 [US2] Implement `PaymentService` (ABC, one `charge(*, amount, method) -> PaymentResult`
       method) and `MockPaymentService` in `backend/apps/payments/services.py`, plus a
       `get_payment_service()` factory, mirroring `apps/core/email.py`'s `EmailService` /
       `DjangoEmailService` / `get_email_service()` pattern exactly; `charge()` accepts only an
       opaque `method` label, never card fields; the case-insensitive sentinel method value
       `"declined"` deterministically fails, everything else succeeds (research.md §5) (depends on
       T031)
-- [ ] T034 [US2] Implement `place_order(customer, shipping_data, payment_method)` in
+- [X] T034 [US2] Implement `place_order(customer, shipping_data, payment_method)` in
       `backend/apps/orders/services.py`: one `transaction.atomic()` block; `select_for_update()`
       on the touched `Product` rows, always acquired in ascending `product_id` order to avoid
       deadlocks (research.md §4); re-validate every cart line via T006's `is_available`/current
@@ -279,19 +279,19 @@ was decremented by the ordered amounts, and that the cart is now empty.
       live `product.price`, FR-012) + `PaymentRecord`, decrement each `Product.stock_quantity` by
       the ordered amount (FR-014), and delete the Customer's `CartItem` rows (FR-017) (depends on
       T006, T029, T030, T031, T033)
-- [ ] T035 [US2] Implement `CheckoutSerializer` (nested shipping fields + `payment_method`) and
+- [X] T035 [US2] Implement `CheckoutSerializer` (nested shipping fields + `payment_method`) and
       `OrderSerializer`/`OrderDetailSerializer` in `backend/apps/orders/serializers.py` matching
       contracts/cart-checkout-api.md's request/response shapes (depends on T029, T030)
-- [ ] T036 [US2] Implement `CheckoutView` in `backend/apps/orders/views.py`: `IsCustomer`,
+- [X] T036 [US2] Implement `CheckoutView` in `backend/apps/orders/views.py`: `IsCustomer`,
       validates the request with T035's `CheckoutSerializer`, calls T034's `place_order()`, and
       translates its error cases to the `400` response shapes in contracts/cart-checkout-api.md
       (empty cart, stale lines, payment declined, shipping validation) (depends on T034, T035)
-- [ ] T037 [US2] Wire a `checkout_urlpatterns` list (`checkout/`) in
+- [X] T037 [US2] Wire a `checkout_urlpatterns` list (`checkout/`) in
       `backend/apps/orders/urls.py`, included directly at `/api/` in `backend/config/urls.py`
       alongside T018's cart include (research.md §8) (depends on T036)
-- [ ] T038 [US2] Add a `checkout(shippingData, paymentMethod)` call to
+- [X] T038 [US2] Add a `checkout(shippingData, paymentMethod)` call to
       `frontend/src/lib/api-client.ts` (depends on T037)
-- [ ] T039 [US2] Build `frontend/src/app/checkout/page.tsx`: shipping form + payment method
+- [X] T039 [US2] Build `frontend/src/app/checkout/page.tsx`: shipping form + payment method
       selector + confirm action, redirecting to the order confirmation on success (T053) and
       showing the specific error (empty cart / stale line / payment declined / field validation)
       on failure (depends on T038)
@@ -317,28 +317,38 @@ displays current data and checkout enforces it.
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T040 [P] [US3] Contract test: change a cart product's `price` via the catalog API after it
+- [X] T040 [P] [US3] Contract test: change a cart product's `price` via the catalog API after it
       was added to the cart — `GET /api/cart/` reflects the new price and a recalculated subtotal,
       never the add-time price (Scenario 1) in `backend/tests/cart/test_cart_live_price.py`
-- [ ] T041 [P] [US3] Contract test: unpublish a cart product — `GET /api/cart/` flags that line
+- [X] T041 [P] [US3] Contract test: unpublish a cart product — `GET /api/cart/` flags that line
       `is_available: false` with an `unavailable_reason`, and `total` excludes its subtotal
       (Scenario 2) in `backend/tests/cart/test_cart_unavailable_unpublished.py`
-- [ ] T042 [P] [US3] Contract test: change a cart product's owning shop to PENDING or REJECTED —
+- [X] T042 [P] [US3] Contract test: change a cart product's owning shop to PENDING or REJECTED —
       the line shows the same `is_available: false` behavior as an unpublished product (Edge
       Cases) in `backend/tests/cart/test_cart_unavailable_shop_unapproved.py`
-- [ ] T043 [P] [US3] Contract test `POST /api/checkout/` with an unavailable line still present —
+- [X] T043 [P] [US3] Contract test `POST /api/checkout/` with an unavailable line still present —
       `400`, checkout blocked until the Customer removes or adjusts that line, same response shape
       as T025 (Scenario 3) in `backend/tests/orders/test_checkout_unavailable_line.py`
 
 ### Implementation for User Story 3
 
-- [ ] T044 [US3] Fix any gap T040–T042 expose in `CartItem.is_available`/`unavailable_reason`
+- [X] T044 [US3] Fix any gap T040–T042 expose in `CartItem.is_available`/`unavailable_reason`
       (T006) so all three staleness cases (price — already live by construction; unpublished; shop
       no longer APPROVED) are correctly flagged in `backend/apps/cart/models.py` (depends on T006,
-      T040, T041, T042)
-- [ ] T045 [P] [US3] Update `frontend/src/app/cart/page.tsx` to visually flag unavailable lines
+      T040, T041, T042). **No gap found**: T006's original implementation already handled all
+      three cases correctly; T040–T043 passed against it unmodified.
+- [X] T045 [P] [US3] Update `frontend/src/app/cart/page.tsx` to visually flag unavailable lines
       (badge + reason text) and disable the checkout button while any unavailable line remains
-      (depends on T020, T044)
+      (depends on T020, T044). Unavailable-line badge/reason text was already in place from T020;
+      this task added the `hasUnavailableItem` check that disables the Checkout button/link and
+      shows a "Remove or adjust..." message while any line is unavailable.
+
+**Manually verified live** (real Postgres + `runserver` + `next dev`, quickstart.md Scenario 3 step
+4): seeded a customer/vendor/shop/product directly via Django shell, added the product to the
+cart, confirmed it rendered available with Checkout enabled, then unpublished the product as the
+vendor and reloaded `/cart` — the line showed "Unavailable: no longer published", the total
+excluded it, and the Checkout button rendered disabled with the "Remove or adjust..." message.
+Full backend suite re-run clean: 126 passed (121 existing + 5 new).
 
 **Checkpoint**: All three P1/P2 stories are independently functional — the cart's correctness/
 trust safeguard is proven end to end.
@@ -355,31 +365,38 @@ matches what was ordered.
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T046 [P] [US4] Contract test `GET /api/orders/` — lists only the requester's own orders,
+- [X] T046 [P] [US4] Contract test `GET /api/orders/` — lists only the requester's own orders,
       paginated, most recent first (FR-020) in `backend/tests/orders/test_order_list.py`
-- [ ] T047 [P] [US4] Contract test `GET /api/orders/{id}/` — full detail: every line item
+- [X] T047 [P] [US4] Contract test `GET /api/orders/{id}/` — full detail: every line item
       (product, quantity, price paid), shipping details, and each line's current `status` (FR-019,
       FR-020) in `backend/tests/orders/test_order_detail.py`
-- [ ] T048 [P] [US4] Contract test `GET /api/orders/{id}/` using another Customer's order ID —
+- [X] T048 [P] [US4] Contract test `GET /api/orders/{id}/` using another Customer's order ID —
       `404`, not that order's data, in both cases indistinguishable from a nonexistent ID (FR-021,
       research.md §6) in `backend/tests/orders/test_order_detail_isolation.py`
 
 ### Implementation for User Story 4
 
-- [ ] T049 [US4] Implement `OrderListView` in `backend/apps/orders/views.py`: queryset
+- [X] T049 [US4] Implement `OrderListView` in `backend/apps/orders/views.py`: queryset
       `Order.objects.filter(customer=request.user).order_by("-placed_at")`, paginated,
       `IsCustomer` (depends on T035)
-- [ ] T050 [US4] Implement `OrderDetailView` in `backend/apps/orders/views.py`: queryset filtered
+- [X] T050 [US4] Implement `OrderDetailView` in `backend/apps/orders/views.py`: queryset filtered
       to `customer=request.user` at the queryset level so another Customer's order ID 404s
       (research.md §6), `IsCustomer` (depends on T035)
-- [ ] T051 [US4] Wire the default `urlpatterns` (`orders/`, `orders/<int:order_id>/`) in
+- [X] T051 [US4] Wire the default `urlpatterns` (`orders/`, `orders/<int:order_id>/`) in
       `backend/apps/orders/urls.py` and include under `/api/orders/` in
       `backend/config/urls.py` (depends on T049, T050)
-- [ ] T052 [US4] Add `listOrders`/`getOrder` calls to `frontend/src/lib/api-client.ts` (depends on
+- [X] T052 [US4] Add `listOrders`/`getOrder` calls to `frontend/src/lib/api-client.ts` (depends on
       T051)
-- [ ] T053 [P] [US4] Build `frontend/src/app/orders/page.tsx` (order history list) and
+- [X] T053 [P] [US4] Build `frontend/src/app/orders/page.tsx` (order history list) and
       `frontend/src/app/orders/[id]/page.tsx` (order detail — also the page T039's checkout
       confirmation redirects to) (depends on T052)
+
+**Manually verified live** (real Postgres + `runserver` + `next dev`): seeded a customer, placed
+two orders via the real checkout flow, and confirmed `/orders` lists both (most recent first,
+correct summaries) and `/orders/{id}` shows full shipping/items/payment detail; confirmed
+`/orders/999999` renders "This order doesn't exist." Full backend suite re-run clean: 133 passed
+(126 existing + 7 new: 3 list, 2 detail, 1 isolation, plus a role-check test added alongside
+T046).
 
 **Checkpoint**: All four user stories independently functional — the full Shopping Cart &
 Checkout feature works end to end.
@@ -390,19 +407,67 @@ Checkout feature works end to end.
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T054 [P] Confirm `OrderListView`'s (T049) pagination page size is sane per Constitution
+- [X] T054 [P] Confirm `OrderListView`'s (T049) pagination page size is sane per Constitution
       "Resource Utilization" in `backend/apps/orders/views.py`
-- [ ] T055 Run all 5 `quickstart.md` scenarios end to end against real PostgreSQL with migrations
+- [X] T055 Run all 5 `quickstart.md` scenarios end to end against real PostgreSQL with migrations
       applied, including the concurrency scenario (Scenario 5), per Constitution Principle V
-- [ ] T056 [P] Security/validation review pass: confirm `PaymentService.charge()` (T033) never
+- [X] T056 [P] Security/validation review pass: confirm `PaymentService.charge()` (T033) never
       accepts or could persist raw card data; confirm `customer`/`product`/`shop` cannot be
       spoofed via a crafted checkout or cart-item body; confirm every `Cart`/`CartItem`/`Order`
       queryset filters by `request.user` at the queryset level, not only in serializers
       (Constitution Principle I/III) across `backend/apps/cart/`, `backend/apps/orders/`,
       `backend/apps/payments/`
-- [ ] T057 [P] Extend `backend/README.md` with cart/checkout setup notes: the three new apps, that
+- [X] T057 [P] Extend `backend/README.md` with cart/checkout setup notes: the three new apps, that
       no new dependencies were added, and the mock payment `"declined"` sentinel used for testing
       (research.md §5)
+
+**T054**: `OrderListView` sets no `pagination_class`, so it inherits the global default
+(`PageNumberPagination`, `PAGE_SIZE: 20` in `config/settings.py`) — the same default
+`CatalogProductListView` relies on. 20 is sane for a per-Customer order history (bounded, slow-
+growing per user) and satisfies the Constitution's "list endpoints MUST be paginated" without
+over-fetching; confirmed via `backend/tests/orders/test_order_list.py`, which already asserts the
+`count`/`results` paginated response shape. No code change needed.
+
+**T055 — Manually verified live** (real Postgres + `runserver` + `next dev`, both on `127.0.0.1`
+to avoid a stale-cookie collision from an earlier dev session — see note below): full backend
+suite re-run clean against real Postgres with migrations applied: 133 passed, including
+`test_checkout_concurrency.py`'s two-thread `transaction=True` race against a `stock_quantity: 1`
+product (exactly Scenario 5 step 3) — one `201`, one `400`, final stock `0`. That covers the API-
+level assertions for all 5 scenarios. Additionally walked Scenario 2's browser checkout flow live
+via `claude-in-chrome` (not previously verified in-browser, only via curl/pytest): seeded a
+customer/vendor/APPROVED shop/published product, logged in, added the product to the cart from its
+detail page, filled the `/checkout` shipping form, submitted, and landed on `/orders/{id}` showing
+the correct shipping/payment/item/total; confirmed `/orders` lists it and `/cart` is empty
+afterward (Scenario 2 step 7, re-confirming Scenario 4). Scenario 1's and Scenario 3 step 4's
+browser walkthroughs were already verified live in earlier phases (see above).
+
+*Aside, not a task-blocking issue*: hit a confusing `401 "User not found"` on login mid-session —
+root cause was a leftover `localhost`-domain refresh cookie from an earlier dev session, for a
+user ID no longer in the dev DB; `/api/auth/refresh` happily re-signs a new access token from it
+(no DB check), but that token then fails `JWTAuthentication`'s DB lookup on the very next request,
+including the login POST itself (DRF authenticates the `Authorization` header before `AllowAny` is
+even considered). Worked around by serving both frontend and backend from `127.0.0.1` instead of
+`localhost` for a clean cookie jar (same class of issue as the cookie-collision note from
+001-accounts-auth's manual testing — cookies are scoped by hostname only). Not something to fix
+here; noted in case it recurs.
+
+**T056**: Traced, no issues found. `PaymentService.charge()` (`backend/apps/payments/services.py`)
+takes only `amount: Decimal, method: str` — no card fields exist anywhere in its signature,
+`CheckoutSerializer`, or `PaymentRecord` (`method`/`status`/`transaction_reference` only).
+`customer` is never accepted from any request body — `place_order()` takes it as a keyword from
+`request.user`; `CheckoutSerializer` has no `customer`/`product`/`shop` field at all, since
+checkout operates on the authenticated customer's own persisted cart, not client-supplied IDs.
+`CartItemCreateSerializer.product_id` resolves via `PrimaryKeyRelatedField` (ID only — price/shop
+are never client-writable) and `CartItemUpdateSerializer` exposes only `quantity`. Every
+queryset filters by the authenticated user at the queryset level, not just in serializers:
+`CartDetailView`/`CartItemCreateView` (`Cart.objects.get_or_create(customer=request.user)`),
+`CartItemDetailView.get_object` (`cart__customer=request.user`), `OrderListView.get_queryset`
+(`Order.objects.filter(customer=self.request.user)`), `OrderDetailView.get`
+(`get_object_or_404(Order, pk=order_id, customer=request.user)`).
+
+**T057**: Added a "Shopping Cart & Checkout" section to `backend/README.md` (the three new apps,
+`requirements.txt` unchanged, the mock payment service and its `"declined"` sentinel) and a
+`specs/003-cart-checkout/quickstart.md` entry alongside the other two features' quickstart links.
 
 ---
 

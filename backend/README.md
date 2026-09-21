@@ -1,7 +1,8 @@
 # emall backend
 
 Django + Django REST Framework API for the emall project's Accounts & Authentication
-(`specs/001-accounts-auth/`) and Product Catalog (`specs/002-product-catalog/`) features.
+(`specs/001-accounts-auth/`) and Product Catalog (`specs/002-product-catalog/`) features, plus
+Shopping Cart & Checkout (`specs/003-cart-checkout/`).
 
 ## Prerequisites
 
@@ -76,6 +77,21 @@ This creates (or updates, if it already exists) the Administrator user from `ADM
   Administrator-owned category list (`apps/catalog/migrations/0002_seed_categories.py`) — no
   separate seed command is needed for categories.
 
+## Shopping Cart & Checkout (`cart`, `orders`, `payments` apps)
+
+- Three apps, no new dependencies — `requirements.txt` is unchanged from Product Catalog
+  (research.md §7). Each app is thin and single-purpose: `cart` (persistent per-Customer cart),
+  `orders` (checkout + order history, exposed at `/api/checkout/`, `/api/orders/`), `payments`
+  (`PaymentRecord` only — no endpoints of its own).
+- Payment is a swappable mock service (`apps/payments/services.py`, mirroring
+  `apps/core/email.py`'s `EmailService` pattern): `charge()` takes only an opaque `method` label
+  string (e.g. `"card"`), never raw card fields. `MockPaymentService` succeeds for any `method`
+  except the case-insensitive sentinel `"declined"`, which deterministically fails — use it to
+  exercise the payment-declined path in manual testing (research.md §5).
+- Cart line prices/availability are always read live from the current `Product` (never frozen at
+  add-to-cart time), so a vendor changing a product's price or publish status is reflected in every
+  Customer's cart immediately.
+
 ## Running the frontend alongside
 
 ```powershell
@@ -103,3 +119,7 @@ real database.
 
 `specs/002-product-catalog/quickstart.md` has five more (vendor create/publish/unpublish, the
 shop-approval gate, public browse/search/filter, out-of-stock display, input validation).
+
+`specs/003-cart-checkout/quickstart.md` has five more (persistent cart management, checkout and
+order placement, cart reacting to live catalog changes, order history, and validation/edge cases
+including the concurrent-oversell race).
