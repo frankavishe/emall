@@ -22,6 +22,10 @@ class EmailService(ABC):
     def send_password_reset_email(self, user, token):
         ...
 
+    @abstractmethod
+    def send_order_item_status_email(self, order_item):
+        ...
+
 
 class DjangoEmailService(EmailService):
     """Sends via `django.core.mail`, transport controlled by `settings.EMAIL_BACKEND`."""
@@ -42,6 +46,29 @@ class DjangoEmailService(EmailService):
             message=f"Hi {user.name},\n\nReset your password by visiting:\n{link}\n",
             from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[user.email],
+        )
+
+    def send_order_item_status_email(self, order_item):
+        customer = order_item.order.customer
+        product_name = order_item.product.name
+        order_id = order_item.order_id
+
+        subjects_and_states = {
+            "PROCESSING": ("Your order is being prepared", "is being prepared"),
+            "SHIPPED": ("Your order has shipped", "has shipped"),
+            "DELIVERED": ("Your order has been delivered", "has been delivered"),
+            "CANCELLED": ("An item in your order was cancelled", "was cancelled"),
+        }
+        subject, state = subjects_and_states[order_item.status]
+
+        send_mail(
+            subject=subject,
+            message=(
+                f"Hi {customer.name},\n\n"
+                f"Your order #{order_id} item \"{product_name}\" {state}.\n"
+            ),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[customer.email],
         )
 
 

@@ -2,8 +2,9 @@
 
 Django + Django REST Framework API for the emall project's Accounts & Authentication
 (`specs/001-accounts-auth/`) and Product Catalog (`specs/002-product-catalog/`) features, plus
-Shopping Cart & Checkout (`specs/003-cart-checkout/`) and Vendor Order Fulfillment
-(`specs/004-order-fulfillment/`).
+Shopping Cart & Checkout (`specs/003-cart-checkout/`), Vendor Order Fulfillment
+(`specs/004-order-fulfillment/`), and Order Status Notifications
+(`specs/005-order-status-notifications/`).
 
 ## Prerequisites
 
@@ -114,6 +115,23 @@ This creates (or updates, if it already exists) the Administrator user from `ADM
     `status_history`.
   - `GET /api/admin/order-items/` — read-only Administrator oversight across every shop's order
     lines, the only response shape that includes a `status_history` array.
+
+## Order Status Notifications (`orders`/`core` app extension)
+
+- No new Django app, endpoint, or migration — a Customer is emailed as a side effect of a Vendor
+  advancing one of their `OrderItem`s (`specs/005-order-status-notifications/`).
+- Reuses the existing swappable email transport: a new
+  `EmailService.send_order_item_status_email()` method on `apps/core/email.py`, alongside
+  `send_verification_email`/`send_password_reset_email`, controlled by the same `EMAIL_BACKEND`
+  setting above.
+- Triggered from `apps/orders/services.py`'s `advance_order_item_status()` via
+  `transaction.on_commit()`, so a notification only ever fires after a transition has actually
+  committed, and never for a rejected transition attempt.
+- Delivery failures are caught and logged, not raised — a broken email transport can never block or
+  roll back the underlying (already-committed) status change.
+- One email per transition (`PROCESSING` / `SHIPPED` / `DELIVERED` / `CANCELLED`), always to the
+  order's Customer regardless of `is_email_verified`; the `CANCELLED` email never mentions
+  refunds/payment, since cancellation payment handling is out of scope.
 
 ## Running the frontend alongside
 
