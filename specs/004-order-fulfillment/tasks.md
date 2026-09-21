@@ -170,18 +170,18 @@ advances a line and confirm the new value appears with no other change.
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T017 [US2] Regression contract test: after a Vendor advances a line past `PENDING` (via
+- [X] T017 [US2] Regression contract test: after a Vendor advances a line past `PENDING` (via
       `advance_order_item_status()`), `GET /api/orders/{id}` (existing 003-cart-checkout endpoint,
       unchanged) reflects the new value (`PROCESSING`/`SHIPPED`/`DELIVERED`/`CANCELLED`) on that
       line with no other field changed (FR-005, research.md §7) in
       `backend/tests/orders/test_order_detail_fulfillment_status.py`
-- [ ] T018 [US2] Regression contract test: no verb on `/api/orders/{id}` accepts a status-changing
+- [X] T018 [US2] Regression contract test: no verb on `/api/orders/{id}` accepts a status-changing
       request from a Customer — `PATCH`/`POST`/`DELETE` on that path are all rejected (`404`/`405`,
       the endpoint only ever defined `GET`) (FR-006) in the same file as T017
 
 ### Implementation for User Story 2
 
-- [ ] T019 [US2] Manually load `/orders/{id}` in the browser for an order with a line past
+- [X] T019 [US2] Manually load `/orders/{id}` in the browser for an order with a line past
       `PENDING` and confirm `frontend/src/app/orders/[id]/page.tsx` renders the new status
       correctly with no code change (quickstart.md Scenario 2); if an unfamiliar status string
       breaks the existing badge/text rendering, apply the minimal fix in that file (depends on
