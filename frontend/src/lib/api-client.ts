@@ -157,3 +157,31 @@ export async function listOrders(page = 1): Promise<PaginatedResponse<OrderSumma
 export async function getOrder(orderId: number | string): Promise<OrderDetail> {
   return apiFetch<OrderDetail>(`/api/orders/${orderId}`);
 }
+
+export type VendorOrderItem = {
+  id: number;
+  order_id: number;
+  product: { id: number; name: string };
+  quantity: number;
+  unit_price: string;
+  status: string;
+  shipping: ShippingDetails;
+};
+
+/** `GET /api/vendor/order-items` (task T015, contracts/order-fulfillment-api.md). */
+export async function listVendorOrderItems(
+  page = 1,
+): Promise<PaginatedResponse<VendorOrderItem>> {
+  return apiFetch<PaginatedResponse<VendorOrderItem>>(`/api/vendor/order-items?page=${page}`);
+}
+
+/** `PATCH /api/vendor/order-items/{id}/status` (task T015, contracts/order-fulfillment-api.md). */
+export async function updateOrderItemStatus(
+  itemId: number,
+  newStatus: string,
+): Promise<VendorOrderItem> {
+  return apiFetch<VendorOrderItem>(`/api/vendor/order-items/${itemId}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status: newStatus }),
+  });
+}

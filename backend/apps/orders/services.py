@@ -8,7 +8,7 @@ from django.db import transaction
 
 from apps.cart.models import CartItem
 from apps.catalog.models import Product
-from apps.orders.models import Order, OrderItem
+from apps.orders.models import Order, OrderItem, OrderItemStatusEvent
 from apps.payments.models import PaymentRecord
 from apps.payments.services import get_payment_service
 
@@ -22,6 +22,54 @@ class CheckoutError(Exception):
         self.detail = detail
         self.extra = extra
         super().__init__(detail)
+
+
+class TransitionError(Exception):
+    """Raised when a requested `OrderItem.status` transition isn't the single valid next step
+    (research.md §1); the view translates this into the contract's `400` response shape
+    (contracts/order-fulfillment-api.md)."""
+
+    def __init__(self, detail):
+        self.detail = detail
+        super().__init__(detail)
+
+
+# Fixed adjacency map (FR-002, FR-003, data-model.md): only these (current, requested) pairs are
+# valid. Any other pair — backward, skipped, from a terminal state, or SHIPPED->CANCELLED — is
+# rejected with no write.
+_VALID_TRANSITIONS = {
+    OrderItem.Status.PENDING: {OrderItem.Status.PROCESSING, OrderItem.Status.CANCELLED},
+    OrderItem.Status.PROCESSING: {OrderItem.Status.SHIPPED, OrderItem.Status.CANCELLED},
+    OrderItem.Status.SHIPPED: {OrderItem.Status.DELIVERED},
+    OrderItem.Status.DELIVERED: set(),
+    OrderItem.Status.CANCELLED: set(),
+}
+
+
+def advance_order_item_status(*, order_item, new_status):
+    """The only path that ever changes `OrderItem.status` (data-model.md). Validates the
+    requested transition against `_VALID_TRANSITIONS` before writing anything; on a valid
+    transition to CANCELLED, restores the line's quantity to the product's stock in the same
+    atomic transaction (FR-011, research.md §2)."""
+
+    current_status = order_item.status
+    if new_status not in _VALID_TRANSITIONS.get(current_status, set()):
+        raise TransitionError(f"Cannot move {current_status} to {new_status}.")
+
+    with transaction.atomic():
+        if new_status == OrderItem.Status.CANCELLED:
+            product = (
+                Product.objects.select_for_update(of=("self",))
+                .get(pk=order_item.product_id)
+            )
+            product.stock_quantity += order_item.quantity
+            product.save(update_fields=["stock_quantity"])
+
+        order_item.status = new_status
+        order_item.save(update_fields=["status"])
+        OrderItemStatusEvent.objects.create(order_item=order_item, status=new_status)
+
+    return order_item
 
 
 def place_order(*, customer, shipping_data, payment_method):

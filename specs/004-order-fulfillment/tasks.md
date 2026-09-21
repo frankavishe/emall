@@ -48,17 +48,17 @@ service function every mutating endpoint calls
 status-update endpoint, User Story 2's displayed values, and User Story 3's history view all read
 or write through this shared model/service layer
 
-- [ ] T001 Widen `OrderItem.Status` in `backend/apps/orders/models.py`: add `PROCESSING =
+- [X] T001 Widen `OrderItem.Status` in `backend/apps/orders/models.py`: add `PROCESSING =
       "PROCESSING", "Processing"`, `SHIPPED = "SHIPPED", "Shipped"`, `DELIVERED = "DELIVERED",
       "Delivered"`, `CANCELLED = "CANCELLED", "Cancelled"` to the existing `Status` class
       (currently only `PENDING = "PENDING", "Pending"`) per data-model.md; default stays `PENDING`
-- [ ] T002 [P] Create `OrderItemStatusEvent` model in `backend/apps/orders/models.py` per
+- [X] T002 [P] Create `OrderItemStatusEvent` model in `backend/apps/orders/models.py` per
       data-model.md: `order_item` (`ForeignKey(OrderItem, related_name="status_events",
       on_delete=CASCADE)`), `status` (`CharField`, `choices=OrderItem.Status`), `changed_at`
       (`auto_now_add=True`) (depends on T001)
-- [ ] T003 Generate and apply the `orders` migration (`python manage.py makemigrations orders &&
+- [X] T003 Generate and apply the `orders` migration (`python manage.py makemigrations orders &&
       python manage.py migrate`) (depends on T001, T002)
-- [ ] T004 Implement `advance_order_item_status(order_item, new_status)` in
+- [X] T004 Implement `advance_order_item_status(order_item, new_status)` in
       `backend/apps/orders/services.py`: validate the requested transition against the fixed
       adjacency map `PENDING→{PROCESSING, CANCELLED}`, `PROCESSING→{SHIPPED, CANCELLED}`,
       `SHIPPED→{DELIVERED}`, `DELIVERED→{}`, `CANCELLED→{}` (FR-002, FR-003, research.md §1);
@@ -69,7 +69,7 @@ or write through this shared model/service layer
       `status`, and create one `OrderItemStatusEvent(order_item=order_item, status=new_status)`
       row (FR-009). On any other valid transition: same atomic save + history-event creation,
       without the stock step (depends on T001, T002, T003)
-- [ ] T005 [P] Create `backend/apps/orders/permissions.py` with `IsOrderItemShopOwner`
+- [X] T005 [P] Create `backend/apps/orders/permissions.py` with `IsOrderItemShopOwner`
       (object-level: `obj.product.shop.owner_id == request.user.id`), mirroring
       `apps.catalog.permissions.IsProductOwner` (research.md §5) (depends on T001)
 
@@ -93,23 +93,27 @@ containing one of that Vendor's products, log in as the Vendor, confirm the line
 
 > Write these tests FIRST, ensure they FAIL before implementation
 
-- [ ] T006 [P] [US1] Contract test `GET /api/vendor/order-items` — returns only lines whose
+- [X] T006 [P] [US1] Contract test `GET /api/vendor/order-items` — returns only lines whose
       product belongs to the requester's own shop(s), across every Customer's order, paginated,
       each row including shipping details; `403` for a non-Vendor caller (FR-001, FR-004,
       Acceptance Scenario 1) in `backend/tests/orders/test_vendor_order_item_list.py`
-- [ ] T007 [P] [US1] Contract test `PATCH /api/vendor/order-items/{id}/status` — `200` for each
+- [X] T007 [P] [US1] Contract test `PATCH /api/vendor/order-items/{id}/status` — `200` for each
       single valid forward step `PENDING→PROCESSING→SHIPPED→DELIVERED` (FR-002, FR-003,
       Acceptance Scenario 2/3) in
       `backend/tests/orders/test_vendor_order_item_status_transitions.py`
-- [ ] T008 [P] [US1] Contract test `PATCH .../status` rejections — `400` with the stored status
+- [X] T008 [P] [US1] Contract test `PATCH .../status` rejections — `400` with the stored status
       unchanged for a backward transition, a skipped transition, a transition attempted from
       `DELIVERED` or `CANCELLED`, and `CANCELLED` attempted from `SHIPPED` (FR-003, Edge Cases,
       SC-002) in `backend/tests/orders/test_vendor_order_item_invalid_transitions.py`
-- [ ] T009 [P] [US1] Contract test cross-vendor isolation — `PATCH .../status` on another vendor's
+- [X] T009 [P] [US1] Contract test cross-vendor isolation — `PATCH .../status` on another vendor's
       line ID returns `404` with no detail leaked; `PATCH .../status` on the requester's own line
-      whose shop is not currently `APPROVED` returns `403` (FR-004, FR-010, Acceptance Scenario 5)
-      in `backend/tests/orders/test_vendor_order_item_isolation.py`
-- [ ] T010 [P] [US1] Contract test stock restoration — cancelling a `quantity: 2` line increases
+      whose shop is not currently `APPROVED` returns `403` (FR-004, FR-010, Acceptance Scenario 5);
+      additionally, on a multi-vendor order, confirm that Vendor A advancing their own line leaves
+      Vendor B's line on the same order completely unchanged — same `status`, same
+      `OrderItemStatusEvent` count, via `GET /api/vendor/order-items/` as Vendor B before and after
+      (FR-004, SC-004, Acceptance Scenario 4) in
+      `backend/tests/orders/test_vendor_order_item_isolation.py`
+- [X] T010 [P] [US1] Contract test stock restoration — cancelling a `quantity: 2` line increases
       the product's `stock_quantity` by exactly `2` (FR-011, SC-006); a concurrency test mirroring
       `test_checkout_concurrency.py`'s pattern confirms two concurrent cancellations of different
       lines for the same product both restore correctly with no lost update
@@ -117,31 +121,31 @@ containing one of that Vendor's products, log in as the Vendor, confirm the line
 
 ### Implementation for User Story 1
 
-- [ ] T011 [US1] Implement `VendorOrderItemSerializer` (id, `order_id`, `product` [id, name],
+- [X] T011 [US1] Implement `VendorOrderItemSerializer` (id, `order_id`, `product` [id, name],
       `quantity`, `unit_price`, `status`, nested `shipping` denormalized from `order_item.order`
       — no `status_history` field, research.md §4) and `OrderItemStatusUpdateSerializer` (single
       `status` field, a `ChoiceField` restricted to `{PROCESSING, SHIPPED, DELIVERED, CANCELLED}`
       — a Vendor can never request `PENDING`) in `backend/apps/orders/serializers.py` (depends on
       T001)
-- [ ] T012 [US1] Implement `VendorOrderItemListView` in `backend/apps/orders/views.py`: `IsVendor`;
+- [X] T012 [US1] Implement `VendorOrderItemListView` in `backend/apps/orders/views.py`: `IsVendor`;
       queryset `OrderItem.objects.filter(product__shop__owner=request.user)
       .select_related("product", "product__shop", "order")` to avoid N+1 across the denormalized
       shipping/product fields (Constitution Resource Utilization) (depends on T011)
-- [ ] T013 [US1] Implement `VendorOrderItemStatusUpdateView` in `backend/apps/orders/views.py`:
+- [X] T013 [US1] Implement `VendorOrderItemStatusUpdateView` in `backend/apps/orders/views.py`:
       `IsVendor`; `get_object_or_404(OrderItem, pk=item_id, product__shop__owner=request.user)`
       (404 for cross-vendor, FR-004); if `order_item.product.shop.status != Shop.Status.APPROVED`
       raise `PermissionDenied` (403, FR-010); else validate via
       `OrderItemStatusUpdateSerializer`, call `advance_order_item_status()` (T004), translate a
       `TransitionError` to `400 {"status": [str(error)]}` (depends on T011, T004; same file as
       T012)
-- [ ] T014 [US1] Wire `vendor_urlpatterns` (`vendor/order-items`,
+- [X] T014 [US1] Wire `vendor_urlpatterns` (`vendor/order-items`,
       `vendor/order-items/<int:item_id>/status`) in `backend/apps/orders/urls.py`; include at
       `api/vendor/` in `backend/config/urls.py` alongside the existing
       `apps.vendors.urls`/`apps.catalog.urls` vendor includes (depends on T012, T013)
-- [ ] T015 [US1] Add `listVendorOrderItems(page)`/`updateOrderItemStatus(itemId, status)` calls to
+- [X] T015 [US1] Add `listVendorOrderItems(page)`/`updateOrderItemStatus(itemId, status)` calls to
       `frontend/src/lib/api-client.ts`, matching the `checkout`/`listOrders`/`getOrder`
       wrapper-function precedent already in that file (depends on T014)
-- [ ] T016 [US1] Build `frontend/src/app/vendor/orders/page.tsx`: lists the Vendor's own order
+- [X] T016 [US1] Build `frontend/src/app/vendor/orders/page.tsx`: lists the Vendor's own order
       lines with current status and shipping context, and an action control constrained to the
       line's valid next step(s) (advance or cancel), server-validated regardless (depends on T015)
 
@@ -240,8 +244,9 @@ visibility, and Administrator oversight all work end to end.
 **Purpose**: Improvements that affect multiple user stories
 
 - [ ] T028 [P] Confirm `VendorOrderItemListView`'s and `AdminOrderItemListView`'s (T012, T024)
-      pagination page size is sane per Constitution "Resource Utilization" in
-      `backend/apps/orders/views.py`
+      pagination page size matches the existing `PAGE_SIZE = 20` DRF default (`config/settings.py`)
+      that `OrderListView` already inherits (Constitution "Resource Utilization" — consistent list
+      pagination across the app) in `backend/apps/orders/views.py`
 - [ ] T029 Run all 5 `quickstart.md` scenarios end to end against real PostgreSQL with migrations
       applied, per Constitution Principle V
 - [ ] T030 [P] Security/validation review pass: confirm every Vendor/Administrator `OrderItem`

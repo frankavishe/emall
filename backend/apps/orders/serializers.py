@@ -3,7 +3,7 @@ from decimal import Decimal
 from rest_framework import serializers
 
 from apps.catalog.models import Product
-from apps.orders.models import Order, OrderItem
+from apps.orders.models import Order, OrderItem, OrderItemStatusEvent
 from apps.payments.models import PaymentRecord
 
 
@@ -41,6 +41,50 @@ class OrderItemSerializer(serializers.ModelSerializer):
         model = OrderItem
         fields = ["id", "product", "shop_name", "quantity", "unit_price", "subtotal", "status"]
         read_only_fields = fields
+
+
+class VendorOrderItemShippingSerializer(serializers.Serializer):
+    """Denormalized from `order_item.order` — a Vendor needs shipping details to fulfill a line
+    without a second request (contracts/order-fulfillment-api.md)."""
+
+    recipient_name = serializers.CharField()
+    address_line = serializers.CharField()
+    city = serializers.CharField()
+    region = serializers.CharField()
+    postal_code = serializers.CharField()
+    country = serializers.CharField()
+    phone = serializers.CharField()
+
+
+class VendorOrderItemSerializer(serializers.ModelSerializer):
+    """A Vendor's own fulfillment queue row — current status only, no history (Administrator-only,
+    Clarifications session 2026-09-21)."""
+
+    order_id = serializers.IntegerField(source="order.id", read_only=True)
+    product = OrderItemProductSerializer(read_only=True)
+    shipping = serializers.SerializerMethodField()
+
+    class Meta:
+        model = OrderItem
+        fields = ["id", "order_id", "product", "quantity", "unit_price", "status", "shipping"]
+        read_only_fields = fields
+
+    def get_shipping(self, obj):
+        return VendorOrderItemShippingSerializer(obj.order).data
+
+
+class OrderItemStatusUpdateSerializer(serializers.Serializer):
+    """Request shape only (contracts/order-fulfillment-api.md) — a Vendor can never request
+    `PENDING`, since that's only ever set by `place_order()`."""
+
+    status = serializers.ChoiceField(
+        choices=[
+            OrderItem.Status.PROCESSING,
+            OrderItem.Status.SHIPPED,
+            OrderItem.Status.DELIVERED,
+            OrderItem.Status.CANCELLED,
+        ]
+    )
 
 
 class PaymentRecordSerializer(serializers.ModelSerializer):

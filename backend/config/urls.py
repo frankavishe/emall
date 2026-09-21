@@ -22,6 +22,7 @@ from django.urls import include, path
 from apps.catalog.urls import vendor_urlpatterns as catalog_vendor_urlpatterns
 from apps.orders.urls import checkout_urlpatterns
 from apps.orders.urls import urlpatterns as order_urlpatterns
+from apps.orders.urls import vendor_urlpatterns as orders_vendor_urlpatterns
 from apps.vendors.urls import admin_urlpatterns as vendor_admin_urlpatterns
 
 urlpatterns = [
@@ -29,6 +30,7 @@ urlpatterns = [
     path("api/auth/", include("apps.accounts.urls")),
     path("api/vendor/", include("apps.vendors.urls")),
     path("api/vendor/", include(catalog_vendor_urlpatterns)),
+    path("api/vendor/", include(orders_vendor_urlpatterns)),
     path("api/catalog/", include("apps.catalog.urls")),
     path("api/admin/", include(vendor_admin_urlpatterns)),
     path("api/", include("apps.cart.urls")),

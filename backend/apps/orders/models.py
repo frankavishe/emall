@@ -43,6 +43,10 @@ class OrderItem(models.Model):
 
     class Status(models.TextChoices):
         PENDING = "PENDING", "Pending"
+        PROCESSING = "PROCESSING", "Processing"
+        SHIPPED = "SHIPPED", "Shipped"
+        DELIVERED = "DELIVERED", "Delivered"
+        CANCELLED = "CANCELLED", "Cancelled"
 
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="items")
     product = models.ForeignKey(
@@ -60,3 +64,20 @@ class OrderItem(models.Model):
     @property
     def subtotal(self):
         return self.unit_price * self.quantity
+
+
+class OrderItemStatusEvent(models.Model):
+    """One row per `OrderItem.status` change, written only by
+    `orders.services.advance_order_item_status()` in the same transaction as the status write
+    (data-model.md). Append-only — never updated or deleted once created. Visible only to
+    Administrators (Clarifications session 2026-09-21).
+    """
+
+    order_item = models.ForeignKey(
+        OrderItem, on_delete=models.CASCADE, related_name="status_events"
+    )
+    status = models.CharField(max_length=20, choices=OrderItem.Status.choices)
+    changed_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"OrderItem({self.order_item_id}) -> {self.status}"
