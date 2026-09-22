@@ -221,22 +221,22 @@ independently work.
 
 **Purpose**: The login/register redirect change (applies across all roles) and final verification
 
-- [ ] T023 [P] In `frontend/src/app/login/page.tsx`, change the post-login
+- [x] T023 [P] In `frontend/src/app/login/page.tsx`, change the post-login
       `router.push("/account")` to `router.push("/")` (FR-014)
-- [ ] T024 [P] In `frontend/src/app/register/page.tsx`, change the post-registration
+- [x] T024 [P] In `frontend/src/app/register/page.tsx`, change the post-registration
       `router.push("/account")` to `router.push("/")` (FR-014)
-- [ ] T025 Manually confirm that after a session expires or the user logs out, the homepage
+- [x] T025 Manually confirm that after a session expires or the user logs out, the homepage
       reverts to the guest view on next load rather than showing stale role-specific data (FR-013)
-- [ ] T026 [P] Regression check: directly navigating (typed URL) to a role-restricted page (e.g.
+- [x] T026 [P] Regression check: directly navigating (typed URL) to a role-restricted page (e.g.
       `/admin/shops`) as a mismatched or logged-out role is still blocked exactly as before this
       feature — no code change expected, this feature must not weaken existing enforcement
 - [ ] T027 Run all 6 `quickstart.md` scenarios end to end against the running backend
       (`python manage.py runserver`) and frontend (`npm run dev`) dev servers (depends on all
       prior tasks)
-- [ ] T028 `cd backend && pytest` — full suite passes, including the new
+- [x] T028 `cd backend && pytest` — full suite passes, including the new
       `backend/tests/core/test_pagination.py`, with no regressions in any existing suite (depends
       on T004, T013, T017, T018)
-- [ ] T029 Confirm FR-010 / constitution Principle VI: `git status`/`git diff` show no changes to
+- [x] T029 Confirm FR-010 / constitution Principle VI: `git status`/`git diff` show no changes to
       `backend/apps/accounts/models.py` or `backend/apps/vendors/models.py`, no new migration
       files under either app's `migrations/`, and no change to `Shop.Status` choices or transition
       logic — this feature is presentation-only and must not touch the three-role model or the

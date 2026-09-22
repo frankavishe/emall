@@ -28,7 +28,7 @@ export default function RegisterPage() {
       } else {
         await registerCustomer(name, email, password);
       }
-      router.push("/account");
+      router.push("/");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
     } finally {
