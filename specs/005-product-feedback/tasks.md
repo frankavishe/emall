@@ -34,10 +34,10 @@ implementation and testing of each story.
 
 **Purpose**: Scaffold the new Django app this feature lives in
 
-- [ ] T001 Create the `backend/apps/feedback/` Django app (`__init__.py`, `apps.py`, `models.py`,
+- [X] T001 Create the `backend/apps/feedback/` Django app (`__init__.py`, `apps.py`, `models.py`,
       `migrations/__init__.py`), matching the existing app layout (e.g. `backend/apps/vendors/`)
-- [ ] T002 Add `"apps.feedback"` to `INSTALLED_APPS` in `backend/config/settings.py`
-- [ ] T003 [P] Add `OrderItemFactory` to `backend/tests/factories.py` (product, order via
+- [X] T002 Add `"apps.feedback"` to `INSTALLED_APPS` in `backend/config/settings.py`
+- [X] T003 [P] Add `OrderItemFactory` to `backend/tests/factories.py` (product, order via
       `SubFactory`, `quantity`, `status=OrderItem.Status.DELIVERED` by default) — fills the gap
       004-order-fulfillment's tests worked around (research.md §7); needed by every story's tests
       below to set up DELIVERED/non-DELIVERED fixtures quickly
@@ -56,7 +56,7 @@ on
 path, User Story 2's read/aggregate, and User Stories 3-4's scoped list views all read or write
 through this model
 
-- [ ] T004 Create `Review` model in `backend/apps/feedback/models.py` per data-model.md:
+- [X] T004 Create `Review` model in `backend/apps/feedback/models.py` per data-model.md:
       `customer` (`ForeignKey(settings.AUTH_USER_MODEL, on_delete=CASCADE,
       related_name="reviews")`), `product` (`ForeignKey("catalog.Product", on_delete=CASCADE,
       related_name="reviews")`), `rating` (`PositiveSmallIntegerField`, must be "1-5 inclusive,
@@ -65,11 +65,11 @@ through this model
       `UniqueConstraint(fields=["customer", "product"],
       name="unique_review_per_customer_product")` and `CheckConstraint(condition=Q(rating__gte=1)
       & Q(rating__lte=5), name="review_rating_range")` in `Meta.constraints`
-- [ ] T005 Generate and apply the `feedback` migration (`python manage.py makemigrations feedback
+- [X] T005 Generate and apply the `feedback` migration (`python manage.py makemigrations feedback
       && python manage.py migrate`) (depends on T001, T002, T004)
-- [ ] T006 [P] Add `ReviewFactory` to `backend/tests/factories.py` (customer, product via
+- [X] T006 [P] Add `ReviewFactory` to `backend/tests/factories.py` (customer, product via
       `SubFactory`, `rating=5`, `comment="Great product."`) (depends on T004)
-- [ ] T007 [P] Implement `has_delivered_purchase(customer, product)` in
+- [X] T007 [P] Implement `has_delivered_purchase(customer, product)` in
       `backend/apps/feedback/permissions.py`: returns
       `OrderItem.objects.filter(order__customer=customer, product=product,
       status=OrderItem.Status.DELIVERED).exists()` (FR-001, FR-002; research.md §2 — re-checked
@@ -95,44 +95,44 @@ rejected.
 
 > Write these tests FIRST, ensure they FAIL before implementation
 
-- [ ] T008 [P] [US1] Contract test `POST /api/feedback/products/{product_id}/review/` with rating
+- [X] T008 [P] [US1] Contract test `POST /api/feedback/products/{product_id}/review/` with rating
       + comment — `201`, review saved and attributed to the requesting customer (FR-001,
       Acceptance Scenario 1) in `backend/tests/feedback/test_customer_review_submit.py`
-- [ ] T009 [P] [US1] Contract test `POST .../review/` with rating only, no `comment` — `201`,
+- [X] T009 [P] [US1] Contract test `POST .../review/` with rating only, no `comment` — `201`,
       `comment` defaults to `""` (FR-001 "comment optional", Acceptance Scenario 2) in the same
       file as T008
-- [ ] T010 [P] [US1] Contract test `POST .../review/` from a Customer with no DELIVERED
+- [X] T010 [P] [US1] Contract test `POST .../review/` from a Customer with no DELIVERED
       `OrderItem` for that product — `403`, no review row created (FR-002, Acceptance Scenario 3,
       SC-002) in `backend/tests/feedback/test_customer_review_eligibility.py`
-- [ ] T011 [P] [US1] Contract test repeat `POST .../review/` by the same Customer for the same
+- [X] T011 [P] [US1] Contract test repeat `POST .../review/` by the same Customer for the same
       product — second call returns `200` (not `201`) with the same review `id` as the first,
       updated rating/comment; at most one `Review` row exists for that (customer, product) pair
       (FR-003, Acceptance Scenario 4/5, SC-006) in
       `backend/tests/feedback/test_customer_review_upsert.py`
-- [ ] T012 [P] [US1] Contract test `DELETE /api/feedback/products/{product_id}/review/` — `204`
+- [X] T012 [P] [US1] Contract test `DELETE /api/feedback/products/{product_id}/review/` — `204`
       and the review is gone for the owning Customer; a second `DELETE` returns `404`; a Customer
       with no review on that product also gets `404` (FR-004) in
       `backend/tests/feedback/test_customer_review_delete.py`
 
 ### Implementation for User Story 1
 
-- [ ] T013 [US1] Implement `ReviewWriteSerializer` (`rating` required `IntegerField(min_value=1,
+- [X] T013 [US1] Implement `ReviewWriteSerializer` (`rating` required `IntegerField(min_value=1,
       max_value=5)`, `comment` optional `CharField(required=False, allow_blank=True, default="")`)
       in `backend/apps/feedback/serializers.py` (depends on T004)
-- [ ] T014 [US1] Implement `CustomerReviewView` in `backend/apps/feedback/views.py`: `IsCustomer`;
+- [X] T014 [US1] Implement `CustomerReviewView` in `backend/apps/feedback/views.py`: `IsCustomer`;
       `post()` calls `has_delivered_purchase()` (T007), raising `403` if `False`, then
       `Review.objects.update_or_create(customer=request.user, product=product,
       defaults={"rating": ..., "comment": ...})` via `ReviewWriteSerializer`, returning `201` on
       create / `200` on update; `delete()` does `get_object_or_404(Review, customer=request.user,
       product=product)` then deletes it, returning `204` (depends on T007, T013)
-- [ ] T015 [US1] Wire `urlpatterns` (`feedback/products/<int:product_id>/review`) in
+- [X] T015 [US1] Wire `urlpatterns` (`feedback/products/<int:product_id>/review`) in
       `backend/apps/feedback/urls.py`; include at `api/` in `backend/config/urls.py` (mounting the
       full `/api/feedback/...` path) alongside the existing `apps.cart.urls`/checkout includes
       (depends on T014)
-- [ ] T016 [US1] Add `submitReview(productId, { rating, comment })` /
+- [X] T016 [US1] Add `submitReview(productId, { rating, comment })` /
       `deleteReview(productId)` calls to `frontend/src/lib/api-client.ts`, matching the
       `checkout`/`listOrders` wrapper-function precedent already in that file (depends on T015)
-- [ ] T017 [US1] Build a review submission form (star input + optional comment textarea) in
+- [X] T017 [US1] Build a review submission form (star input + optional comment textarea) in
       `frontend/src/app/products/[id]/page.tsx`, shown to any logged-in Customer viewing the
       product; on submit calls `submitReview`; on a `403` response shows "You can only review
       products you have received" rather than a generic error (depends on T016)

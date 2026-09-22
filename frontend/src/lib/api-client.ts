@@ -199,3 +199,29 @@ export type AdminOrderItem = {
 export async function listAdminOrderItems(page = 1): Promise<PaginatedResponse<AdminOrderItem>> {
   return apiFetch<PaginatedResponse<AdminOrderItem>>(`/api/admin/order-items?page=${page}`);
 }
+
+export type Review = {
+  id: number;
+  product: number;
+  rating: number;
+  comment: string;
+  created_at: string;
+  updated_at: string;
+};
+
+/** `POST /api/feedback/products/{id}/review` (task T016, contracts/feedback-api.md). Creates or
+ * updates the requesting Customer's own review (upsert). */
+export async function submitReview(
+  productId: number,
+  data: { rating: number; comment?: string },
+): Promise<Review> {
+  return apiFetch<Review>(`/api/feedback/products/${productId}/review`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+/** `DELETE /api/feedback/products/{id}/review` (task T016, contracts/feedback-api.md). */
+export async function deleteReview(productId: number): Promise<void> {
+  await apiFetch<void>(`/api/feedback/products/${productId}/review`, { method: "DELETE" });
+}

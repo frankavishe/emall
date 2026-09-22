@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { apiFetch, ApiError } from "@/lib/api-client";
+import { apiFetch, ApiError, submitReview } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 
 type CatalogProductDetail = {
@@ -26,6 +26,10 @@ export default function ProductDetailPage() {
   const [quantity, setQuantity] = useState(1);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [addToCartMessage, setAddToCartMessage] = useState<string | null>(null);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [reviewMessage, setReviewMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -71,6 +75,26 @@ export default function ProductDetailPage() {
       );
     } finally {
       setIsAddingToCart(false);
+    }
+  }
+
+  async function handleSubmitReview() {
+    if (!product) return;
+    setIsSubmittingReview(true);
+    setReviewMessage(null);
+    try {
+      await submitReview(product.id, { rating: reviewRating, comment: reviewComment });
+      setReviewMessage("Thanks for your review!");
+    } catch (err) {
+      setReviewMessage(
+        err instanceof ApiError && err.status === 403
+          ? "You can only review products you have received."
+          : err instanceof ApiError
+            ? err.message
+            : "Something went wrong. Please try again.",
+      );
+    } finally {
+      setIsSubmittingReview(false);
     }
   }
 
@@ -162,6 +186,43 @@ export default function ProductDetailPage() {
               </div>
             ))}
           {addToCartMessage && <p className="mt-2 text-sm text-black/60">{addToCartMessage}</p>}
+
+          {user && user.role === "CUSTOMER" && (
+            <div className="mt-8 border-t border-black/10 pt-6">
+              <h2 className="text-sm font-semibold">Leave a review</h2>
+              <div className="mt-2 flex items-center gap-1">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setReviewRating(star)}
+                    aria-label={`${star} star${star === 1 ? "" : "s"}`}
+                    className={`text-2xl leading-none ${
+                      star <= reviewRating ? "text-yellow-500" : "text-black/20"
+                    }`}
+                  >
+                    ★
+                  </button>
+                ))}
+              </div>
+              <textarea
+                value={reviewComment}
+                onChange={(event) => setReviewComment(event.target.value)}
+                placeholder="Write a comment (optional)"
+                rows={3}
+                className="mt-3 w-full rounded-md border border-black/15 px-3 py-2 text-sm"
+              />
+              <button
+                type="button"
+                disabled={isSubmittingReview}
+                onClick={() => void handleSubmitReview()}
+                className="mt-3 rounded-md bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              >
+                Submit review
+              </button>
+              {reviewMessage && <p className="mt-2 text-sm text-black/60">{reviewMessage}</p>}
+            </div>
+          )}
         </div>
       </div>
     </main>
