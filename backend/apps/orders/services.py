@@ -2,15 +2,19 @@
 created — no view constructs one directly.
 """
 
+import logging
 from decimal import Decimal
 
 from django.db import transaction
 
 from apps.cart.models import CartItem
 from apps.catalog.models import Product
+from apps.core.email import get_email_service
 from apps.orders.models import Order, OrderItem, OrderItemStatusEvent
 from apps.payments.models import PaymentRecord
 from apps.payments.services import get_payment_service
+
+logger = logging.getLogger(__name__)
 
 
 class CheckoutError(Exception):
@@ -46,6 +50,19 @@ _VALID_TRANSITIONS = {
 }
 
 
+def _notify_order_item_status_change(order_item):
+    """Best-effort side effect of a committed status change (research.md §1, §2). Any failure
+    here is caught and logged, never propagated — a notification problem must never look like a
+    failure of the (already-committed) status transition itself (FR-005)."""
+
+    try:
+        get_email_service().send_order_item_status_email(order_item)
+    except Exception:
+        logger.exception(
+            "Failed to send order item status notification for order_item_id=%s", order_item.id
+        )
+
+
 def advance_order_item_status(*, order_item, new_status):
     """The only path that ever changes `OrderItem.status` (data-model.md). Validates the
     requested transition against `_VALID_TRANSITIONS` before writing anything; on a valid
@@ -68,6 +85,7 @@ def advance_order_item_status(*, order_item, new_status):
         order_item.status = new_status
         order_item.save(update_fields=["status"])
         OrderItemStatusEvent.objects.create(order_item=order_item, status=new_status)
+        transaction.on_commit(lambda: _notify_order_item_status_change(order_item))
 
     return order_item
 
