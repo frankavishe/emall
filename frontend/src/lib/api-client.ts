@@ -222,9 +222,40 @@ export type AdminOrderItem = {
   status_history: { status: string; changed_at: string }[];
 };
 
-/** `GET /api/admin/order-items` (task T026, contracts/order-fulfillment-api.md). */
-export async function listAdminOrderItems(page = 1): Promise<PaginatedResponse<AdminOrderItem>> {
-  return apiFetch<PaginatedResponse<AdminOrderItem>>(`/api/admin/order-items?page=${page}`);
+export type AdminShop = {
+  id: string;
+  name: string;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  status_reason: string | null;
+  created_at: string;
+  owner_name: string;
+  owner_email: string;
+};
+
+/** `GET /api/admin/shops` (task T019, contracts/homepage-api.md). `limit` maps to the opt-in
+ * `?page_size=` (task T017) — omit it to get the existing default page of 20. */
+export async function listAdminShops(
+  status?: string,
+  limit?: number,
+): Promise<PaginatedResponse<AdminShop>> {
+  const params = new URLSearchParams();
+  if (status) params.set("status", status);
+  if (limit) params.set("page_size", String(limit));
+  const query = params.toString() ? `?${params.toString()}` : "";
+  return apiFetch<PaginatedResponse<AdminShop>>(`/api/admin/shops${query}`);
+}
+
+/** `GET /api/admin/order-items` (task T026, contracts/order-fulfillment-api.md). `limit` maps to
+ * the opt-in `?page_size=` (task T018, contracts/homepage-api.md) — omit it to get the existing
+ * default page of 20. */
+export async function listAdminOrderItems(
+  page = 1,
+  limit?: number,
+): Promise<PaginatedResponse<AdminOrderItem>> {
+  const limitParam = limit ? `&page_size=${limit}` : "";
+  return apiFetch<PaginatedResponse<AdminOrderItem>>(
+    `/api/admin/order-items?page=${page}${limitParam}`,
+  );
 }
 
 export type Review = {

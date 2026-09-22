@@ -6,9 +6,12 @@ import { useAuth, type Shop } from "@/lib/auth-context";
 import {
   listProducts,
   listVendorOrderItems,
+  listAdminShops,
+  listAdminOrderItems,
   ApiError,
   type CatalogProduct,
   type VendorOrderItem,
+  type AdminOrderItem,
 } from "@/lib/api-client";
 
 const HIGHLIGHT_COUNT = 8;
@@ -263,6 +266,102 @@ function VendorHomepage({ shop }: { shop: Shop | undefined }) {
   );
 }
 
+function useAdminSummary() {
+  const [pendingCount, setPendingCount] = useState<number | null>(null);
+  const [orders, setOrders] = useState<AdminOrderItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const [shopsResponse, ordersResponse] = await Promise.all([
+          listAdminShops("PENDING", 1),
+          listAdminOrderItems(1, RECENT_ORDER_COUNT),
+        ]);
+        if (!cancelled) {
+          setPendingCount(shopsResponse.count);
+          setOrders(ordersResponse.results);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(
+            err instanceof ApiError ? err.message : "Something went wrong. Please try again.",
+          );
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    }
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return { pendingCount, orders, isLoading, error };
+}
+
+function AdministratorHomepage() {
+  const { pendingCount, orders, isLoading, error } = useAdminSummary();
+
+  return (
+    <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-10 px-6 py-12">
+      <section className="flex flex-col items-start gap-4">
+        <h1 className="text-3xl font-semibold">Admin overview</h1>
+        {isLoading ? (
+          <p className="text-sm text-black/60">Loading…</p>
+        ) : error ? (
+          <p className="text-sm text-red-600">{error}</p>
+        ) : (
+          <p className="text-black/60">
+            <span className="font-medium text-black">{pendingCount}</span>{" "}
+            {pendingCount === 1 ? "shop" : "shops"} pending approval.
+          </p>
+        )}
+        <Link
+          href="/admin/shops"
+          className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white"
+        >
+          Review shop approvals
+        </Link>
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold">Recent orders</h2>
+          <Link href="/admin/orders" className="text-sm font-medium underline">
+            View all orders
+          </Link>
+        </div>
+        {isLoading ? (
+          <p className="text-sm text-black/60">Loading orders…</p>
+        ) : error ? (
+          <p className="text-sm text-red-600">{error}</p>
+        ) : orders.length === 0 ? (
+          <p className="text-sm text-black/60">No orders yet.</p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {orders.map((item) => (
+              <li key={item.id} className="rounded-md border border-black/15 p-4 text-sm">
+                <p className="font-medium">{item.product.name}</p>
+                <p className="text-black/60">
+                  {item.shop.name} · Qty {item.quantity} · {item.status}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </main>
+  );
+}
+
 export default function Home() {
   const { user, isLoading } = useAuth();
 
@@ -286,10 +385,5 @@ export default function Home() {
     return <VendorHomepage shop={user.shops?.[0]} />;
   }
 
-  // Administrator homepage ships in a later user story (US5).
-  return (
-    <main className="mx-auto flex min-h-screen max-w-5xl items-center justify-center px-6 py-12">
-      <p className="text-sm text-black/60">Welcome back.</p>
-    </main>
-  );
+  return <AdministratorHomepage />;
 }

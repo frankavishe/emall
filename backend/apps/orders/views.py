@@ -126,6 +126,7 @@ class AdminOrderItemListView(ListAPIView):
 
     permission_classes = [IsAdministrator]
     serializer_class = AdminOrderItemSerializer
+    pagination_class = LimitedPageNumberPagination
 
     def get_queryset(self):
         return (

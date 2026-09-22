@@ -188,26 +188,26 @@ confirm the count, order list, and links (quickstart.md Scenario 5).
 
 ### Implementation for User Story 5
 
-- [ ] T017 [P] [US5] Set `pagination_class = LimitedPageNumberPagination` on `AdminShopListView`
+- [X] T017 [P] [US5] Set `pagination_class = LimitedPageNumberPagination` on `AdminShopListView`
       in `backend/apps/vendors/views.py` (depends on T002)
-- [ ] T018 [P] [US5] Set `pagination_class = LimitedPageNumberPagination` on
+- [X] T018 [P] [US5] Set `pagination_class = LimitedPageNumberPagination` on
       `AdminOrderItemListView` in `backend/apps/orders/views.py` (depends on T002)
-- [ ] T019 [P] [US5] Add `listAdminShops(status?: string, limit?: number)` to
+- [X] T019 [P] [US5] Add `listAdminShops(status?: string, limit?: number)` to
       `frontend/src/lib/api-client.ts`: `GET /api/admin/shops` with optional `?status=` and
       `?page_size=`, typed `Promise<PaginatedResponse<AdminShop>>` — this widens the currently
       under-typed inline call in `frontend/src/app/admin/shops/page.tsx` (data-model.md) (depends
       on T017)
-- [ ] T020 [US5] Extend `listAdminOrderItems` in `frontend/src/lib/api-client.ts` with an
+- [X] T020 [US5] Extend `listAdminOrderItems` in `frontend/src/lib/api-client.ts` with an
       optional `limit` parameter that appends `&page_size=${limit}`; omitting `limit` MUST
       preserve today's behavior exactly. Sequenced after T019 (not marked [P]) since both edit
       `api-client.ts` (depends on T018, T019)
-- [ ] T021 [US5] Extend `frontend/src/app/page.tsx` with an Administrator branch
+- [X] T021 [US5] Extend `frontend/src/app/page.tsx` with an Administrator branch
       (`user.role === "ADMINISTRATOR"`): pending-shop count via
       `listAdminShops("PENDING", 1)` reading the response's `.count` field (FR-006, research.md
       §3), recent platform orders via `listAdminOrderItems(1, 5)`, links to `/admin/shops` and
       `/admin/orders`; explicit zero-count state (FR-006 Acceptance Scenario 2), loading/error
       states (FR-011/FR-012) (depends on T019, T020)
-- [ ] T022 [US5] Manually confirm the pending-shop count reflects the full filtered queryset (not
+- [X] T022 [US5] Manually confirm the pending-shop count reflects the full filtered queryset (not
       just the returned page) and updates after shops are approved/rejected, and that the
       Administrator branch shows no guest CTAs and no Customer/Vendor-only content (FR-006,
       SC-003), per quickstart.md Scenario 5 (depends on T021)
