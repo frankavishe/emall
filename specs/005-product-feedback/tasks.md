@@ -153,36 +153,36 @@ correct; confirm a product with no reviews returns an empty/zero state rather th
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T018 [P] [US2] Contract test `GET /api/catalog/products/{id}/` (no `Authorization` header)
+- [X] T018 [P] [US2] Contract test `GET /api/catalog/products/{id}/` (no `Authorization` header)
       for a product with reviews — response includes `average_rating`, `review_count`, and a
       `reviews` array with each review's rating, comment, reviewing customer's display name, and
       timestamp (FR-005, FR-006, Acceptance Scenario 1) in
       `backend/tests/feedback/test_catalog_product_reviews_display.py`
-- [ ] T019 [P] [US2] Contract test `GET /api/catalog/products/{id}/` for a product with zero
+- [X] T019 [P] [US2] Contract test `GET /api/catalog/products/{id}/` for a product with zero
       reviews — `average_rating: null`, `review_count: 0`, `reviews: []`, no error (FR-006,
       Acceptance Scenario 2) in the same file as T018
-- [ ] T020 [P] [US2] Contract test `GET /api/catalog/products/` (list endpoint) — each result
+- [X] T020 [P] [US2] Contract test `GET /api/catalog/products/` (list endpoint) — each result
       includes `average_rating`/`review_count` but no `reviews` array (contracts/feedback-api.md:
       full review list is detail-only) in the same file as T018
-- [ ] T021 [P] [US2] Contract test: after a new review is submitted (T014) or an existing one
+- [X] T021 [P] [US2] Contract test: after a new review is submitted (T014) or an existing one
       updated/removed, the next `GET /api/catalog/products/{id}/` reflects the recalculated
       `average_rating`/`review_count` with no separate recalculation step (FR-006, Acceptance
       Scenario 3) in the same file as T018
 
 ### Implementation for User Story 2
 
-- [ ] T022 [US2] Implement `ReviewDisplaySerializer` (`id`, `customer_display_name` [derived from
+- [X] T022 [US2] Implement `ReviewDisplaySerializer` (`id`, `customer_display_name` [derived from
       `review.customer`], `rating`, `comment`, `created_at`) in
       `backend/apps/feedback/serializers.py` (depends on T004)
-- [ ] T023 [US2] Extend `CatalogProductDetailSerializer` in `backend/apps/catalog/serializers.py`
+- [X] T023 [US2] Extend `CatalogProductDetailSerializer` in `backend/apps/catalog/serializers.py`
       with `average_rating`/`review_count` (`SerializerMethodField`s computing
       `obj.reviews.aggregate(Avg("rating"), Count("id"))`, research.md §4) and `reviews`
       (`ReviewDisplaySerializer(obj.reviews.select_related("customer").order_by("-created_at"),
       many=True).data`) (depends on T022)
-- [ ] T024 [US2] Extend `CatalogProductListSerializer` in `backend/apps/catalog/serializers.py`
+- [X] T024 [US2] Extend `CatalogProductListSerializer` in `backend/apps/catalog/serializers.py`
       with the same `average_rating`/`review_count` fields as T023, no `reviews` field (depends on
       T022)
-- [ ] T025 [US2] Build a reviews section (average-rating badge, review count, list of
+- [X] T025 [US2] Build a reviews section (average-rating badge, review count, list of
       rating+comment+reviewer name) on `frontend/src/app/products/[id]/page.tsx`, and an
       `average_rating` badge on the product grid item in `frontend/src/app/products/page.tsx`,
       using a shared star-rating display component in `frontend/src/components/` (depends on

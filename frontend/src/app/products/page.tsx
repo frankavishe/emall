@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { apiFetch, ApiError } from "@/lib/api-client";
+import { StarRating } from "@/components/star-rating";
 
 type Category = { name: string; slug: string };
 
@@ -14,6 +15,8 @@ type CatalogProduct = {
   in_stock: boolean;
   shop_name: string;
   thumbnail_url: string | null;
+  average_rating: number | null;
+  review_count: number;
 };
 
 export default function ProductsPage() {
@@ -179,6 +182,7 @@ export default function ProductsPage() {
                 <p className="text-sm text-black/60">
                   {product.in_stock ? "In stock" : "Out of stock"}
                 </p>
+                <StarRating rating={product.average_rating} reviewCount={product.review_count} />
               </Link>
             </li>
           ))}

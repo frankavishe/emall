@@ -5,6 +5,15 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { apiFetch, ApiError, submitReview } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
+import { StarRating } from "@/components/star-rating";
+
+type ProductReview = {
+  id: number;
+  customer_display_name: string;
+  rating: number;
+  comment: string;
+  created_at: string;
+};
 
 type CatalogProductDetail = {
   id: number;
@@ -15,6 +24,9 @@ type CatalogProductDetail = {
   stock_status: "in_stock" | "out_of_stock";
   shop: { id: number; name: string };
   images: { id: number; url: string; position: number }[];
+  average_rating: number | null;
+  review_count: number;
+  reviews: ProductReview[];
 };
 
 export default function ProductDetailPage() {
@@ -59,6 +71,15 @@ export default function ProductDetailPage() {
     };
   }, [params.id]);
 
+  async function refreshProduct() {
+    try {
+      const result = await apiFetch<CatalogProductDetail>(`/api/catalog/products/${params.id}`);
+      setProduct(result);
+    } catch {
+      // non-fatal — the page keeps showing the previously loaded product
+    }
+  }
+
   async function handleAddToCart() {
     if (!product) return;
     setIsAddingToCart(true);
@@ -85,6 +106,7 @@ export default function ProductDetailPage() {
     try {
       await submitReview(product.id, { rating: reviewRating, comment: reviewComment });
       setReviewMessage("Thanks for your review!");
+      await refreshProduct();
     } catch (err) {
       setReviewMessage(
         err instanceof ApiError && err.status === 403
@@ -152,6 +174,9 @@ export default function ProductDetailPage() {
           <p className="mt-1 text-sm text-black/60">
             {product.stock_status === "in_stock" ? "In stock" : "Out of stock"}
           </p>
+          <div className="mt-1">
+            <StarRating rating={product.average_rating} reviewCount={product.review_count} />
+          </div>
           <p className="mt-6 whitespace-pre-line text-sm text-black/80">{product.description}</p>
 
           {product.stock_status === "in_stock" &&
@@ -223,6 +248,34 @@ export default function ProductDetailPage() {
               {reviewMessage && <p className="mt-2 text-sm text-black/60">{reviewMessage}</p>}
             </div>
           )}
+
+          <div className="mt-8 border-t border-black/10 pt-6">
+            <h2 className="text-sm font-semibold">
+              Reviews {product.review_count > 0 && `(${product.review_count})`}
+            </h2>
+            {product.reviews.length === 0 ? (
+              <p className="mt-2 text-sm text-black/60">No reviews yet.</p>
+            ) : (
+              <ul className="mt-3 flex flex-col gap-4">
+                {product.reviews.map((review) => (
+                  <li key={review.id} className="border-b border-black/10 pb-4 last:border-0">
+                    <div className="flex items-center gap-2">
+                      <span aria-hidden="true" className="text-yellow-500">
+                        {[1, 2, 3, 4, 5].map((star) => (star <= review.rating ? "★" : "☆")).join("")}
+                      </span>
+                      <span className="text-sm font-medium">{review.customer_display_name}</span>
+                    </div>
+                    {review.comment && (
+                      <p className="mt-1 text-sm text-black/80">{review.comment}</p>
+                    )}
+                    <p className="mt-1 text-xs text-black/40">
+                      {new Date(review.created_at).toLocaleDateString()}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       </div>
     </main>
