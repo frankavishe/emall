@@ -2,7 +2,9 @@
 
 Django + Django REST Framework API for the emall project's Accounts & Authentication
 (`specs/001-accounts-auth/`) and Product Catalog (`specs/002-product-catalog/`) features, plus
-Shopping Cart & Checkout (`specs/003-cart-checkout/`).
+Shopping Cart & Checkout (`specs/003-cart-checkout/`), Vendor Order Fulfillment
+(`specs/004-order-fulfillment/`), and Order Status Notifications
+(`specs/005-order-status-notifications/`).
 
 ## Prerequisites
 
@@ -92,6 +94,45 @@ This creates (or updates, if it already exists) the Administrator user from `ADM
   add-to-cart time), so a vendor changing a product's price or publish status is reflected in every
   Customer's cart immediately.
 
+## Vendor Order Fulfillment (`orders` app extension)
+
+- No new Django app or dependency — this feature widens the existing `orders` app
+  (`specs/004-order-fulfillment/`, research.md §6).
+- `OrderItem.status` now supports the full lifecycle
+  `PENDING → PROCESSING → SHIPPED → DELIVERED`, plus `CANCELLED` (reachable only from `PENDING` or
+  `PROCESSING`, never from `SHIPPED`). Every transition is validated against a fixed adjacency map
+  in `apps/orders/services.py`'s `advance_order_item_status()` — the only path that ever changes
+  the status — which rejects any other requested pair (backward, skipped, or from a terminal
+  state) without writing anything.
+- Cancelling a line restores its quantity to the product's `stock_quantity` inside the same atomic
+  transaction as the status change (`select_for_update` on the product row).
+- Every status change is recorded in the new `OrderItemStatusEvent` history table
+  (`order_item`, `status`, `changed_at`).
+- New endpoints:
+  - `GET /api/vendor/order-items/` / `PATCH /api/vendor/order-items/{id}/status/` — a Vendor's own
+    order lines across every Customer's order, scoped by product-shop ownership at the queryset
+    level (cross-vendor access 404s, not 403s). A Vendor's response never includes
+    `status_history`.
+  - `GET /api/admin/order-items/` — read-only Administrator oversight across every shop's order
+    lines, the only response shape that includes a `status_history` array.
+
+## Order Status Notifications (`orders`/`core` app extension)
+
+- No new Django app, endpoint, or migration — a Customer is emailed as a side effect of a Vendor
+  advancing one of their `OrderItem`s (`specs/005-order-status-notifications/`).
+- Reuses the existing swappable email transport: a new
+  `EmailService.send_order_item_status_email()` method on `apps/core/email.py`, alongside
+  `send_verification_email`/`send_password_reset_email`, controlled by the same `EMAIL_BACKEND`
+  setting above.
+- Triggered from `apps/orders/services.py`'s `advance_order_item_status()` via
+  `transaction.on_commit()`, so a notification only ever fires after a transition has actually
+  committed, and never for a rejected transition attempt.
+- Delivery failures are caught and logged, not raised — a broken email transport can never block or
+  roll back the underlying (already-committed) status change.
+- One email per transition (`PROCESSING` / `SHIPPED` / `DELIVERED` / `CANCELLED`), always to the
+  order's Customer regardless of `is_email_verified`; the `CANCELLED` email never mentions
+  refunds/payment, since cancellation payment handling is out of scope.
+
 ## Running the frontend alongside
 
 ```powershell
@@ -123,3 +164,7 @@ shop-approval gate, public browse/search/filter, out-of-stock display, input val
 `specs/003-cart-checkout/quickstart.md` has five more (persistent cart management, checkout and
 order placement, cart reacting to live catalog changes, order history, and validation/edge cases
 including the concurrent-oversell race).
+
+`specs/004-order-fulfillment/quickstart.md` has five more (vendor fulfillment lifecycle, customer
+visibility into fulfillment progress, invalid-transition rejection, stock restoration on
+cancellation, and admin oversight with status history).
