@@ -6,6 +6,7 @@ from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.pagination import LimitedPageNumberPagination
 from apps.core.permissions import IsAdministrator, IsCustomer, IsVendor
 from apps.orders.models import Order, OrderItem, OrderItemStatusEvent
 from apps.orders.serializers import (
@@ -78,6 +79,7 @@ class VendorOrderItemListView(ListAPIView):
 
     permission_classes = [IsVendor]
     serializer_class = VendorOrderItemSerializer
+    pagination_class = LimitedPageNumberPagination
 
     def get_queryset(self):
         return (
