@@ -1,9 +1,22 @@
+from django.db.models import Avg, Count
 from rest_framework import serializers
 from rest_framework.exceptions import PermissionDenied
 
 from apps.catalog.models import Category, Product, ProductImage
+from apps.feedback.serializers import ReviewDisplaySerializer
 from apps.vendors.models import Shop
 from apps.vendors.serializers import ShopBriefSerializer
+
+
+class ReviewAggregateMixin:
+    """Shared `average_rating`/`review_count` computation for the public catalog serializers
+    (research.md §4 — computed on read, never denormalized on `Product`)."""
+
+    def get_average_rating(self, obj):
+        return obj.reviews.aggregate(value=Avg("rating"))["value"]
+
+    def get_review_count(self, obj):
+        return obj.reviews.aggregate(value=Count("id"))["value"]
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -136,18 +149,31 @@ class CatalogShopSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-class CatalogProductListSerializer(serializers.ModelSerializer):
+class CatalogProductListSerializer(ReviewAggregateMixin, serializers.ModelSerializer):
     """Public list shape (contracts/catalog-api.md) — never exposes the raw `stock_quantity`,
-    only the derived `in_stock` boolean (FR-011)."""
+    only the derived `in_stock` boolean (FR-011). Carries the aggregate rating (FR-006) but not
+    the full `reviews` list, which is detail-only (contracts/feedback-api.md)."""
 
     category = serializers.SlugRelatedField(slug_field="slug", read_only=True)
     in_stock = serializers.SerializerMethodField()
     shop_name = serializers.CharField(source="shop.name", read_only=True)
     thumbnail_url = serializers.SerializerMethodField()
+    average_rating = serializers.SerializerMethodField()
+    review_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
-        fields = ["id", "name", "price", "category", "in_stock", "shop_name", "thumbnail_url"]
+        fields = [
+            "id",
+            "name",
+            "price",
+            "category",
+            "in_stock",
+            "shop_name",
+            "thumbnail_url",
+            "average_rating",
+            "review_count",
+        ]
         read_only_fields = fields
 
     def get_in_stock(self, obj):
@@ -162,14 +188,18 @@ class CatalogProductListSerializer(serializers.ModelSerializer):
         return request.build_absolute_uri(url) if request else url
 
 
-class CatalogProductDetailSerializer(serializers.ModelSerializer):
+class CatalogProductDetailSerializer(ReviewAggregateMixin, serializers.ModelSerializer):
     """Public detail shape (contracts/catalog-api.md) — `stock_status` is derived, the raw
-    `stock_quantity` count is never exposed (FR-011)."""
+    `stock_quantity` count is never exposed (FR-011). Adds the aggregate rating and the full
+    `reviews` list (FR-005, FR-006)."""
 
     category = CategorySerializer(read_only=True)
     stock_status = serializers.SerializerMethodField()
     shop = CatalogShopSerializer(read_only=True)
     images = ProductImageReadSerializer(many=True, read_only=True)
+    average_rating = serializers.SerializerMethodField()
+    review_count = serializers.SerializerMethodField()
+    reviews = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -182,11 +212,18 @@ class CatalogProductDetailSerializer(serializers.ModelSerializer):
             "stock_status",
             "shop",
             "images",
+            "average_rating",
+            "review_count",
+            "reviews",
         ]
         read_only_fields = fields
 
     def get_stock_status(self, obj):
         return "in_stock" if obj.stock_quantity else "out_of_stock"
+
+    def get_reviews(self, obj):
+        queryset = obj.reviews.select_related("customer").order_by("-created_at")
+        return ReviewDisplaySerializer(queryset, many=True).data
 
 
 class VendorProductListSerializer(serializers.ModelSerializer):

@@ -17,6 +17,7 @@ from apps.catalog.serializers import (
     VendorProductListSerializer,
     VendorProductWriteSerializer,
 )
+from apps.core.pagination import LimitedPageNumberPagination
 from apps.core.permissions import IsVendor
 from apps.vendors.models import Shop
 
@@ -39,6 +40,7 @@ class CatalogProductListView(ListAPIView):
 
     permission_classes = [AllowAny]
     serializer_class = CatalogProductListSerializer
+    pagination_class = LimitedPageNumberPagination
 
     def get_queryset(self):
         queryset = (
