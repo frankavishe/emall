@@ -6,6 +6,7 @@ from rest_framework.generics import ListAPIView, ListCreateAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.pagination import LimitedPageNumberPagination
 from apps.core.permissions import IsAdministrator, IsVendor, require_verified_email
 from apps.vendors.models import Shop
 from apps.vendors.serializers import AdminShopListSerializer, ShopSerializer
@@ -29,6 +30,7 @@ class VendorShopListCreateView(ListCreateAPIView):
 class AdminShopListView(ListAPIView):
     permission_classes = [IsAdministrator]
     serializer_class = AdminShopListSerializer
+    pagination_class = LimitedPageNumberPagination
 
     def get_queryset(self):
         queryset = Shop.objects.select_related("owner").order_by("-created_at")

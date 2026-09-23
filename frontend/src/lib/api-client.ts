@@ -137,6 +137,25 @@ export type PaginatedResponse<T> = {
   results: T[];
 };
 
+export type CatalogProduct = {
+  id: number;
+  name: string;
+  price: string;
+  category: string | null;
+  in_stock: boolean;
+  shop_name: string;
+  thumbnail_url: string | null;
+  average_rating: number | null;
+  review_count: number;
+};
+
+/** `GET /api/catalog/products`; `limit` maps to the opt-in `?page_size=` (task T005,
+ * contracts/homepage-api.md) — omit it to get the existing default page of 20. */
+export async function listProducts(limit?: number): Promise<PaginatedResponse<CatalogProduct>> {
+  const query = limit ? `?page_size=${limit}` : "";
+  return apiFetch<PaginatedResponse<CatalogProduct>>(`/api/catalog/products${query}`);
+}
+
 /** `POST /api/checkout` (task T038, contracts/cart-checkout-api.md). */
 export async function checkout(
   shippingData: ShippingDetails,
@@ -168,9 +187,17 @@ export type VendorOrderItem = {
   shipping: ShippingDetails;
 };
 
-/** `GET /api/vendor/order-items` (task T015, contracts/order-fulfillment-api.md). */
-export async function listVendorOrderItems(page = 1): Promise<PaginatedResponse<VendorOrderItem>> {
-  return apiFetch<PaginatedResponse<VendorOrderItem>>(`/api/vendor/order-items?page=${page}`);
+/** `GET /api/vendor/order-items` (task T015, contracts/order-fulfillment-api.md). `limit` maps to
+ * the opt-in `?page_size=` (task T014, contracts/homepage-api.md) — omit it to get the existing
+ * default page of 20. */
+export async function listVendorOrderItems(
+  page = 1,
+  limit?: number,
+): Promise<PaginatedResponse<VendorOrderItem>> {
+  const limitParam = limit ? `&page_size=${limit}` : "";
+  return apiFetch<PaginatedResponse<VendorOrderItem>>(
+    `/api/vendor/order-items?page=${page}${limitParam}`,
+  );
 }
 
 /** `PATCH /api/vendor/order-items/{id}/status` (task T015, contracts/order-fulfillment-api.md). */
@@ -195,7 +222,64 @@ export type AdminOrderItem = {
   status_history: { status: string; changed_at: string }[];
 };
 
-/** `GET /api/admin/order-items` (task T026, contracts/order-fulfillment-api.md). */
-export async function listAdminOrderItems(page = 1): Promise<PaginatedResponse<AdminOrderItem>> {
-  return apiFetch<PaginatedResponse<AdminOrderItem>>(`/api/admin/order-items?page=${page}`);
+export type AdminShop = {
+  id: string;
+  name: string;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  status_reason: string | null;
+  created_at: string;
+  owner_name: string;
+  owner_email: string;
+};
+
+/** `GET /api/admin/shops` (task T019, contracts/homepage-api.md). `limit` maps to the opt-in
+ * `?page_size=` (task T017) — omit it to get the existing default page of 20. */
+export async function listAdminShops(
+  status?: string,
+  limit?: number,
+): Promise<PaginatedResponse<AdminShop>> {
+  const params = new URLSearchParams();
+  if (status) params.set("status", status);
+  if (limit) params.set("page_size", String(limit));
+  const query = params.toString() ? `?${params.toString()}` : "";
+  return apiFetch<PaginatedResponse<AdminShop>>(`/api/admin/shops${query}`);
+}
+
+/** `GET /api/admin/order-items` (task T026, contracts/order-fulfillment-api.md). `limit` maps to
+ * the opt-in `?page_size=` (task T018, contracts/homepage-api.md) — omit it to get the existing
+ * default page of 20. */
+export async function listAdminOrderItems(
+  page = 1,
+  limit?: number,
+): Promise<PaginatedResponse<AdminOrderItem>> {
+  const limitParam = limit ? `&page_size=${limit}` : "";
+  return apiFetch<PaginatedResponse<AdminOrderItem>>(
+    `/api/admin/order-items?page=${page}${limitParam}`,
+  );
+}
+
+export type Review = {
+  id: number;
+  product: number;
+  rating: number;
+  comment: string;
+  created_at: string;
+  updated_at: string;
+};
+
+/** `POST /api/feedback/products/{id}/review` (task T016, contracts/feedback-api.md). Creates or
+ * updates the requesting Customer's own review (upsert). */
+export async function submitReview(
+  productId: number,
+  data: { rating: number; comment?: string },
+): Promise<Review> {
+  return apiFetch<Review>(`/api/feedback/products/${productId}/review`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+/** `DELETE /api/feedback/products/{id}/review` (task T016, contracts/feedback-api.md). */
+export async function deleteReview(productId: number): Promise<void> {
+  await apiFetch<void>(`/api/feedback/products/${productId}/review`, { method: "DELETE" });
 }

@@ -3,17 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import { apiFetch, ApiError } from "@/lib/api-client";
-
-type AdminShop = {
-  id: string;
-  name: string;
-  status: "PENDING" | "APPROVED" | "REJECTED";
-  status_reason: string | null;
-  created_at: string;
-  owner_name: string;
-  owner_email: string;
-};
+import { apiFetch, listAdminShops, ApiError, type AdminShop } from "@/lib/api-client";
 
 type StatusFilter = "" | "PENDING" | "APPROVED" | "REJECTED";
 
@@ -37,8 +27,7 @@ export default function AdminShopsPage() {
     setIsLoadingShops(true);
     setError(null);
     try {
-      const query = status ? `?status=${status}` : "";
-      const response = await apiFetch<{ results: AdminShop[] }>(`/api/admin/shops${query}`);
+      const response = await listAdminShops(status || undefined);
       setShops(response.results);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
@@ -55,8 +44,7 @@ export default function AdminShopsPage() {
       setIsLoadingShops(true);
       setError(null);
       try {
-        const query = statusFilter ? `?status=${statusFilter}` : "";
-        const response = await apiFetch<{ results: AdminShop[] }>(`/api/admin/shops${query}`);
+        const response = await listAdminShops(statusFilter || undefined);
         if (!cancelled) setShops(response.results);
       } catch (err) {
         if (!cancelled) {

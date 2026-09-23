@@ -4,6 +4,8 @@ from factory.django import DjangoModelFactory
 from apps.accounts.models import User
 from apps.cart.models import Cart, CartItem
 from apps.catalog.models import Category, Product
+from apps.feedback.models import Review
+from apps.orders.models import Order, OrderItem
 from apps.vendors.models import Shop
 
 
@@ -69,3 +71,38 @@ class CartItemFactory(DjangoModelFactory):
     cart = factory.SubFactory(CartFactory)
     product = factory.SubFactory(ProductFactory, is_published=True)
     quantity = 1
+
+
+class OrderFactory(DjangoModelFactory):
+    class Meta:
+        model = Order
+
+    customer = factory.SubFactory(UserFactory, role=User.Role.CUSTOMER)
+    recipient_name = factory.Faker("name")
+    address_line = "12 Ring Road"
+    city = "Accra"
+    region = "Greater Accra"
+    postal_code = "GA-184-9021"
+    country = "Ghana"
+    phone = "+233201234567"
+
+
+class OrderItemFactory(DjangoModelFactory):
+    class Meta:
+        model = OrderItem
+
+    order = factory.SubFactory(OrderFactory)
+    product = factory.SubFactory(ProductFactory, is_published=True)
+    quantity = 1
+    unit_price = "9.99"
+    status = OrderItem.Status.DELIVERED
+
+
+class ReviewFactory(DjangoModelFactory):
+    class Meta:
+        model = Review
+
+    customer = factory.SubFactory(UserFactory, role=User.Role.CUSTOMER)
+    product = factory.SubFactory(ProductFactory, is_published=True)
+    rating = 5
+    comment = "Great product."
