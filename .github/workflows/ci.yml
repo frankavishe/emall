@@ -195,17 +195,17 @@ jobs:
   # feature/* -> development: once a PR's required checks pass and it has the required
   # approval, GitHub's native auto-merge completes the merge for us. This just flips that
   # flag on; it does not bypass required status checks or reviews (see branch protection on
-  # `development`).
+  # `development`). The enablePullRequestAutoMerge mutation is rejected for the default
+  # GITHUB_TOKEN ("Resource not accessible by integration") regardless of granted
+  # permissions, so this reuses PROMOTION_PAT (needs "Pull requests: Read and write" on top
+  # of its Contents/Workflows scopes).
   enable-auto-merge:
     if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'development'
     runs-on: ubuntu-latest
-    permissions:
-      pull-requests: write
-      contents: read
     steps:
       - name: Enable auto-merge
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PROMOTION_PAT }}
         run: gh pr merge --auto --squash "${{ github.event.pull_request.number }}" --repo "${{ github.repository }}"
 
   # development -> staging: fast-forwards staging to development once development's own
