@@ -261,7 +261,9 @@ export default function ProductDetailPage() {
                   <li key={review.id} className="border-b border-black/10 pb-4 last:border-0">
                     <div className="flex items-center gap-2">
                       <span aria-hidden="true" className="text-yellow-500">
-                        {[1, 2, 3, 4, 5].map((star) => (star <= review.rating ? "★" : "☆")).join("")}
+                        {[1, 2, 3, 4, 5]
+                          .map((star) => (star <= review.rating ? "★" : "☆"))
+                          .join("")}
                       </span>
                       <span className="text-sm font-medium">{review.customer_display_name}</span>
                     </div>
