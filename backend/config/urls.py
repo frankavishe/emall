@@ -20,6 +20,7 @@ from django.contrib import admin
 from django.urls import include, path
 
 from apps.catalog.urls import vendor_urlpatterns as catalog_vendor_urlpatterns
+from apps.feedback.urls import admin_urlpatterns as feedback_admin_urlpatterns
 from apps.feedback.urls import urlpatterns as feedback_urlpatterns
 from apps.feedback.urls import vendor_urlpatterns as feedback_vendor_urlpatterns
 from apps.orders.urls import admin_urlpatterns as orders_admin_urlpatterns
@@ -38,6 +39,7 @@ urlpatterns = [
     path("api/catalog/", include("apps.catalog.urls")),
     path("api/admin/", include(vendor_admin_urlpatterns)),
     path("api/admin/", include(orders_admin_urlpatterns)),
+    path("api/admin/", include(feedback_admin_urlpatterns)),
     path("api/", include("apps.cart.urls")),
     path("api/", include(checkout_urlpatterns)),
     path("api/", include(order_urlpatterns)),

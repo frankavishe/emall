@@ -248,14 +248,14 @@ product's rating aggregate.
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T034 [P] [US4] Contract test `GET /api/admin/reviews/` — lists every review across all
+- [X] T034 [P] [US4] Contract test `GET /api/admin/reviews/` — lists every review across all
       products/shops, paginated, each including product, shop, and reviewing customer identity;
       `403` for a non-Administrator caller (FR-010, Acceptance Scenario 2) in
       `backend/tests/feedback/test_admin_review_list.py`
-- [ ] T035 [P] [US4] Contract test `DELETE /api/admin/reviews/{review_id}/` — `204`, review row
+- [X] T035 [P] [US4] Contract test `DELETE /api/admin/reviews/{review_id}/` — `204`, review row
       removed; a second `DELETE` on the same id returns `404` (FR-011, FR-012) in
       `backend/tests/feedback/test_admin_review_delete.py`
-- [ ] T036 [P] [US4] Contract test post-delete effects — after an Administrator removes a review,
+- [X] T036 [P] [US4] Contract test post-delete effects — after an Administrator removes a review,
       `GET /api/catalog/products/{id}/`'s `average_rating`/`review_count`/`reviews` no longer
       include it (T023/T024 recomputed on read, no manual step), `GET /api/vendor/reviews/` for
       the owning Vendor no longer includes it, and the previously-reviewing Customer can
@@ -265,21 +265,21 @@ product's rating aggregate.
 
 ### Implementation for User Story 4
 
-- [ ] T037 [US4] Implement `AdminReviewSerializer` (`id`, `product` [`id`, `name`], `shop` [`id`,
+- [X] T037 [US4] Implement `AdminReviewSerializer` (`id`, `product` [`id`, `name`], `shop` [`id`,
       `name`], `customer` [`id`, `email`], `rating`, `comment`, `created_at`) in
       `backend/apps/feedback/serializers.py` (depends on T004)
-- [ ] T038 [US4] Implement `AdminReviewListView` and `AdminReviewDeleteView` in
+- [X] T038 [US4] Implement `AdminReviewListView` and `AdminReviewDeleteView` in
       `backend/apps/feedback/views.py`: `IsAdministrator`; queryset
       `Review.objects.select_related("product__shop", "customer")` across every shop, paginated;
       delete view does `get_object_or_404(Review, pk=review_id).delete()` returning `204` (FR-010,
       FR-011, FR-012) (depends on T037)
-- [ ] T039 [US4] Wire `admin_urlpatterns` (`admin/reviews`, `admin/reviews/<int:review_id>`) in
+- [X] T039 [US4] Wire `admin_urlpatterns` (`admin/reviews`, `admin/reviews/<int:review_id>`) in
       `backend/apps/feedback/urls.py`; include at `api/admin/` in `backend/config/urls.py`
       alongside the existing `apps.vendors.urls`/`apps.orders.urls` admin includes (depends on
       T038)
-- [ ] T040 [P] [US4] Add `listAdminReviews(page)` / `deleteReviewAsAdmin(reviewId)` calls to
+- [X] T040 [P] [US4] Add `listAdminReviews(page)` / `deleteReviewAsAdmin(reviewId)` calls to
       `frontend/src/lib/api-client.ts` (depends on T039)
-- [ ] T041 [US4] Build `frontend/src/app/admin/reviews/page.tsx`: paginated list across all
+- [X] T041 [US4] Build `frontend/src/app/admin/reviews/page.tsx`: paginated list across all
       shops/products with a remove action per review (depends on T040)
 
 **Checkpoint**: All four user stories independently functional — the full feedback loop (submit →

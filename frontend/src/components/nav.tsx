@@ -31,6 +31,7 @@ const ADMINISTRATOR_LINKS: NavLink[] = [
   { label: "Home", href: "/" },
   { label: "Shop Approvals", href: "/admin/shops" },
   { label: "Order Oversight", href: "/admin/orders" },
+  { label: "Review Moderation", href: "/admin/reviews" },
   { label: "Account", href: "/account" },
 ];
 

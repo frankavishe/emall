@@ -7,10 +7,14 @@ from rest_framework.views import APIView
 
 from apps.catalog.models import Product
 from apps.core.pagination import LimitedPageNumberPagination
-from apps.core.permissions import IsCustomer, IsVendor
+from apps.core.permissions import IsAdministrator, IsCustomer, IsVendor
 from apps.feedback.models import Review
 from apps.feedback.permissions import has_delivered_purchase
-from apps.feedback.serializers import ReviewWriteSerializer, VendorReviewSerializer
+from apps.feedback.serializers import (
+    AdminReviewSerializer,
+    ReviewWriteSerializer,
+    VendorReviewSerializer,
+)
 
 
 class CustomerReviewView(APIView):
@@ -60,3 +64,30 @@ class VendorReviewListView(ListAPIView):
             .select_related("product", "customer")
             .order_by("-created_at")
         )
+
+
+class AdminReviewListView(ListAPIView):
+    """Read-only oversight across every shop/product's reviews (FR-010)."""
+
+    permission_classes = [IsAdministrator]
+    serializer_class = AdminReviewSerializer
+    pagination_class = LimitedPageNumberPagination
+
+    def get_queryset(self):
+        return (
+            Review.objects.select_related("product__shop", "customer")
+            .order_by("-created_at")
+        )
+
+
+class AdminReviewDeleteView(APIView):
+    """Removes any single review (FR-011, FR-012) — a hard delete, immediately reflected in the
+    public catalog aggregate/display and the Vendor feedback view since both are computed on
+    read, not denormalized (data-model.md)."""
+
+    permission_classes = [IsAdministrator]
+
+    def delete(self, request, review_id):
+        review = get_object_or_404(Review, pk=review_id)
+        review.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
