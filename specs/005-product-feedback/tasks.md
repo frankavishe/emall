@@ -291,19 +291,19 @@ display → vendor read → admin moderate) works end to end.
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T042 [P] Confirm `VendorReviewListView`'s and `AdminReviewListView`'s (T030, T038)
+- [X] T042 [P] Confirm `VendorReviewListView`'s and `AdminReviewListView`'s (T030, T038)
       pagination page size matches the existing `PAGE_SIZE = 20` DRF default (`config/settings.py`)
       that `VendorProductListCreateView`/`AdminShopListView` already inherit (Constitution
       "Resource Utilization") in `backend/apps/feedback/views.py`
-- [ ] T043 Run all 5 `quickstart.md` scenarios end to end against real PostgreSQL with migrations
+- [X] T043 Run all 5 `quickstart.md` scenarios end to end against real PostgreSQL with migrations
       applied, per Constitution Principle V
-- [ ] T044 [P] Security/validation review pass: confirm `CustomerReviewView` always re-queries
+- [X] T044 [P] Security/validation review pass: confirm `CustomerReviewView` always re-queries
       live `OrderItem` status via `has_delivered_purchase()` rather than trusting any
       client-supplied eligibility claim; confirm `VendorReviewListView`'s and
       `AdminReviewListView`'s querysets filter by `request.user`'s own shop ownership or
       `IsAdministrator` at the queryset level, never only in a serializer (Constitution Principle
       I) across `backend/apps/feedback/`
-- [ ] T045 [P] Extend `backend/README.md` with a "Product Feedback & Reviews" section: the new
+- [X] T045 [P] Extend `backend/README.md` with a "Product Feedback & Reviews" section: the new
       `feedback` app, the `Review` model's one-per-customer-per-product constraint, and the new
       `/api/feedback/...`, `/api/vendor/reviews`, `/api/admin/reviews` endpoints
 

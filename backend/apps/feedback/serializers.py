@@ -18,7 +18,12 @@ def customer_display_name(customer):
 
 class ReviewWriteSerializer(serializers.ModelSerializer):
     """Create-or-update shape for the Customer's own review (FR-001, FR-003 upsert;
-    research.md §3). `rating` is required; `comment` is optional and defaults to ""."""
+    research.md §3). `rating` is required; `comment` is optional and defaults to "". `rating`
+    is bounded explicitly (not left to the auto-generated `PositiveSmallIntegerField` mapping,
+    which only rejects negative values) so an out-of-range value 400s here rather than hitting
+    the model's `review_rating_range` CheckConstraint as an unhandled IntegrityError."""
+
+    rating = serializers.IntegerField(min_value=1, max_value=5)
 
     class Meta:
         model = Review

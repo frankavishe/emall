@@ -94,13 +94,13 @@ export default function AdminReviewsPage() {
           <ul className="flex flex-col gap-4">
             {reviews.results.map((review) => (
               <li key={review.id} className="rounded-md border border-black/15 p-4">
-                <div className="flex items-start justify-between">
-                  <div>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0 flex-1">
                     <p className="font-medium">{review.product.name}</p>
                     <p className="text-sm text-black/60">{review.shop.name}</p>
-                    <p className="mt-1 text-sm text-black/60">{review.customer.email}</p>
+                    <p className="mt-1 truncate text-sm text-black/60">{review.customer.email}</p>
                   </div>
-                  <div className="flex flex-col items-end gap-2">
+                  <div className="flex shrink-0 flex-col items-end gap-2">
                     <span aria-hidden="true" className="text-yellow-500">
                       {stars(review.rating)}
                     </span>
