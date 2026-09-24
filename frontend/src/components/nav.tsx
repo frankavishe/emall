@@ -23,6 +23,7 @@ const VENDOR_LINKS: NavLink[] = [
   { label: "Home", href: "/" },
   { label: "My Products", href: "/vendor/products" },
   { label: "Vendor Orders", href: "/vendor/orders" },
+  { label: "Reviews", href: "/vendor/reviews" },
   { label: "Account", href: "/account" },
 ];
 

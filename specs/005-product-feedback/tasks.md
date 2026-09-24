@@ -204,32 +204,32 @@ review belonging to another vendor's shop appears.
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T026 [P] [US3] Contract test `GET /api/vendor/reviews/` — returns reviews on products
+- [X] T026 [P] [US3] Contract test `GET /api/vendor/reviews/` — returns reviews on products
       belonging to the requester's own shop(s) only, paginated, each including which product it's
       for; `403` for a non-Vendor caller (FR-007, Acceptance Scenario 1) in
       `backend/tests/feedback/test_vendor_review_list.py`
-- [ ] T027 [P] [US3] Contract test cross-vendor isolation — Vendor B's `GET /api/vendor/reviews/`
+- [X] T027 [P] [US3] Contract test cross-vendor isolation — Vendor B's `GET /api/vendor/reviews/`
       never includes a review on Vendor A's product, and vice versa (FR-009, Acceptance Scenario
       3, SC-004) in the same file as T026
-- [ ] T028 [P] [US3] Contract test: `PATCH`/`POST`/`DELETE` on `/api/vendor/reviews/` are all
+- [X] T028 [P] [US3] Contract test: `PATCH`/`POST`/`DELETE` on `/api/vendor/reviews/` are all
       rejected — vendor visibility is read-only (FR-008, Acceptance Scenario 2) in the same file
       as T026
 
 ### Implementation for User Story 3
 
-- [ ] T029 [US3] Implement `VendorReviewSerializer` (`id`, `product` [`id`, `name`],
+- [X] T029 [US3] Implement `VendorReviewSerializer` (`id`, `product` [`id`, `name`],
       `customer_display_name`, `rating`, `comment`, `created_at`) in
       `backend/apps/feedback/serializers.py` (depends on T004)
-- [ ] T030 [US3] Implement `VendorReviewListView` in `backend/apps/feedback/views.py`: `IsVendor`;
+- [X] T030 [US3] Implement `VendorReviewListView` in `backend/apps/feedback/views.py`: `IsVendor`;
       queryset `Review.objects.filter(product__shop__owner=request.user)
       .select_related("product", "customer")` (queryset-level scoping, research.md §5) (depends
       on T029)
-- [ ] T031 [US3] Wire `vendor_urlpatterns` (`vendor/reviews`) in `backend/apps/feedback/urls.py`;
+- [X] T031 [US3] Wire `vendor_urlpatterns` (`vendor/reviews`) in `backend/apps/feedback/urls.py`;
       include at `api/vendor/` in `backend/config/urls.py` alongside the existing
       `apps.vendors.urls`/`apps.catalog.urls`/`apps.orders.urls` vendor includes (depends on T030)
-- [ ] T032 [P] [US3] Add `listVendorReviews(page)` call to `frontend/src/lib/api-client.ts`
+- [X] T032 [P] [US3] Add `listVendorReviews(page)` call to `frontend/src/lib/api-client.ts`
       (depends on T031)
-- [ ] T033 [US3] Build `frontend/src/app/vendor/reviews/page.tsx`: read-only paginated list of
+- [X] T033 [US3] Build `frontend/src/app/vendor/reviews/page.tsx`: read-only paginated list of
       feedback on the Vendor's own products (depends on T032)
 
 **Checkpoint**: User Stories 1-3 independently functional — Vendors can read feedback on their own

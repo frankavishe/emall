@@ -1,14 +1,16 @@
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.catalog.models import Product
-from apps.core.permissions import IsCustomer
+from apps.core.pagination import LimitedPageNumberPagination
+from apps.core.permissions import IsCustomer, IsVendor
 from apps.feedback.models import Review
 from apps.feedback.permissions import has_delivered_purchase
-from apps.feedback.serializers import ReviewWriteSerializer
+from apps.feedback.serializers import ReviewWriteSerializer, VendorReviewSerializer
 
 
 class CustomerReviewView(APIView):
@@ -42,3 +44,19 @@ class CustomerReviewView(APIView):
         review = get_object_or_404(Review, customer=request.user, product_id=product_id)
         review.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class VendorReviewListView(ListAPIView):
+    """Lists reviews on products belonging to one of the requester's own shops, across every
+    Customer's review (FR-007, FR-009). Read-only — no mutating method is defined (FR-008)."""
+
+    permission_classes = [IsVendor]
+    serializer_class = VendorReviewSerializer
+    pagination_class = LimitedPageNumberPagination
+
+    def get_queryset(self):
+        return (
+            Review.objects.filter(product__shop__owner=self.request.user)
+            .select_related("product", "customer")
+            .order_by("-created_at")
+        )

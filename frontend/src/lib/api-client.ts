@@ -283,3 +283,17 @@ export async function submitReview(
 export async function deleteReview(productId: number): Promise<void> {
   await apiFetch<void>(`/api/feedback/products/${productId}/review`, { method: "DELETE" });
 }
+
+export type VendorReview = {
+  id: number;
+  product: { id: number; name: string };
+  customer_display_name: string;
+  rating: number;
+  comment: string;
+  created_at: string;
+};
+
+/** `GET /api/vendor/reviews` (task T032, contracts/feedback-api.md). */
+export async function listVendorReviews(page = 1): Promise<PaginatedResponse<VendorReview>> {
+  return apiFetch<PaginatedResponse<VendorReview>>(`/api/vendor/reviews?page=${page}`);
+}

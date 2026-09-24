@@ -1,5 +1,6 @@
 from rest_framework import serializers
 
+from apps.catalog.models import Product
 from apps.feedback.models import Review
 
 
@@ -35,6 +36,29 @@ class ReviewDisplaySerializer(serializers.ModelSerializer):
     class Meta:
         model = Review
         fields = ["id", "customer_display_name", "rating", "comment", "created_at"]
+        read_only_fields = fields
+
+    def get_customer_display_name(self, obj):
+        return customer_display_name(obj.customer)
+
+
+class _ProductRefSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Product
+        fields = ["id", "name"]
+        read_only_fields = fields
+
+
+class VendorReviewSerializer(serializers.ModelSerializer):
+    """Read-only shape for a Vendor's own-shop feedback view (FR-007, FR-009;
+    contracts/feedback-api.md)."""
+
+    product = _ProductRefSerializer(read_only=True)
+    customer_display_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Review
+        fields = ["id", "product", "customer_display_name", "rating", "comment", "created_at"]
         read_only_fields = fields
 
     def get_customer_display_name(self, obj):
