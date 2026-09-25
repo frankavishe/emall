@@ -3,6 +3,7 @@ import type { CatalogProduct } from "@/lib/api-client";
 import { StarRating } from "@/components/star-rating";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/cn";
+import { formatCurrency } from "@/lib/currency";
 
 export function ProductCard({ product }: { product: CatalogProduct }) {
   return (
@@ -26,7 +27,7 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
         )}
         <p className="font-medium text-text-primary">{product.name}</p>
         <p className="text-sm text-text-muted">{product.shop_name}</p>
-        <p className="text-sm font-medium text-text-primary">${product.price}</p>
+        <p className="text-sm font-medium text-text-primary">{formatCurrency(product.price)}</p>
         <p className="text-sm text-text-muted">{product.in_stock ? "In stock" : "Out of stock"}</p>
         <StarRating rating={product.average_rating} reviewCount={product.review_count} />
       </Link>

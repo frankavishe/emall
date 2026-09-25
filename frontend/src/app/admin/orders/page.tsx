@@ -14,6 +14,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Pill, statusToTone } from "@/components/ui/pill";
 import { ErrorText, LoadingText, EmptyText } from "@/components/ui/status-text";
+import { formatCurrency } from "@/lib/currency";
 
 export default function AdminOrdersPage() {
   const router = useRouter();
@@ -85,7 +86,7 @@ export default function AdminOrdersPage() {
                       Order #{item.order_id} &middot; Sold by {item.shop.name}
                     </p>
                     <p className="text-sm text-text-muted">
-                      {item.quantity} &times; ${item.unit_price}
+                      {item.quantity} &times; {formatCurrency(item.unit_price)}
                     </p>
                     <div className="mt-1">
                       <Pill tone={statusToTone(item.status)}>{item.status}</Pill>
