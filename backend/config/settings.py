@@ -118,6 +118,34 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
+# Object storage (MinIO locally/in CI staging; swappable for real S3/R2 later without code
+# changes, per the comment above). Off by default so the test suite stays hermetic — only
+# opt in where a MinIO service actually exists (local docker-compose, staging simulation).
+USE_S3_MEDIA = env.bool("USE_S3_MEDIA", default=False)
+if USE_S3_MEDIA:
+    STORAGES = {
+        "default": {"BACKEND": "storages.backends.s3.S3Storage"},
+        "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+    }
+    AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY")
+    AWS_STORAGE_BUCKET_NAME = env("AWS_STORAGE_BUCKET_NAME")
+    # In-network endpoint Django uses to talk to MinIO (e.g. http://minio:9000 inside
+    # docker-compose). This is NOT necessarily the host a browser can reach — see
+    # AWS_S3_CUSTOM_DOMAIN below.
+    AWS_S3_ENDPOINT_URL = env("AWS_S3_ENDPOINT_URL")
+    # Public host used when building URLs returned to clients (e.g. localhost:9000 locally).
+    # Falls back to AWS_S3_ENDPOINT_URL (bucket included in the path) when unset. If set, it
+    # MUST include the bucket name (e.g. "localhost:9000/emall-media") — django-storages
+    # assumes a custom domain already maps to a bucket (virtual-hosted-style), which isn't
+    # true for MinIO's path-style addressing, so the bucket has to be spelled out here.
+    AWS_S3_CUSTOM_DOMAIN = env("AWS_S3_CUSTOM_DOMAIN", default="")
+    # MinIO runs without TLS in local dev / the CI staging simulation.
+    AWS_S3_URL_PROTOCOL = env("AWS_S3_URL_PROTOCOL", default="http:")
+    AWS_S3_ADDRESSING_STYLE = "path"  # required for MinIO's custom endpoint
+    AWS_QUERYSTRING_AUTH = False  # public-read bucket: permanent, non-expiring URLs
+    AWS_DEFAULT_ACL = "public-read"
+
 
 # --- REST Framework -----------------------------------------------------
 
