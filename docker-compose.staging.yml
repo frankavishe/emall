@@ -1,0 +1,60 @@
+# Staging-simulation stack for the deploy-staging CI job (.github/workflows/ci.yml).
+#
+# This runs the just-built `staging-latest` images directly on the Actions runner so the
+# e2e-staging job has a real target to test against. There is no dedicated staging host yet —
+# swap the backend/frontend `image:` values (or this whole file) for a real deploy step once
+# one exists; the e2e-staging job only needs PLAYWRIGHT_BASE_URL to point at wherever "staging"
+# ends up living.
+#
+# Required env vars when running this file: GHCR_OWNER (repository owner, lowercased).
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: emall
+      POSTGRES_PASSWORD: emall_staging_password
+      POSTGRES_DB: emall
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U emall"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    image: ghcr.io/${GHCR_OWNER}/emall-backend:staging-latest
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://emall:emall_staging_password@db:5432/emall
+      SECRET_KEY: staging-simulation-secret-key
+      DEBUG: "False"
+      ALLOWED_HOSTS: localhost,127.0.0.1,backend
+      CORS_ALLOWED_ORIGINS: http://localhost:3000
+      EMAIL_BACKEND: django.core.mail.backends.console.EmailBackend
+      DEFAULT_FROM_EMAIL: no-reply@emall.local
+      ACCESS_TOKEN_LIFETIME_MINUTES: "15"
+      REFRESH_TOKEN_LIFETIME_DAYS: "7"
+      ADMIN_SEED_EMAIL: admin@emall.local
+      ADMIN_SEED_PASSWORD: staging-simulation-password
+      ADMIN_SEED_NAME: Staging Admin
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py seed_admin &&
+             gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3"
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/catalog/products')"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  frontend:
+    image: ghcr.io/${GHCR_OWNER}/emall-frontend:staging-latest
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
