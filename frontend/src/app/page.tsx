@@ -21,7 +21,9 @@ function GuestHomepage() {
       <section className="flex flex-wrap items-center justify-between gap-3 border-b border-black/10 pb-4">
         <div>
           <h1 className="text-xl font-semibold">The Mall</h1>
-          <p className="text-sm text-black/60">Products from independent shops, all in one place.</p>
+          <p className="text-sm text-black/60">
+            Products from independent shops, all in one place.
+          </p>
         </div>
         <div className="flex gap-3">
           <Link

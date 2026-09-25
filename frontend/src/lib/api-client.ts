@@ -175,7 +175,9 @@ export async function listProducts(
   if (maxPrice?.trim()) params.set("max_price", maxPrice.trim());
 
   const query = params.toString();
-  return apiFetch<PaginatedResponse<CatalogProduct>>(`/api/catalog/products${query ? `?${query}` : ""}`);
+  return apiFetch<PaginatedResponse<CatalogProduct>>(
+    `/api/catalog/products${query ? `?${query}` : ""}`,
+  );
 }
 
 /** `GET /api/catalog/categories`. */
