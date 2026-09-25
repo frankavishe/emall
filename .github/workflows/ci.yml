@@ -208,10 +208,17 @@ jobs:
           GH_TOKEN: ${{ secrets.PROMOTION_PAT }}
         run: gh pr merge --auto --squash "${{ github.event.pull_request.number }}" --repo "${{ github.repository }}"
 
-  # development -> staging: fast-forwards staging to development once development's own
+  # development -> staging: resets staging to development once development's own
   # push-triggered checks/images have succeeded. This push (via PROMOTION_PAT, since the
   # default GITHUB_TOKEN can't trigger downstream workflow runs) is what starts the staging
   # pipeline below.
+  #
+  # staging/main are pure mirrors with no history of their own, so this force-pushes
+  # development's tip onto staging rather than `merge --ff-only`. A `--ff-only` merge fails
+  # the moment staging picks up even one commit development doesn't have (e.g. a direct push,
+  # or a manual "reconcile" merge like the one that broke promotion for PR #27 and again
+  # ahead of PR #30) — `reset --hard` makes that failure mode structurally impossible instead
+  # of requiring another manual reconcile each time it happens.
   promote-to-staging:
     needs: [backend-image, frontend-image]
     if: |
@@ -227,14 +234,12 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.PROMOTION_PAT }}
-      - name: Fast-forward staging to development
+      - name: Reset staging to development
         run: |
           git config user.name "emall-ci-bot"
           git config user.email "ci-bot@users.noreply.github.com"
-          git fetch origin staging development
-          git checkout -B staging origin/staging
-          git merge --ff-only origin/development
-          git push origin staging
+          git fetch origin development
+          git push origin origin/development:refs/heads/staging --force
 
   # staging pipeline: deploys the just-built staging images and runs the Playwright smoke
   # suite against them. No real staging host exists yet, so "deploy" is a docker-compose
@@ -301,7 +306,8 @@ jobs:
         run: docker compose -f docker-compose.staging.yml down -v
 
   # staging -> main: only reached once staging-e2e succeeds. No PR, no approval - the E2E
-  # pass on staging is the gate.
+  # pass on staging is the gate. Resets main to staging for the same reason promote-to-staging
+  # resets staging to development above (see that job's comment).
   promote-to-main:
     needs: staging-e2e
     if: github.event_name == 'push' && github.ref_name == 'staging' && needs.staging-e2e.result == 'success'
@@ -313,11 +319,9 @@ jobs:
         with:
           fetch-depth: 0
           token: ${{ secrets.PROMOTION_PAT }}
-      - name: Fast-forward main to staging
+      - name: Reset main to staging
         run: |
           git config user.name "emall-ci-bot"
           git config user.email "ci-bot@users.noreply.github.com"
-          git fetch origin main staging
-          git checkout -B main origin/main
-          git merge --ff-only origin/staging
-          git push origin main
+          git fetch origin staging
+          git push origin origin/staging:refs/heads/main --force
