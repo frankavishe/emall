@@ -1,6 +1,9 @@
 from rest_framework import serializers
 
+from apps.accounts.models import User
+from apps.catalog.models import Product
 from apps.feedback.models import Review
+from apps.vendors.models import Shop
 
 
 def customer_display_name(customer):
@@ -15,7 +18,12 @@ def customer_display_name(customer):
 
 class ReviewWriteSerializer(serializers.ModelSerializer):
     """Create-or-update shape for the Customer's own review (FR-001, FR-003 upsert;
-    research.md §3). `rating` is required; `comment` is optional and defaults to ""."""
+    research.md §3). `rating` is required; `comment` is optional and defaults to "". `rating`
+    is bounded explicitly (not left to the auto-generated `PositiveSmallIntegerField` mapping,
+    which only rejects negative values) so an out-of-range value 400s here rather than hitting
+    the model's `review_rating_range` CheckConstraint as an unhandled IntegrityError."""
+
+    rating = serializers.IntegerField(min_value=1, max_value=5)
 
     class Meta:
         model = Review
@@ -39,3 +47,54 @@ class ReviewDisplaySerializer(serializers.ModelSerializer):
 
     def get_customer_display_name(self, obj):
         return customer_display_name(obj.customer)
+
+
+class _ProductRefSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Product
+        fields = ["id", "name"]
+        read_only_fields = fields
+
+
+class _ShopRefSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Shop
+        fields = ["id", "name"]
+        read_only_fields = fields
+
+
+class _CustomerRefSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ["id", "email"]
+        read_only_fields = fields
+
+
+class VendorReviewSerializer(serializers.ModelSerializer):
+    """Read-only shape for a Vendor's own-shop feedback view (FR-007, FR-009;
+    contracts/feedback-api.md)."""
+
+    product = _ProductRefSerializer(read_only=True)
+    customer_display_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Review
+        fields = ["id", "product", "customer_display_name", "rating", "comment", "created_at"]
+        read_only_fields = fields
+
+    def get_customer_display_name(self, obj):
+        return customer_display_name(obj.customer)
+
+
+class AdminReviewSerializer(serializers.ModelSerializer):
+    """Read-only shape for Administrator moderation, exposing product/shop/customer identity
+    across every shop (FR-010; contracts/feedback-api.md)."""
+
+    product = _ProductRefSerializer(read_only=True)
+    shop = _ShopRefSerializer(source="product.shop", read_only=True)
+    customer = _CustomerRefSerializer(read_only=True)
+
+    class Meta:
+        model = Review
+        fields = ["id", "product", "shop", "customer", "rating", "comment", "created_at"]
+        read_only_fields = fields

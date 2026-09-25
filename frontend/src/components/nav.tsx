@@ -23,6 +23,7 @@ const VENDOR_LINKS: NavLink[] = [
   { label: "Home", href: "/" },
   { label: "My Products", href: "/vendor/products" },
   { label: "Vendor Orders", href: "/vendor/orders" },
+  { label: "Reviews", href: "/vendor/reviews" },
   { label: "Account", href: "/account" },
 ];
 
@@ -30,6 +31,7 @@ const ADMINISTRATOR_LINKS: NavLink[] = [
   { label: "Home", href: "/" },
   { label: "Shop Approvals", href: "/admin/shops" },
   { label: "Order Oversight", href: "/admin/orders" },
+  { label: "Review Moderation", href: "/admin/reviews" },
   { label: "Account", href: "/account" },
 ];
 

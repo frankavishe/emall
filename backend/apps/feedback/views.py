@@ -1,14 +1,20 @@
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.exceptions import PermissionDenied
+from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.catalog.models import Product
-from apps.core.permissions import IsCustomer
+from apps.core.pagination import LimitedPageNumberPagination
+from apps.core.permissions import IsAdministrator, IsCustomer, IsVendor
 from apps.feedback.models import Review
 from apps.feedback.permissions import has_delivered_purchase
-from apps.feedback.serializers import ReviewWriteSerializer
+from apps.feedback.serializers import (
+    AdminReviewSerializer,
+    ReviewWriteSerializer,
+    VendorReviewSerializer,
+)
 
 
 class CustomerReviewView(APIView):
@@ -40,5 +46,48 @@ class CustomerReviewView(APIView):
 
     def delete(self, request, product_id):
         review = get_object_or_404(Review, customer=request.user, product_id=product_id)
+        review.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class VendorReviewListView(ListAPIView):
+    """Lists reviews on products belonging to one of the requester's own shops, across every
+    Customer's review (FR-007, FR-009). Read-only — no mutating method is defined (FR-008)."""
+
+    permission_classes = [IsVendor]
+    serializer_class = VendorReviewSerializer
+    pagination_class = LimitedPageNumberPagination
+
+    def get_queryset(self):
+        return (
+            Review.objects.filter(product__shop__owner=self.request.user)
+            .select_related("product", "customer")
+            .order_by("-created_at")
+        )
+
+
+class AdminReviewListView(ListAPIView):
+    """Read-only oversight across every shop/product's reviews (FR-010)."""
+
+    permission_classes = [IsAdministrator]
+    serializer_class = AdminReviewSerializer
+    pagination_class = LimitedPageNumberPagination
+
+    def get_queryset(self):
+        return (
+            Review.objects.select_related("product__shop", "customer")
+            .order_by("-created_at")
+        )
+
+
+class AdminReviewDeleteView(APIView):
+    """Removes any single review (FR-011, FR-012) — a hard delete, immediately reflected in the
+    public catalog aggregate/display and the Vendor feedback view since both are computed on
+    read, not denormalized (data-model.md)."""
+
+    permission_classes = [IsAdministrator]
+
+    def delete(self, request, review_id):
+        review = get_object_or_404(Review, pk=review_id)
         review.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)

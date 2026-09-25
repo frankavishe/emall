@@ -204,32 +204,32 @@ review belonging to another vendor's shop appears.
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T026 [P] [US3] Contract test `GET /api/vendor/reviews/` — returns reviews on products
+- [X] T026 [P] [US3] Contract test `GET /api/vendor/reviews/` — returns reviews on products
       belonging to the requester's own shop(s) only, paginated, each including which product it's
       for; `403` for a non-Vendor caller (FR-007, Acceptance Scenario 1) in
       `backend/tests/feedback/test_vendor_review_list.py`
-- [ ] T027 [P] [US3] Contract test cross-vendor isolation — Vendor B's `GET /api/vendor/reviews/`
+- [X] T027 [P] [US3] Contract test cross-vendor isolation — Vendor B's `GET /api/vendor/reviews/`
       never includes a review on Vendor A's product, and vice versa (FR-009, Acceptance Scenario
       3, SC-004) in the same file as T026
-- [ ] T028 [P] [US3] Contract test: `PATCH`/`POST`/`DELETE` on `/api/vendor/reviews/` are all
+- [X] T028 [P] [US3] Contract test: `PATCH`/`POST`/`DELETE` on `/api/vendor/reviews/` are all
       rejected — vendor visibility is read-only (FR-008, Acceptance Scenario 2) in the same file
       as T026
 
 ### Implementation for User Story 3
 
-- [ ] T029 [US3] Implement `VendorReviewSerializer` (`id`, `product` [`id`, `name`],
+- [X] T029 [US3] Implement `VendorReviewSerializer` (`id`, `product` [`id`, `name`],
       `customer_display_name`, `rating`, `comment`, `created_at`) in
       `backend/apps/feedback/serializers.py` (depends on T004)
-- [ ] T030 [US3] Implement `VendorReviewListView` in `backend/apps/feedback/views.py`: `IsVendor`;
+- [X] T030 [US3] Implement `VendorReviewListView` in `backend/apps/feedback/views.py`: `IsVendor`;
       queryset `Review.objects.filter(product__shop__owner=request.user)
       .select_related("product", "customer")` (queryset-level scoping, research.md §5) (depends
       on T029)
-- [ ] T031 [US3] Wire `vendor_urlpatterns` (`vendor/reviews`) in `backend/apps/feedback/urls.py`;
+- [X] T031 [US3] Wire `vendor_urlpatterns` (`vendor/reviews`) in `backend/apps/feedback/urls.py`;
       include at `api/vendor/` in `backend/config/urls.py` alongside the existing
       `apps.vendors.urls`/`apps.catalog.urls`/`apps.orders.urls` vendor includes (depends on T030)
-- [ ] T032 [P] [US3] Add `listVendorReviews(page)` call to `frontend/src/lib/api-client.ts`
+- [X] T032 [P] [US3] Add `listVendorReviews(page)` call to `frontend/src/lib/api-client.ts`
       (depends on T031)
-- [ ] T033 [US3] Build `frontend/src/app/vendor/reviews/page.tsx`: read-only paginated list of
+- [X] T033 [US3] Build `frontend/src/app/vendor/reviews/page.tsx`: read-only paginated list of
       feedback on the Vendor's own products (depends on T032)
 
 **Checkpoint**: User Stories 1-3 independently functional — Vendors can read feedback on their own
@@ -248,14 +248,14 @@ product's rating aggregate.
 
 ### Tests for User Story 4 ⚠️
 
-- [ ] T034 [P] [US4] Contract test `GET /api/admin/reviews/` — lists every review across all
+- [X] T034 [P] [US4] Contract test `GET /api/admin/reviews/` — lists every review across all
       products/shops, paginated, each including product, shop, and reviewing customer identity;
       `403` for a non-Administrator caller (FR-010, Acceptance Scenario 2) in
       `backend/tests/feedback/test_admin_review_list.py`
-- [ ] T035 [P] [US4] Contract test `DELETE /api/admin/reviews/{review_id}/` — `204`, review row
+- [X] T035 [P] [US4] Contract test `DELETE /api/admin/reviews/{review_id}/` — `204`, review row
       removed; a second `DELETE` on the same id returns `404` (FR-011, FR-012) in
       `backend/tests/feedback/test_admin_review_delete.py`
-- [ ] T036 [P] [US4] Contract test post-delete effects — after an Administrator removes a review,
+- [X] T036 [P] [US4] Contract test post-delete effects — after an Administrator removes a review,
       `GET /api/catalog/products/{id}/`'s `average_rating`/`review_count`/`reviews` no longer
       include it (T023/T024 recomputed on read, no manual step), `GET /api/vendor/reviews/` for
       the owning Vendor no longer includes it, and the previously-reviewing Customer can
@@ -265,21 +265,21 @@ product's rating aggregate.
 
 ### Implementation for User Story 4
 
-- [ ] T037 [US4] Implement `AdminReviewSerializer` (`id`, `product` [`id`, `name`], `shop` [`id`,
+- [X] T037 [US4] Implement `AdminReviewSerializer` (`id`, `product` [`id`, `name`], `shop` [`id`,
       `name`], `customer` [`id`, `email`], `rating`, `comment`, `created_at`) in
       `backend/apps/feedback/serializers.py` (depends on T004)
-- [ ] T038 [US4] Implement `AdminReviewListView` and `AdminReviewDeleteView` in
+- [X] T038 [US4] Implement `AdminReviewListView` and `AdminReviewDeleteView` in
       `backend/apps/feedback/views.py`: `IsAdministrator`; queryset
       `Review.objects.select_related("product__shop", "customer")` across every shop, paginated;
       delete view does `get_object_or_404(Review, pk=review_id).delete()` returning `204` (FR-010,
       FR-011, FR-012) (depends on T037)
-- [ ] T039 [US4] Wire `admin_urlpatterns` (`admin/reviews`, `admin/reviews/<int:review_id>`) in
+- [X] T039 [US4] Wire `admin_urlpatterns` (`admin/reviews`, `admin/reviews/<int:review_id>`) in
       `backend/apps/feedback/urls.py`; include at `api/admin/` in `backend/config/urls.py`
       alongside the existing `apps.vendors.urls`/`apps.orders.urls` admin includes (depends on
       T038)
-- [ ] T040 [P] [US4] Add `listAdminReviews(page)` / `deleteReviewAsAdmin(reviewId)` calls to
+- [X] T040 [P] [US4] Add `listAdminReviews(page)` / `deleteReviewAsAdmin(reviewId)` calls to
       `frontend/src/lib/api-client.ts` (depends on T039)
-- [ ] T041 [US4] Build `frontend/src/app/admin/reviews/page.tsx`: paginated list across all
+- [X] T041 [US4] Build `frontend/src/app/admin/reviews/page.tsx`: paginated list across all
       shops/products with a remove action per review (depends on T040)
 
 **Checkpoint**: All four user stories independently functional — the full feedback loop (submit →
@@ -291,19 +291,19 @@ display → vendor read → admin moderate) works end to end.
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T042 [P] Confirm `VendorReviewListView`'s and `AdminReviewListView`'s (T030, T038)
+- [X] T042 [P] Confirm `VendorReviewListView`'s and `AdminReviewListView`'s (T030, T038)
       pagination page size matches the existing `PAGE_SIZE = 20` DRF default (`config/settings.py`)
       that `VendorProductListCreateView`/`AdminShopListView` already inherit (Constitution
       "Resource Utilization") in `backend/apps/feedback/views.py`
-- [ ] T043 Run all 5 `quickstart.md` scenarios end to end against real PostgreSQL with migrations
+- [X] T043 Run all 5 `quickstart.md` scenarios end to end against real PostgreSQL with migrations
       applied, per Constitution Principle V
-- [ ] T044 [P] Security/validation review pass: confirm `CustomerReviewView` always re-queries
+- [X] T044 [P] Security/validation review pass: confirm `CustomerReviewView` always re-queries
       live `OrderItem` status via `has_delivered_purchase()` rather than trusting any
       client-supplied eligibility claim; confirm `VendorReviewListView`'s and
       `AdminReviewListView`'s querysets filter by `request.user`'s own shop ownership or
       `IsAdministrator` at the queryset level, never only in a serializer (Constitution Principle
       I) across `backend/apps/feedback/`
-- [ ] T045 [P] Extend `backend/README.md` with a "Product Feedback & Reviews" section: the new
+- [X] T045 [P] Extend `backend/README.md` with a "Product Feedback & Reviews" section: the new
       `feedback` app, the `Review` model's one-per-customer-per-product constraint, and the new
       `/api/feedback/...`, `/api/vendor/reviews`, `/api/admin/reviews` endpoints
 

@@ -133,6 +133,27 @@ This creates (or updates, if it already exists) the Administrator user from `ADM
   order's Customer regardless of `is_email_verified`; the `CANCELLED` email never mentions
   refunds/payment, since cancellation payment handling is out of scope.
 
+## Product Feedback & Reviews (`feedback` app)
+
+- New Django app (`specs/005-product-feedback/`) — a `Review` model
+  (`customer`, `product`, `rating` 1-5, `comment`) with a
+  `unique_review_per_customer_product` constraint (one review per customer per product) and a
+  `review_rating_range` `CheckConstraint`; the API layer also validates `rating` explicitly
+  (`ReviewWriteSerializer`) rather than relying only on that DB constraint, so an out-of-range
+  value 400s cleanly instead of raising an unhandled `IntegrityError`.
+- A Customer may only review a product they have a `DELIVERED` `OrderItem` for
+  (`has_delivered_purchase()`, re-checked live on every write, never cached).
+- New endpoints:
+  - `POST` / `DELETE /api/feedback/products/{product_id}/review/` — the Customer's own review
+    (create-or-update upsert on `POST`).
+  - `GET /api/catalog/products/` / `GET /api/catalog/products/{id}/` gain `average_rating`,
+    `review_count`, and (detail only) a `reviews` array — computed on read, never denormalized.
+  - `GET /api/vendor/reviews/` — read-only, a Vendor's own shops' reviews, queryset-scoped by
+    `product__shop__owner`.
+  - `GET /api/admin/reviews/` / `DELETE /api/admin/reviews/{review_id}/` — Administrator
+    moderation across every shop; deleting a review is immediately reflected in the catalog
+    aggregate and the Vendor view since both recompute on read.
+
 ## Running the frontend alongside
 
 ```powershell
