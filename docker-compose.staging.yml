@@ -21,11 +21,39 @@ services:
       timeout: 5s
       retries: 10
 
+  minio:
+    image: minio/minio:latest
+    environment:
+      MINIO_ROOT_USER: emall-minio
+      MINIO_ROOT_PASSWORD: staging-simulation-password
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      sh -c "
+      mc alias set local http://minio:9000 emall-minio staging-simulation-password &&
+      mc mb -p local/emall-media &&
+      mc anonymous set download local/emall-media
+      "
+
   backend:
     image: ghcr.io/${GHCR_OWNER}/emall-backend:staging-latest
     depends_on:
       db:
         condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
     environment:
       DATABASE_URL: postgres://emall:emall_staging_password@db:5432/emall
       SECRET_KEY: staging-simulation-secret-key
@@ -39,6 +67,14 @@ services:
       ADMIN_SEED_EMAIL: admin@emall.local
       ADMIN_SEED_PASSWORD: staging-simulation-password
       ADMIN_SEED_NAME: Staging Admin
+      USE_S3_MEDIA: "True"
+      AWS_ACCESS_KEY_ID: emall-minio
+      AWS_SECRET_ACCESS_KEY: staging-simulation-password
+      AWS_STORAGE_BUCKET_NAME: emall-media
+      AWS_S3_ENDPOINT_URL: http://minio:9000
+      # Must include the bucket name: django-storages assumes a custom domain already maps
+      # to a bucket, which isn't true for MinIO's path-style addressing (see settings.py).
+      AWS_S3_CUSTOM_DOMAIN: localhost:9000/emall-media
     command: >
       sh -c "python manage.py migrate --noinput &&
              python manage.py seed_admin &&

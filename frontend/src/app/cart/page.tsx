@@ -9,6 +9,7 @@ import { PageShell } from "@/components/ui/page-shell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ErrorText, LoadingText, EmptyText } from "@/components/ui/status-text";
+import { formatCurrency } from "@/lib/currency";
 
 type CartItem = {
   id: number;
@@ -143,7 +144,8 @@ export default function CartPage() {
                     <p className="font-medium text-text-primary">{item.product.name}</p>
                     <p className="text-sm text-text-muted">Sold by {item.product.shop_name}</p>
                     <p className="mt-1 text-sm text-text-muted">
-                      ${item.unit_price} each &middot; Subtotal: ${item.subtotal}
+                      {formatCurrency(item.unit_price)} each &middot; Subtotal:{" "}
+                      {formatCurrency(item.subtotal)}
                     </p>
                     {!item.is_available && (
                       <p className="mt-1 text-sm text-status-cancelled">
@@ -177,7 +179,9 @@ export default function CartPage() {
 
           <Card className="flex flex-col items-end gap-2">
             <div className="flex w-full items-center justify-between">
-              <p className="text-lg font-semibold text-text-primary">Total: ${cart.total}</p>
+              <p className="text-lg font-semibold text-text-primary">
+                Total: {formatCurrency(cart.total)}
+              </p>
               {hasUnavailableItem ? (
                 <Button disabled>Checkout</Button>
               ) : (

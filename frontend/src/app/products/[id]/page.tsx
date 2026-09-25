@@ -11,6 +11,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ErrorText, LoadingText, EmptyText } from "@/components/ui/status-text";
 import { cn } from "@/lib/cn";
+import { formatCurrency } from "@/lib/currency";
 
 type ProductReview = {
   id: number;
@@ -175,7 +176,9 @@ export default function ProductDetailPage() {
           {product.category && (
             <p className="mt-1 text-sm text-text-muted">Category: {product.category.name}</p>
           )}
-          <p className="mt-4 text-xl font-medium text-text-primary">${product.price}</p>
+          <p className="mt-4 text-xl font-medium text-text-primary">
+            {formatCurrency(product.price)}
+          </p>
           <p className="mt-1 text-sm text-text-muted">
             {product.stock_status === "in_stock" ? "In stock" : "Out of stock"}
           </p>

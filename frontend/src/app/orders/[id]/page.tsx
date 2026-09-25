@@ -9,6 +9,7 @@ import { PageShell } from "@/components/ui/page-shell";
 import { Card } from "@/components/ui/card";
 import { Pill, statusToTone } from "@/components/ui/pill";
 import { ErrorText, LoadingText } from "@/components/ui/status-text";
+import { formatCurrency } from "@/lib/currency";
 
 export default function OrderDetailPage() {
   const params = useParams<{ id: string }>();
@@ -128,11 +129,11 @@ export default function OrderDetailPage() {
                     <p className="font-medium text-text-primary">{item.product.name}</p>
                     <p className="text-sm text-text-muted">Sold by {item.shop_name}</p>
                     <p className="mt-1 text-sm text-text-muted">
-                      {item.quantity} &times; ${item.unit_price}
+                      {item.quantity} &times; {formatCurrency(item.unit_price)}
                     </p>
                     <Pill tone={statusToTone(item.status)}>{item.status}</Pill>
                   </div>
-                  <p className="font-medium text-text-primary">${item.subtotal}</p>
+                  <p className="font-medium text-text-primary">{formatCurrency(item.subtotal)}</p>
                 </div>
               </Card>
             ))}
@@ -140,7 +141,9 @@ export default function OrderDetailPage() {
         </div>
 
         <div className="flex justify-end border-t border-border pt-6">
-          <p className="text-lg font-semibold text-text-primary">Total: ${order.total}</p>
+          <p className="text-lg font-semibold text-text-primary">
+            Total: {formatCurrency(order.total)}
+          </p>
         </div>
       </Card>
     </PageShell>

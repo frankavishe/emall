@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Pill, statusToTone } from "@/components/ui/pill";
 import { ErrorText, LoadingText, EmptyText } from "@/components/ui/status-text";
+import { formatCurrency } from "@/lib/currency";
 
 export default function OrdersPage() {
   const router = useRouter();
@@ -87,7 +88,9 @@ export default function OrdersPage() {
                   </div>
                   <div className="flex items-center gap-3">
                     <Pill tone={statusToTone(order.status)}>{order.status}</Pill>
-                    <p className="text-lg font-semibold text-text-primary">${order.total}</p>
+                    <p className="text-lg font-semibold text-text-primary">
+                      {formatCurrency(order.total)}
+                    </p>
                   </div>
                 </Link>
               </Card>
