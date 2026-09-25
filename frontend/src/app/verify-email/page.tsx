@@ -1,13 +1,15 @@
 import { Suspense } from "react";
 import VerifyEmailForm from "./verify-email-form";
+import { PageShell } from "@/components/ui/page-shell";
+import { LoadingText } from "@/components/ui/status-text";
 
 export default function VerifyEmailPage() {
   return (
     <Suspense
       fallback={
-        <main className="mx-auto flex min-h-screen max-w-sm items-center justify-center px-6">
-          <p className="text-sm text-black/60">Loading…</p>
-        </main>
+        <PageShell size="sm" className="min-h-screen items-center justify-center">
+          <LoadingText />
+        </PageShell>
       }
     >
       <VerifyEmailForm />

@@ -4,6 +4,12 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { apiFetch, ApiError } from "@/lib/api-client";
+import { PageShell } from "@/components/ui/page-shell";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { FormField, inputClassName } from "@/components/ui/form-field";
+import { Pill } from "@/components/ui/pill";
+import { ErrorText, LoadingText } from "@/components/ui/status-text";
 
 type Category = { name: string; slug: string };
 
@@ -135,94 +141,90 @@ export default function EditVendorProductPage() {
 
   if (isLoading || !user || user.role !== "VENDOR" || !product) {
     return (
-      <main className="mx-auto flex min-h-screen max-w-sm items-center justify-center px-6">
-        <p className="text-sm text-black/60">{error ?? "Loading…"}</p>
-      </main>
+      <PageShell size="sm" className="min-h-screen items-center justify-center">
+        {error ? <ErrorText>{error}</ErrorText> : <LoadingText />}
+      </PageShell>
     );
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6 py-12">
-      <h1 className="mb-2 text-2xl font-semibold">Edit product</h1>
-      <p className="mb-6 text-sm text-black/60">
-        Shop: {product.shop.name} &middot; Status: {product.is_published ? "Published" : "Draft"}
-      </p>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <label className="flex flex-col gap-1 text-sm font-medium">
-          Name
-          <input
-            type="text"
-            required
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="rounded-md border border-black/15 px-3 py-2 text-base outline-none focus:border-black/40"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-sm font-medium">
-          Description
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="rounded-md border border-black/15 px-3 py-2 text-base outline-none focus:border-black/40"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-sm font-medium">
-          Price
-          <input
-            type="number"
-            step="0.01"
-            min="0"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            className="rounded-md border border-black/15 px-3 py-2 text-base outline-none focus:border-black/40"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-sm font-medium">
-          Stock quantity
-          <input
-            type="number"
-            step="1"
-            min="0"
-            value={stockQuantity}
-            onChange={(e) => setStockQuantity(e.target.value)}
-            className="rounded-md border border-black/15 px-3 py-2 text-base outline-none focus:border-black/40"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-sm font-medium">
-          Category
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            className="rounded-md border border-black/15 px-3 py-2 text-base outline-none focus:border-black/40"
-          >
-            <option value="">—</option>
-            {categories.map((cat) => (
-              <option key={cat.slug} value={cat.slug}>
-                {cat.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        {message && <p className="text-sm text-green-700">{message}</p>}
-        <div className="mt-2 flex gap-2">
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-          >
-            {isSubmitting ? "Saving…" : "Save"}
-          </button>
-          <button
-            type="button"
-            disabled={isTogglingPublish}
-            onClick={handlePublishToggle}
-            className="rounded-md border border-black/15 px-4 py-2 text-sm font-medium disabled:opacity-50"
-          >
-            {product.is_published ? "Unpublish" : "Publish"}
-          </button>
-        </div>
-      </form>
-    </main>
+    <PageShell size="md">
+      <Card>
+        <h1 className="mb-2 text-2xl font-semibold text-text-primary">Edit product</h1>
+        <p className="mb-6 flex items-center gap-2 text-sm text-text-muted">
+          Shop: {product.shop.name}
+          <Pill tone={product.is_published ? "delivered" : "neutral"}>
+            {product.is_published ? "Published" : "Draft"}
+          </Pill>
+        </p>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <FormField label="Name">
+            <input
+              type="text"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className={inputClassName}
+            />
+          </FormField>
+          <FormField label="Description">
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className={inputClassName}
+            />
+          </FormField>
+          <FormField label="Price">
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              className={inputClassName}
+            />
+          </FormField>
+          <FormField label="Stock quantity">
+            <input
+              type="number"
+              step="1"
+              min="0"
+              value={stockQuantity}
+              onChange={(e) => setStockQuantity(e.target.value)}
+              className={inputClassName}
+            />
+          </FormField>
+          <FormField label="Category">
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className={inputClassName}
+            >
+              <option value="">—</option>
+              {categories.map((cat) => (
+                <option key={cat.slug} value={cat.slug}>
+                  {cat.name}
+                </option>
+              ))}
+            </select>
+          </FormField>
+          {error && <ErrorText>{error}</ErrorText>}
+          {message && <p className="text-sm text-status-approved">{message}</p>}
+          <div className="mt-2 flex gap-2">
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Saving…" : "Save"}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={isTogglingPublish}
+              onClick={handlePublishToggle}
+            >
+              {product.is_published ? "Unpublish" : "Publish"}
+            </Button>
+          </div>
+        </form>
+      </Card>
+    </PageShell>
   );
 }

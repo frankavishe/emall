@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useAuth, type Shop } from "@/lib/auth-context";
 import {
@@ -12,68 +13,85 @@ import {
   type AdminOrderItem,
 } from "@/lib/api-client";
 import { ProductCatalog } from "@/components/product-catalog";
+import { PageShell } from "@/components/ui/page-shell";
+import { Card } from "@/components/ui/card";
+import { StatCard } from "@/components/ui/stat-card";
+import { Button } from "@/components/ui/button";
+import { Pill, statusToTone } from "@/components/ui/pill";
+import { ActivityRow } from "@/components/ui/activity-row";
+import { LoadingText, ErrorText, EmptyText } from "@/components/ui/status-text";
+import type { OrderStatusDatum } from "@/components/charts/order-status-bar-chart";
 
+const OrderStatusBarChart = dynamic(
+  () => import("@/components/charts/order-status-bar-chart").then((mod) => mod.OrderStatusBarChart),
+  { ssr: false },
+);
+const RadialGauge = dynamic(
+  () => import("@/components/charts/radial-gauge").then((mod) => mod.RadialGauge),
+  { ssr: false },
+);
+
+const ORDER_SAMPLE_SIZE = 100;
 const RECENT_ORDER_COUNT = 5;
+const ORDER_STATUSES = ["PENDING", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"];
+
+function groupByStatus(items: { status: string }[]): OrderStatusDatum[] {
+  const counts = new Map<string, number>();
+  for (const status of ORDER_STATUSES) counts.set(status, 0);
+  for (const item of items) {
+    counts.set(item.status, (counts.get(item.status) ?? 0) + 1);
+  }
+  return ORDER_STATUSES.map((status) => ({ status, count: counts.get(status) ?? 0 }));
+}
 
 function GuestHomepage() {
   return (
-    <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-6 px-6 py-6">
-      <section className="flex flex-wrap items-center justify-between gap-3 border-b border-black/10 pb-4">
+    <PageShell size="xl">
+      <Card variant="hero" className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold">The Mall</h1>
-          <p className="text-sm text-black/60">
+          <h1 className="text-2xl font-semibold">The Mall</h1>
+          <p className="text-sm text-text-inverse/70">
             Products from independent shops, all in one place.
           </p>
         </div>
         <div className="flex gap-3">
-          <Link
-            href="/login"
-            className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white"
-          >
-            Log in
-          </Link>
-          <Link
-            href="/register"
-            className="rounded-md border border-black/15 px-4 py-2 text-sm font-medium"
-          >
-            Register
-          </Link>
+          <Button variant="secondary" asChild>
+            <Link href="/login">Log in</Link>
+          </Button>
+          <Button variant="primary" className="bg-teal-400 text-navy-900 hover:bg-teal-300" asChild>
+            <Link href="/register">Register</Link>
+          </Button>
         </div>
-      </section>
+      </Card>
 
       <ProductCatalog />
-    </main>
+    </PageShell>
   );
 }
 
 function CustomerHomepage() {
   return (
-    <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-6 px-6 py-6">
-      <section className="flex flex-wrap items-center justify-between gap-3 border-b border-black/10 pb-4">
-        <h1 className="text-xl font-semibold">Welcome back</h1>
+    <PageShell size="xl">
+      <Card variant="hero" className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-2xl font-semibold">Welcome back</h1>
         <div className="flex gap-3">
-          <Link
-            href="/cart"
-            className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white"
-          >
-            View cart
-          </Link>
-          <Link
-            href="/orders"
-            className="rounded-md border border-black/15 px-4 py-2 text-sm font-medium"
-          >
-            View orders
-          </Link>
+          <Button variant="primary" className="bg-teal-400 text-navy-900 hover:bg-teal-300" asChild>
+            <Link href="/cart">View cart</Link>
+          </Button>
+          <Button variant="secondary" asChild>
+            <Link href="/orders">View orders</Link>
+          </Button>
         </div>
-      </section>
+      </Card>
 
       <ProductCatalog />
-    </main>
+    </PageShell>
   );
 }
 
 function useVendorOrders(shouldFetch: boolean) {
   const [orders, setOrders] = useState<VendorOrderItem[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -87,8 +105,11 @@ function useVendorOrders(shouldFetch: boolean) {
       setIsLoading(true);
       setError(null);
       try {
-        const response = await listVendorOrderItems(1, RECENT_ORDER_COUNT);
-        if (!cancelled) setOrders(response.results);
+        const response = await listVendorOrderItems(1, ORDER_SAMPLE_SIZE);
+        if (!cancelled) {
+          setOrders(response.results);
+          setTotalCount(response.count);
+        }
       } catch (err) {
         if (!cancelled) {
           setError(
@@ -106,88 +127,114 @@ function useVendorOrders(shouldFetch: boolean) {
     };
   }, [shouldFetch]);
 
-  return { orders, isLoading, error };
+  return { orders, totalCount, isLoading, error };
 }
 
 function VendorHomepage({ shop }: { shop: Shop | undefined }) {
   const isApproved = shop?.status === "APPROVED";
-  const { orders, isLoading, error } = useVendorOrders(isApproved);
+  const { orders, totalCount, isLoading, error } = useVendorOrders(isApproved);
+
+  const recent = orders.slice(0, RECENT_ORDER_COUNT);
+  // `orders` is at most a ORDER_SAMPLE_SIZE-row sample (not every order item), so the
+  // pending/delivered figures below are sampled ratios, not exact counts, once a shop
+  // has more open items than the sample size.
+  const pendingCount = orders.filter((item) => item.status === "PENDING").length;
+  const deliveredCount = orders.filter((item) => item.status === "DELIVERED").length;
+  const deliveredRate = orders.length > 0 ? Math.round((deliveredCount / orders.length) * 100) : 0;
+  const chartData = useMemo(() => groupByStatus(orders), [orders]);
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-10 px-6 py-12">
-      <section className="flex flex-col items-start gap-4">
-        <h1 className="text-3xl font-semibold">Your shop</h1>
+    <PageShell size="xl">
+      <Card className="flex flex-col items-start gap-4">
+        <h1 className="text-2xl font-semibold text-text-primary">Your shop</h1>
         {!shop ? (
           <>
-            <p className="text-black/60">You haven&apos;t requested a shop yet.</p>
-            <Link
-              href="/account"
-              className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white"
-            >
-              Request a shop
-            </Link>
+            <p className="text-text-muted">You haven&apos;t requested a shop yet.</p>
+            <Button asChild>
+              <Link href="/account">Request a shop</Link>
+            </Button>
           </>
         ) : shop.status === "PENDING" ? (
-          <p className="text-black/60">
-            <span className="font-medium text-black">{shop.name}</span> is pending approval.
+          <p className="text-text-muted">
+            <span className="font-medium text-text-primary">{shop.name}</span> is pending approval.
           </p>
         ) : shop.status === "REJECTED" ? (
           <>
-            <p className="text-black/60">
-              <span className="font-medium text-black">{shop.name}</span>&apos;s request was
+            <p className="text-text-muted">
+              <span className="font-medium text-text-primary">{shop.name}</span>&apos;s request was
               rejected.
             </p>
-            <Link
-              href="/account"
-              className="rounded-md border border-black/15 px-4 py-2 text-sm font-medium"
-            >
-              Go to account
-            </Link>
+            <Button variant="secondary" asChild>
+              <Link href="/account">Go to account</Link>
+            </Button>
           </>
         ) : (
           <>
-            <p className="text-black/60">
-              <span className="font-medium text-black">{shop.name}</span> is approved.
+            <p className="text-text-muted">
+              <span className="font-medium text-text-primary">{shop.name}</span> is approved.
             </p>
-            <Link
-              href="/vendor/products"
-              className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white"
-            >
-              Manage products
-            </Link>
+            <Button asChild>
+              <Link href="/vendor/products">Manage products</Link>
+            </Button>
           </>
         )}
-      </section>
+      </Card>
 
-      {isApproved && (
-        <section className="flex flex-col gap-4">
-          <h2 className="text-xl font-semibold">Recent orders</h2>
-          {isLoading ? (
-            <p className="text-sm text-black/60">Loading orders…</p>
-          ) : error ? (
-            <p className="text-sm text-red-600">{error}</p>
-          ) : orders.length === 0 ? (
-            <p className="text-sm text-black/60">No orders yet.</p>
-          ) : (
-            <ul className="flex flex-col gap-2">
-              {orders.map((item) => (
-                <li key={item.id} className="rounded-md border border-black/15 p-4 text-sm">
-                  <p className="font-medium">{item.product.name}</p>
-                  <p className="text-black/60">
-                    Qty {item.quantity} · {item.status}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      )}
-    </main>
+      {isApproved &&
+        (isLoading ? (
+          <LoadingText>Loading dashboard…</LoadingText>
+        ) : error ? (
+          <ErrorText>{error}</ErrorText>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <StatCard variant="hero" label="Total orders" value={totalCount} />
+              <StatCard label="Pending fulfillment" value={pendingCount} />
+              <StatCard
+                label="Delivered rate"
+                value={`${deliveredRate}%`}
+                trend={{ text: `${deliveredCount} delivered`, tone: "positive" }}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <Card>
+                <h2 className="mb-4 text-sm font-semibold text-text-primary">Orders by status</h2>
+                <OrderStatusBarChart data={chartData} />
+              </Card>
+              <Card>
+                <h2 className="mb-4 text-sm font-semibold text-text-primary">Delivered orders</h2>
+                <RadialGauge value={deliveredRate} caption="Delivered rate" />
+              </Card>
+            </div>
+
+            <Card>
+              <h2 className="mb-2 text-sm font-semibold text-text-primary">Recent orders</h2>
+              {recent.length === 0 ? (
+                <EmptyText>No orders yet.</EmptyText>
+              ) : (
+                <ul className="flex flex-col divide-y divide-border">
+                  {recent.map((item) => (
+                    <ActivityRow
+                      key={item.id}
+                      name={item.product.name}
+                      description={`Qty ${item.quantity}`}
+                      badge={<Pill tone={statusToTone(item.status)}>{item.status}</Pill>}
+                    />
+                  ))}
+                </ul>
+              )}
+            </Card>
+          </>
+        ))}
+    </PageShell>
   );
 }
 
 function useAdminSummary() {
   const [pendingCount, setPendingCount] = useState<number | null>(null);
+  const [approvedCount, setApprovedCount] = useState<number | null>(null);
+  const [rejectedCount, setRejectedCount] = useState<number | null>(null);
   const [orders, setOrders] = useState<AdminOrderItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -199,12 +246,17 @@ function useAdminSummary() {
       setIsLoading(true);
       setError(null);
       try {
-        const [shopsResponse, ordersResponse] = await Promise.all([
-          listAdminShops("PENDING", 1),
-          listAdminOrderItems(1, RECENT_ORDER_COUNT),
-        ]);
+        const [pendingResponse, approvedResponse, rejectedResponse, ordersResponse] =
+          await Promise.all([
+            listAdminShops("PENDING", 1),
+            listAdminShops("APPROVED", 1),
+            listAdminShops("REJECTED", 1),
+            listAdminOrderItems(1, ORDER_SAMPLE_SIZE),
+          ]);
         if (!cancelled) {
-          setPendingCount(shopsResponse.count);
+          setPendingCount(pendingResponse.count);
+          setApprovedCount(approvedResponse.count);
+          setRejectedCount(rejectedResponse.count);
           setOrders(ordersResponse.results);
         }
       } catch (err) {
@@ -224,61 +276,77 @@ function useAdminSummary() {
     };
   }, []);
 
-  return { pendingCount, orders, isLoading, error };
+  return { pendingCount, approvedCount, rejectedCount, orders, isLoading, error };
 }
 
 function AdministratorHomepage() {
-  const { pendingCount, orders, isLoading, error } = useAdminSummary();
+  const { pendingCount, approvedCount, rejectedCount, orders, isLoading, error } =
+    useAdminSummary();
+
+  const recent = orders.slice(0, RECENT_ORDER_COUNT);
+  const chartData = useMemo(() => groupByStatus(orders), [orders]);
+  const totalShops = (pendingCount ?? 0) + (approvedCount ?? 0) + (rejectedCount ?? 0);
+  const approvalRate = totalShops > 0 ? Math.round(((approvedCount ?? 0) / totalShops) * 100) : 0;
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-10 px-6 py-12">
-      <section className="flex flex-col items-start gap-4">
-        <h1 className="text-3xl font-semibold">Admin overview</h1>
-        {isLoading ? (
-          <p className="text-sm text-black/60">Loading…</p>
-        ) : error ? (
-          <p className="text-sm text-red-600">{error}</p>
-        ) : (
-          <p className="text-black/60">
-            <span className="font-medium text-black">{pendingCount}</span>{" "}
-            {pendingCount === 1 ? "shop" : "shops"} pending approval.
-          </p>
-        )}
-        <Link
-          href="/admin/shops"
-          className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white"
-        >
-          Review shop approvals
-        </Link>
-      </section>
+    <PageShell size="xl">
+      {isLoading ? (
+        <LoadingText>Loading dashboard…</LoadingText>
+      ) : error ? (
+        <ErrorText>{error}</ErrorText>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <StatCard
+              variant="hero"
+              label="Pending shop approvals"
+              value={pendingCount}
+              trend={{ text: "needs review" }}
+            />
+            <StatCard label="Approved shops" value={approvedCount} />
+            <StatCard label="Rejected shops" value={rejectedCount} />
+          </div>
 
-      <section className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Recent orders</h2>
-          <Link href="/admin/orders" className="text-sm font-medium underline">
-            View all orders
-          </Link>
-        </div>
-        {isLoading ? (
-          <p className="text-sm text-black/60">Loading orders…</p>
-        ) : error ? (
-          <p className="text-sm text-red-600">{error}</p>
-        ) : orders.length === 0 ? (
-          <p className="text-sm text-black/60">No orders yet.</p>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {orders.map((item) => (
-              <li key={item.id} className="rounded-md border border-black/15 p-4 text-sm">
-                <p className="font-medium">{item.product.name}</p>
-                <p className="text-black/60">
-                  {item.shop.name} · Qty {item.quantity} · {item.status}
-                </p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </main>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <Card>
+              <h2 className="mb-4 text-sm font-semibold text-text-primary">Orders by status</h2>
+              <OrderStatusBarChart data={chartData} />
+            </Card>
+            <Card>
+              <h2 className="mb-4 text-sm font-semibold text-text-primary">Shop approval rate</h2>
+              <RadialGauge value={approvalRate} caption="Approved shops" />
+            </Card>
+          </div>
+
+          <Card>
+            <div className="mb-2 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-text-primary">Recent orders</h2>
+              <Link href="/admin/orders" className="text-sm font-medium text-navy-900 underline">
+                View all orders
+              </Link>
+            </div>
+            {recent.length === 0 ? (
+              <EmptyText>No orders yet.</EmptyText>
+            ) : (
+              <ul className="flex flex-col divide-y divide-border">
+                {recent.map((item) => (
+                  <ActivityRow
+                    key={item.id}
+                    name={item.product.name}
+                    description={`${item.shop.name} · Qty ${item.quantity}`}
+                    badge={<Pill tone={statusToTone(item.status)}>{item.status}</Pill>}
+                  />
+                ))}
+              </ul>
+            )}
+          </Card>
+
+          <Button variant="secondary" asChild className="self-start">
+            <Link href="/admin/shops">Review shop approvals</Link>
+          </Button>
+        </>
+      )}
+    </PageShell>
   );
 }
 
@@ -287,9 +355,9 @@ export default function Home() {
 
   if (isLoading) {
     return (
-      <main className="mx-auto flex min-h-screen max-w-5xl items-center justify-center px-6 py-12">
-        <p className="text-sm text-black/60">Loading…</p>
-      </main>
+      <PageShell size="lg" className="min-h-screen items-center justify-center">
+        <LoadingText>Loading…</LoadingText>
+      </PageShell>
     );
   }
 

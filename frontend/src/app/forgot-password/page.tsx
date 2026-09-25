@@ -1,7 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { apiFetch } from "@/lib/api-client";
+import { PageShell } from "@/components/ui/page-shell";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { FormField, inputClassName } from "@/components/ui/form-field";
 
 const CONFIRMATION_MESSAGE = "If that email is registered, a reset link has been sent.";
 
@@ -28,37 +33,34 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6 py-12">
-      <h1 className="mb-6 text-2xl font-semibold">Reset your password</h1>
-      {submitted ? (
-        <p className="text-sm text-black/80">{CONFIRMATION_MESSAGE}</p>
-      ) : (
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <label className="flex flex-col gap-1 text-sm font-medium">
-            Email
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="rounded-md border border-black/15 px-3 py-2 text-base outline-none focus:border-black/40"
-            />
-          </label>
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="mt-2 rounded-md bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-          >
-            {isSubmitting ? "Sending…" : "Send reset link"}
-          </button>
-        </form>
-      )}
-      <p className="mt-6 text-sm text-black/60">
-        Remembered your password?{" "}
-        <a href="/login" className="underline">
-          Log in
-        </a>
-      </p>
-    </main>
+    <PageShell size="sm" className="min-h-screen justify-center">
+      <Card>
+        <h1 className="mb-6 text-2xl font-semibold text-text-primary">Reset your password</h1>
+        {submitted ? (
+          <p className="text-sm text-text-primary/80">{CONFIRMATION_MESSAGE}</p>
+        ) : (
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            <FormField label="Email">
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className={inputClassName}
+              />
+            </FormField>
+            <Button type="submit" disabled={isSubmitting} fullWidth className="mt-2">
+              {isSubmitting ? "Sending…" : "Send reset link"}
+            </Button>
+          </form>
+        )}
+        <p className="mt-6 text-sm text-text-muted">
+          Remembered your password?{" "}
+          <Link href="/login" className="font-medium text-navy-900 underline">
+            Log in
+          </Link>
+        </p>
+      </Card>
+    </PageShell>
   );
 }

@@ -9,6 +9,11 @@ import {
   type AdminOrderItem,
   type PaginatedResponse,
 } from "@/lib/api-client";
+import { PageShell } from "@/components/ui/page-shell";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Pill, statusToTone } from "@/components/ui/pill";
+import { ErrorText, LoadingText, EmptyText } from "@/components/ui/status-text";
 
 export default function AdminOrdersPage() {
   const router = useRouter();
@@ -54,56 +59,56 @@ export default function AdminOrdersPage() {
 
   if (isLoading || !user || user.role !== "ADMINISTRATOR") {
     return (
-      <main className="mx-auto flex min-h-screen max-w-3xl items-center justify-center px-6">
-        <p className="text-sm text-black/60">Loading…</p>
-      </main>
+      <PageShell size="md" className="min-h-screen items-center justify-center">
+        <LoadingText />
+      </PageShell>
     );
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col px-6 py-12">
-      <h1 className="mb-6 text-2xl font-semibold">Order fulfillment oversight</h1>
-
-      {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+    <PageShell size="md" title="Order fulfillment oversight">
+      {error && <ErrorText>{error}</ErrorText>}
 
       {isLoadingItems ? (
-        <p className="text-sm text-black/60">Loading order lines…</p>
+        <LoadingText>Loading order lines…</LoadingText>
       ) : !items || items.results.length === 0 ? (
-        <p className="text-sm text-black/60">No order lines yet.</p>
+        <EmptyText>No order lines yet.</EmptyText>
       ) : (
         <>
           <ul className="flex flex-col gap-4">
             {items.results.map((item) => (
-              <li key={item.id} className="rounded-md border border-black/15 p-4">
+              <Card as="li" key={item.id} padding="sm">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="font-medium">{item.product.name}</p>
-                    <p className="text-sm text-black/60">
+                    <p className="font-medium text-text-primary">{item.product.name}</p>
+                    <p className="text-sm text-text-muted">
                       Order #{item.order_id} &middot; Sold by {item.shop.name}
                     </p>
-                    <p className="text-sm text-black/60">
+                    <p className="text-sm text-text-muted">
                       {item.quantity} &times; ${item.unit_price}
                     </p>
-                    <p className="mt-1 text-sm text-black/60">Status: {item.status}</p>
+                    <div className="mt-1">
+                      <Pill tone={statusToTone(item.status)}>{item.status}</Pill>
+                    </div>
                   </div>
 
-                  <button
-                    type="button"
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     onClick={() => setExpandedId((prev) => (prev === item.id ? null : item.id))}
-                    className="rounded-md border border-black/15 px-3 py-1.5 text-sm font-medium"
                   >
                     {expandedId === item.id ? "Hide history" : "Show history"}
-                  </button>
+                  </Button>
                 </div>
 
                 {expandedId === item.id && (
-                  <div className="mt-3 border-t border-black/15 pt-3">
+                  <div className="mt-3 border-t border-border pt-3">
                     {item.status_history.length === 0 ? (
-                      <p className="text-sm text-black/60">No status changes yet.</p>
+                      <EmptyText>No status changes yet.</EmptyText>
                     ) : (
                       <ul className="flex flex-col gap-1">
                         {item.status_history.map((event, index) => (
-                          <li key={index} className="text-sm text-black/60">
+                          <li key={index} className="text-sm text-text-muted">
                             {event.status} &middot; {new Date(event.changed_at).toLocaleString()}
                           </li>
                         ))}
@@ -111,32 +116,30 @@ export default function AdminOrdersPage() {
                     )}
                   </div>
                 )}
-              </li>
+              </Card>
             ))}
           </ul>
 
           {(items.previous || items.next) && (
-            <div className="mt-6 flex items-center justify-between">
-              <button
-                type="button"
+            <div className="flex items-center justify-between">
+              <Button
+                variant="secondary"
                 disabled={!items.previous}
                 onClick={() => setPage((prev) => prev - 1)}
-                className="rounded-md border border-black/15 px-3 py-1.5 text-sm font-medium disabled:opacity-50"
               >
                 Previous
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="secondary"
                 disabled={!items.next}
                 onClick={() => setPage((prev) => prev + 1)}
-                className="rounded-md border border-black/15 px-3 py-1.5 text-sm font-medium disabled:opacity-50"
               >
                 Next
-              </button>
+              </Button>
             </div>
           )}
         </>
       )}
-    </main>
+    </PageShell>
   );
 }

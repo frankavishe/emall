@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { apiFetch, ApiError } from "@/lib/api-client";
+import { PageShell } from "@/components/ui/page-shell";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Pill } from "@/components/ui/pill";
+import { ErrorText, LoadingText, EmptyText } from "@/components/ui/status-text";
 
 type VendorProduct = {
   id: number;
@@ -114,78 +119,75 @@ export default function VendorProductsPage() {
 
   if (isLoading || !user || user.role !== "VENDOR") {
     return (
-      <main className="mx-auto flex min-h-screen max-w-3xl items-center justify-center px-6">
-        <p className="text-sm text-black/60">Loading…</p>
-      </main>
+      <PageShell size="md" className="min-h-screen items-center justify-center">
+        <LoadingText />
+      </PageShell>
     );
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col px-6 py-12">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">My products</h1>
-        <Link
-          href="/vendor/products/new"
-          className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white"
-        >
-          New product
-        </Link>
-      </div>
-
-      {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+    <PageShell
+      size="md"
+      title="My products"
+      actions={
+        <Button asChild>
+          <Link href="/vendor/products/new">New product</Link>
+        </Button>
+      }
+    >
+      {error && <ErrorText>{error}</ErrorText>}
 
       {isLoadingProducts ? (
-        <p className="text-sm text-black/60">Loading products…</p>
+        <LoadingText>Loading products…</LoadingText>
       ) : products.length === 0 ? (
-        <p className="text-sm text-black/60">You haven&apos;t created any products yet.</p>
+        <EmptyText>You haven&apos;t created any products yet.</EmptyText>
       ) : (
         <ul className="flex flex-col gap-4">
           {products.map((product) => (
-            <li key={product.id} className="rounded-md border border-black/15 p-4">
+            <Card as="li" key={product.id} padding="sm">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="font-medium">{product.name}</p>
-                  <p className="text-sm text-black/60">
+                  <p className="font-medium text-text-primary">{product.name}</p>
+                  <p className="text-sm text-text-muted">
                     Shop: {product.shop.name} ({product.shop.status})
                   </p>
-                  <p className="mt-1 text-sm text-black/60">
+                  <p className="mt-1 text-sm text-text-muted">
                     Price: {product.price ?? "—"} &middot; Stock: {product.stock_quantity ?? "—"}{" "}
                     &middot; Category: {product.category ?? "—"}
                   </p>
-                  <p className="mt-1 text-sm text-black/60">
-                    Status: {product.is_published ? "Published" : "Draft"}
-                  </p>
+                  <div className="mt-2">
+                    <Pill tone={product.is_published ? "delivered" : "neutral"}>
+                      {product.is_published ? "Published" : "Draft"}
+                    </Pill>
+                  </div>
                 </div>
 
                 <div className="flex flex-col items-end gap-2">
-                  <Link
-                    href={`/vendor/products/${product.id}/edit`}
-                    className="rounded-md border border-black/15 px-3 py-1.5 text-sm font-medium"
-                  >
-                    Edit
-                  </Link>
-                  <button
-                    type="button"
+                  <Button variant="secondary" size="sm" asChild>
+                    <Link href={`/vendor/products/${product.id}/edit`}>Edit</Link>
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     disabled={pendingActionId === product.id}
                     onClick={() => handlePublishToggle(product)}
-                    className="rounded-md border border-black/15 px-3 py-1.5 text-sm font-medium disabled:opacity-50"
                   >
                     {product.is_published ? "Unpublish" : "Publish"}
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    variant="danger"
+                    size="sm"
                     disabled={pendingActionId === product.id}
                     onClick={() => handleDelete(product)}
-                    className="rounded-md border border-black/15 px-3 py-1.5 text-sm font-medium text-red-600 disabled:opacity-50"
                   >
                     Delete
-                  </button>
+                  </Button>
                 </div>
               </div>
-            </li>
+            </Card>
           ))}
         </ul>
       )}
-    </main>
+    </PageShell>
   );
 }

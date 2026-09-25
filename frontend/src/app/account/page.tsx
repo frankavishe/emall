@@ -4,6 +4,12 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { ApiError } from "@/lib/api-client";
+import { PageShell } from "@/components/ui/page-shell";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { FormField, inputClassName } from "@/components/ui/form-field";
+import { Pill, statusToTone } from "@/components/ui/pill";
+import { ErrorText, LoadingText, EmptyText } from "@/components/ui/status-text";
 
 export default function AccountPage() {
   const router = useRouter();
@@ -41,9 +47,9 @@ export default function AccountPage() {
 
   if (isLoading) {
     return (
-      <main className="mx-auto flex min-h-screen max-w-sm items-center justify-center px-6">
-        <p className="text-sm text-black/60">Loading…</p>
-      </main>
+      <PageShell size="sm" className="min-h-screen items-center justify-center">
+        <LoadingText />
+      </PageShell>
     );
   }
 
@@ -52,69 +58,64 @@ export default function AccountPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6 py-12">
-      <h1 className="mb-6 text-2xl font-semibold">Your account</h1>
-      <dl className="flex flex-col gap-3 text-sm">
-        <div className="flex justify-between">
-          <dt className="text-black/60">Name</dt>
-          <dd className="font-medium">{user.name}</dd>
-        </div>
-        <div className="flex justify-between">
-          <dt className="text-black/60">Email</dt>
-          <dd className="font-medium">{user.email}</dd>
-        </div>
-        <div className="flex justify-between">
-          <dt className="text-black/60">Role</dt>
-          <dd className="font-medium">{user.role}</dd>
-        </div>
-        <div className="flex justify-between">
-          <dt className="text-black/60">Email verified</dt>
-          <dd className="font-medium">{user.is_email_verified ? "Yes" : "No"}</dd>
-        </div>
-      </dl>
+    <PageShell size="sm" className="min-h-screen justify-center">
+      <Card>
+        <h1 className="mb-6 text-2xl font-semibold text-text-primary">Your account</h1>
+        <dl className="flex flex-col gap-3 text-sm">
+          <div className="flex justify-between">
+            <dt className="text-text-muted">Name</dt>
+            <dd className="font-medium text-text-primary">{user.name}</dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-text-muted">Email</dt>
+            <dd className="font-medium text-text-primary">{user.email}</dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-text-muted">Role</dt>
+            <dd className="font-medium text-text-primary">{user.role}</dd>
+          </div>
+          <div className="flex justify-between">
+            <dt className="text-text-muted">Email verified</dt>
+            <dd className="font-medium text-text-primary">
+              {user.is_email_verified ? "Yes" : "No"}
+            </dd>
+          </div>
+        </dl>
 
-      {user.role === "VENDOR" && (
-        <section className="mt-8">
-          <h2 className="mb-3 text-lg font-semibold">Your shops</h2>
-          <ul className="flex flex-col gap-2 text-sm">
-            {(user.shops ?? []).map((shop) => (
-              <li key={shop.id} className="flex justify-between">
-                <span className="font-medium">{shop.name}</span>
-                <span className="text-black/60">{shop.status}</span>
-              </li>
-            ))}
-            {(user.shops ?? []).length === 0 && <li className="text-black/60">No shops yet.</li>}
-          </ul>
-          <form onSubmit={handleRequestShop} className="mt-4 flex flex-col gap-2">
-            <label className="flex flex-col gap-1 text-sm font-medium">
-              Request another shop
-              <input
-                type="text"
-                required
-                value={newShopName}
-                onChange={(e) => setNewShopName(e.target.value)}
-                className="rounded-md border border-black/15 px-3 py-2 text-base outline-none focus:border-black/40"
-              />
-            </label>
-            {shopError && <p className="text-sm text-red-600">{shopError}</p>}
-            <button
-              type="submit"
-              disabled={isRequestingShop}
-              className="rounded-md border border-black/15 px-4 py-2 text-sm font-medium disabled:opacity-50"
-            >
-              {isRequestingShop ? "Requesting…" : "Request shop"}
-            </button>
-          </form>
-        </section>
-      )}
+        {user.role === "VENDOR" && (
+          <section className="mt-8">
+            <h2 className="mb-3 text-lg font-semibold text-text-primary">Your shops</h2>
+            <ul className="flex flex-col gap-2 text-sm">
+              {(user.shops ?? []).map((shop) => (
+                <li key={shop.id} className="flex items-center justify-between">
+                  <span className="font-medium text-text-primary">{shop.name}</span>
+                  <Pill tone={statusToTone(shop.status)}>{shop.status}</Pill>
+                </li>
+              ))}
+              {(user.shops ?? []).length === 0 && <EmptyText>No shops yet.</EmptyText>}
+            </ul>
+            <form onSubmit={handleRequestShop} className="mt-4 flex flex-col gap-2">
+              <FormField label="Request another shop">
+                <input
+                  type="text"
+                  required
+                  value={newShopName}
+                  onChange={(e) => setNewShopName(e.target.value)}
+                  className={inputClassName}
+                />
+              </FormField>
+              {shopError && <ErrorText>{shopError}</ErrorText>}
+              <Button type="submit" variant="secondary" disabled={isRequestingShop}>
+                {isRequestingShop ? "Requesting…" : "Request shop"}
+              </Button>
+            </form>
+          </section>
+        )}
 
-      <button
-        type="button"
-        onClick={handleLogout}
-        className="mt-8 rounded-md border border-black/15 px-4 py-2 text-sm font-medium"
-      >
-        Log out
-      </button>
-    </main>
+        <Button variant="secondary" onClick={handleLogout} className="mt-8">
+          Log out
+        </Button>
+      </Card>
+    </PageShell>
   );
 }
