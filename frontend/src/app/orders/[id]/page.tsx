@@ -141,7 +141,9 @@ export default function OrderDetailPage() {
         </div>
 
         <div className="flex justify-end border-t border-border pt-6">
-          <p className="text-lg font-semibold text-text-primary">Total: {formatCurrency(order.total)}</p>
+          <p className="text-lg font-semibold text-text-primary">
+            Total: {formatCurrency(order.total)}
+          </p>
         </div>
       </Card>
     </PageShell>

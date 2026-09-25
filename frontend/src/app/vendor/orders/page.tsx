@@ -120,7 +120,8 @@ export default function VendorOrdersPage() {
                   <div>
                     <p className="font-medium text-text-primary">{item.product.name}</p>
                     <p className="text-sm text-text-muted">
-                      Order #{item.order_id} &middot; {item.quantity} &times; {formatCurrency(item.unit_price)}
+                      Order #{item.order_id} &middot; {item.quantity} &times;{" "}
+                      {formatCurrency(item.unit_price)}
                     </p>
                     <div className="mt-1">
                       <Pill tone={statusToTone(item.status)}>{item.status}</Pill>

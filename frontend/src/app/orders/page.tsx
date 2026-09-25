@@ -88,7 +88,9 @@ export default function OrdersPage() {
                   </div>
                   <div className="flex items-center gap-3">
                     <Pill tone={statusToTone(order.status)}>{order.status}</Pill>
-                    <p className="text-lg font-semibold text-text-primary">{formatCurrency(order.total)}</p>
+                    <p className="text-lg font-semibold text-text-primary">
+                      {formatCurrency(order.total)}
+                    </p>
                   </div>
                 </Link>
               </Card>

@@ -37,9 +37,8 @@ class Command(BaseCommand):
         john.is_email_verified = True
         john.set_password(JOHN_PASSWORD)
         john.save()
-        self.stdout.write(
-            self.style.SUCCESS(f"{'Created' if created else 'Updated'} vendor account: {john.email}")
-        )
+        verb = "Created" if created else "Updated"
+        self.stdout.write(self.style.SUCCESS(f"{verb} vendor account: {john.email}"))
 
         shop, shop_created = Shop.objects.get_or_create(
             owner=john,
@@ -50,16 +49,15 @@ class Command(BaseCommand):
             shop.status = Shop.Status.APPROVED
             shop.status_changed_at = timezone.now()
             shop.save()
-        self.stdout.write(
-            self.style.SUCCESS(f"{'Created' if shop_created else 'Using existing'} shop: {shop.name} (APPROVED)")
-        )
+        verb = "Created" if shop_created else "Using existing"
+        self.stdout.write(self.style.SUCCESS(f"{verb} shop: {shop.name} (APPROVED)"))
 
         try:
             category = Category.objects.get(slug="electronics")
-        except Category.DoesNotExist:
+        except Category.DoesNotExist as exc:
             raise CommandError(
                 "Category 'electronics' not found — run migrations (0002_seed_categories) first."
-            )
+            ) from exc
 
         product, product_created = Product.objects.get_or_create(
             shop=shop,
@@ -72,8 +70,9 @@ class Command(BaseCommand):
                 "is_published": True,
             },
         )
+        verb = "Created" if product_created else "Using existing"
         self.stdout.write(
-            self.style.SUCCESS(f"{'Created' if product_created else 'Using existing'} product: {product.name} (id={product.id})")
+            self.style.SUCCESS(f"{verb} product: {product.name} (id={product.id})")
         )
 
         media_products_dir = settings.MEDIA_ROOT / "products"
@@ -81,7 +80,9 @@ class Command(BaseCommand):
         for position, filename in enumerate(SAMPLE_IMAGE_NAMES):
             source_path = media_products_dir / filename
             if not source_path.exists():
-                self.stdout.write(self.style.WARNING(f"Skipping missing sample image: {source_path}"))
+                self.stdout.write(
+                    self.style.WARNING(f"Skipping missing sample image: {source_path}")
+                )
                 continue
             if ProductImage.objects.filter(product=product, position=position).exists():
                 image_count += 1
@@ -93,6 +94,7 @@ class Command(BaseCommand):
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"Done. john={john.email} / shop={shop.name} / product_id={product.id} / images={image_count}"
+                f"Done. john={john.email} / shop={shop.name} / "
+                f"product_id={product.id} / images={image_count}"
             )
         )
