@@ -4,101 +4,25 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth, type Shop } from "@/lib/auth-context";
 import {
-  listProducts,
   listVendorOrderItems,
   listAdminShops,
   listAdminOrderItems,
   ApiError,
-  type CatalogProduct,
   type VendorOrderItem,
   type AdminOrderItem,
 } from "@/lib/api-client";
+import { ProductCatalog } from "@/components/product-catalog";
 
-const HIGHLIGHT_COUNT = 8;
 const RECENT_ORDER_COUNT = 5;
-
-function useProductHighlights() {
-  const [products, setProducts] = useState<CatalogProduct[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const response = await listProducts(HIGHLIGHT_COUNT);
-        if (!cancelled) setProducts(response.results);
-      } catch (err) {
-        if (!cancelled) {
-          setError(
-            err instanceof ApiError ? err.message : "Something went wrong. Please try again.",
-          );
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    }
-
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  return { products, isLoading, error };
-}
-
-function ProductHighlights() {
-  const { products, isLoading, error } = useProductHighlights();
-
-  if (isLoading) {
-    return <p className="text-sm text-black/60">Loading products…</p>;
-  }
-  if (error) {
-    return <p className="text-sm text-red-600">{error}</p>;
-  }
-  if (products.length === 0) {
-    return <p className="text-sm text-black/60">No products yet — check back soon.</p>;
-  }
-
-  return (
-    <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
-      {products.map((product) => (
-        <li key={product.id} className="rounded-md border border-black/15 p-4">
-          <Link href={`/products/${product.id}`} className="flex flex-col gap-2">
-            {product.thumbnail_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={product.thumbnail_url}
-                alt={product.name}
-                className="aspect-square w-full rounded-md object-cover"
-              />
-            ) : (
-              <div className="flex aspect-square w-full items-center justify-center rounded-md bg-black/5 text-sm text-black/40">
-                No image
-              </div>
-            )}
-            <p className="font-medium">{product.name}</p>
-            <p className="text-sm text-black/60">{product.shop_name}</p>
-            <p className="text-sm font-medium">${product.price}</p>
-          </Link>
-        </li>
-      ))}
-    </ul>
-  );
-}
 
 function GuestHomepage() {
   return (
-    <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-10 px-6 py-12">
-      <section className="flex flex-col items-start gap-4">
-        <h1 className="text-3xl font-semibold">Welcome to the mall</h1>
-        <p className="max-w-xl text-lg text-black/60">
-          Browse products from independent shops, all in one place.
-        </p>
+    <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-6 px-6 py-6">
+      <section className="flex flex-wrap items-center justify-between gap-3 border-b border-black/10 pb-4">
+        <div>
+          <h1 className="text-xl font-semibold">The Mall</h1>
+          <p className="text-sm text-black/60">Products from independent shops, all in one place.</p>
+        </div>
         <div className="flex gap-3">
           <Link
             href="/login"
@@ -115,19 +39,16 @@ function GuestHomepage() {
         </div>
       </section>
 
-      <section className="flex flex-col gap-4">
-        <h2 className="text-xl font-semibold">Featured products</h2>
-        <ProductHighlights />
-      </section>
+      <ProductCatalog />
     </main>
   );
 }
 
 function CustomerHomepage() {
   return (
-    <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-10 px-6 py-12">
-      <section className="flex flex-col items-start gap-4">
-        <h1 className="text-3xl font-semibold">Welcome back</h1>
+    <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-6 px-6 py-6">
+      <section className="flex flex-wrap items-center justify-between gap-3 border-b border-black/10 pb-4">
+        <h1 className="text-xl font-semibold">Welcome back</h1>
         <div className="flex gap-3">
           <Link
             href="/cart"
@@ -144,10 +65,7 @@ function CustomerHomepage() {
         </div>
       </section>
 
-      <section className="flex flex-col gap-4">
-        <h2 className="text-xl font-semibold">Featured products</h2>
-        <ProductHighlights />
-      </section>
+      <ProductCatalog />
     </main>
   );
 }

@@ -149,11 +149,38 @@ export type CatalogProduct = {
   review_count: number;
 };
 
+export type Category = { name: string; slug: string };
+
+export type ListProductsOptions = {
+  limit?: number;
+  q?: string;
+  category?: string;
+  minPrice?: string;
+  maxPrice?: string;
+};
+
 /** `GET /api/catalog/products`; `limit` maps to the opt-in `?page_size=` (task T005,
  * contracts/homepage-api.md) — omit it to get the existing default page of 20. */
-export async function listProducts(limit?: number): Promise<PaginatedResponse<CatalogProduct>> {
-  const query = limit ? `?page_size=${limit}` : "";
-  return apiFetch<PaginatedResponse<CatalogProduct>>(`/api/catalog/products${query}`);
+export async function listProducts(
+  options?: number | ListProductsOptions,
+): Promise<PaginatedResponse<CatalogProduct>> {
+  const { limit, q, category, minPrice, maxPrice } =
+    typeof options === "number" ? { limit: options } : (options ?? {});
+
+  const params = new URLSearchParams();
+  if (limit) params.set("page_size", String(limit));
+  if (q?.trim()) params.set("q", q.trim());
+  if (category) params.set("category", category);
+  if (minPrice?.trim()) params.set("min_price", minPrice.trim());
+  if (maxPrice?.trim()) params.set("max_price", maxPrice.trim());
+
+  const query = params.toString();
+  return apiFetch<PaginatedResponse<CatalogProduct>>(`/api/catalog/products${query ? `?${query}` : ""}`);
+}
+
+/** `GET /api/catalog/categories`. */
+export async function listCategories(): Promise<Category[]> {
+  return apiFetch<Category[]>("/api/catalog/categories");
 }
 
 /** `POST /api/checkout` (task T038, contracts/cart-checkout-api.md). */
