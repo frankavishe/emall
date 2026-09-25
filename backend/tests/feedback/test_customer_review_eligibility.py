@@ -1,8 +1,8 @@
 import pytest
 
 from apps.accounts.models import User
-from apps.orders.models import OrderItem
 from apps.feedback.models import Review
+from apps.orders.models import OrderItem
 from tests.factories import OrderItemFactory, ProductFactory, UserFactory
 
 pytestmark = pytest.mark.django_db

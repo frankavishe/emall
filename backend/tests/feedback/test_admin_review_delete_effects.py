@@ -3,7 +3,13 @@ import pytest
 from apps.accounts.models import User
 from apps.orders.models import OrderItem
 from apps.vendors.models import Shop
-from tests.factories import OrderItemFactory, ProductFactory, ReviewFactory, ShopFactory, UserFactory
+from tests.factories import (
+    OrderItemFactory,
+    ProductFactory,
+    ReviewFactory,
+    ShopFactory,
+    UserFactory,
+)
 
 pytestmark = pytest.mark.django_db
 
