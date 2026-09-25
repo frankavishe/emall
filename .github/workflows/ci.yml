@@ -310,7 +310,10 @@ jobs:
   # resets staging to development above (see that job's comment).
   promote-to-main:
     needs: staging-e2e
-    if: github.event_name == 'push' && github.ref_name == 'staging' && needs.staging-e2e.result == 'success'
+    if: |
+      always() &&
+      github.event_name == 'push' && github.ref_name == 'staging' &&
+      needs.staging-e2e.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read
