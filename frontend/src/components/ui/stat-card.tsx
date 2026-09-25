@@ -11,11 +11,23 @@ type StatCardProps = {
   className?: string;
 };
 
-export function StatCard({ label, value, trend, variant = "default", icon, className }: StatCardProps) {
+export function StatCard({
+  label,
+  value,
+  trend,
+  variant = "default",
+  icon,
+  className,
+}: StatCardProps) {
   return (
     <Card variant={variant} className={cn("flex flex-col gap-3", className)}>
       <div className="flex items-center justify-between gap-2">
-        <span className={cn("text-sm font-medium", variant === "hero" ? "text-text-inverse/70" : "text-text-muted")}>
+        <span
+          className={cn(
+            "text-sm font-medium",
+            variant === "hero" ? "text-text-inverse/70" : "text-text-muted",
+          )}
+        >
           {label}
         </span>
         {icon}

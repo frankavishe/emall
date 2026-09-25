@@ -6,11 +6,7 @@ import { cn } from "@/lib/cn";
 
 export function ProductCard({ product }: { product: CatalogProduct }) {
   return (
-    <Card
-      as="li"
-      padding="sm"
-      className="shadow-card transition-shadow hover:shadow-card-hover"
-    >
+    <Card as="li" padding="sm" className="shadow-card transition-shadow hover:shadow-card-hover">
       <Link href={`/products/${product.id}`} className="flex flex-col gap-2">
         {product.thumbnail_url ? (
           // eslint-disable-next-line @next/next/no-img-element

@@ -58,11 +58,7 @@ function GuestHomepage() {
           <Button variant="secondary" asChild>
             <Link href="/login">Log in</Link>
           </Button>
-          <Button
-            variant="primary"
-            className="bg-teal-400 text-navy-900 hover:bg-teal-300"
-            asChild
-          >
+          <Button variant="primary" className="bg-teal-400 text-navy-900 hover:bg-teal-300" asChild>
             <Link href="/register">Register</Link>
           </Button>
         </div>
@@ -79,11 +75,7 @@ function CustomerHomepage() {
       <Card variant="hero" className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold">Welcome back</h1>
         <div className="flex gap-3">
-          <Button
-            variant="primary"
-            className="bg-teal-400 text-navy-900 hover:bg-teal-300"
-            asChild
-          >
+          <Button variant="primary" className="bg-teal-400 text-navy-900 hover:bg-teal-300" asChild>
             <Link href="/cart">View cart</Link>
           </Button>
           <Button variant="secondary" asChild>

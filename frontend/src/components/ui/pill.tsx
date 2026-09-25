@@ -30,7 +30,12 @@ export function statusToTone(status: string): PillTone {
 
 export function Pill({ tone = "neutral", children }: { tone?: PillTone; children: ReactNode }) {
   return (
-    <span className={cn("inline-flex items-center rounded-pill px-3 py-1 text-xs font-medium", TONE_CLASSES[tone])}>
+    <span
+      className={cn(
+        "inline-flex items-center rounded-pill px-3 py-1 text-xs font-medium",
+        TONE_CLASSES[tone],
+      )}
+    >
       {children}
     </span>
   );

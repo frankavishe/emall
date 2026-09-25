@@ -73,7 +73,12 @@ export default function VerifyEmailForm() {
     <PageShell size="sm" className="min-h-screen justify-center">
       <Card>
         <h1 className="mb-6 text-2xl font-semibold text-text-primary">Email verification</h1>
-        <p className={cn("text-sm", status === "error" ? "text-status-cancelled" : "text-text-primary/80")}>
+        <p
+          className={cn(
+            "text-sm",
+            status === "error" ? "text-status-cancelled" : "text-text-primary/80",
+          )}
+        >
           {message}
         </p>
 
@@ -87,7 +92,10 @@ export default function VerifyEmailForm() {
         )}
 
         {status === "success" && (
-          <Link href="/account" className="mt-6 inline-block text-sm font-medium text-navy-900 underline">
+          <Link
+            href="/account"
+            className="mt-6 inline-block text-sm font-medium text-navy-900 underline"
+          >
             Go to your account
           </Link>
         )}

@@ -29,7 +29,11 @@ export function OrderStatusBarChart({ data }: { data: OrderStatusDatum[] }) {
             {data.map((entry) => (
               <Cell
                 key={entry.status}
-                fill={entry.count === maxCount && maxCount > 0 ? "var(--color-teal-400)" : "var(--color-teal-100)"}
+                fill={
+                  entry.count === maxCount && maxCount > 0
+                    ? "var(--color-teal-400)"
+                    : "var(--color-teal-100)"
+                }
               />
             ))}
           </Bar>

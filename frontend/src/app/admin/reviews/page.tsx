@@ -116,7 +116,9 @@ export default function AdminReviewsPage() {
                     </Button>
                   </div>
                 </div>
-                {review.comment && <p className="mt-2 text-sm text-text-primary">{review.comment}</p>}
+                {review.comment && (
+                  <p className="mt-2 text-sm text-text-primary">{review.comment}</p>
+                )}
               </Card>
             ))}
           </ul>

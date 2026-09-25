@@ -76,7 +76,9 @@ export default function AccountPage() {
           </div>
           <div className="flex justify-between">
             <dt className="text-text-muted">Email verified</dt>
-            <dd className="font-medium text-text-primary">{user.is_email_verified ? "Yes" : "No"}</dd>
+            <dd className="font-medium text-text-primary">
+              {user.is_email_verified ? "Yes" : "No"}
+            </dd>
           </div>
         </dl>
 

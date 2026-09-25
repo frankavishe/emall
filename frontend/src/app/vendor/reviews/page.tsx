@@ -90,7 +90,9 @@ export default function VendorReviewsPage() {
                   {review.customer_display_name} &middot;{" "}
                   {new Date(review.created_at).toLocaleDateString()}
                 </p>
-                {review.comment && <p className="mt-2 text-sm text-text-primary">{review.comment}</p>}
+                {review.comment && (
+                  <p className="mt-2 text-sm text-text-primary">{review.comment}</p>
+                )}
               </Card>
             ))}
           </ul>

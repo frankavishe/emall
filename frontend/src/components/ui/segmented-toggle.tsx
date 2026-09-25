@@ -9,7 +9,12 @@ type SegmentedToggleProps<T extends string> = {
   className?: string;
 };
 
-export function SegmentedToggle<T extends string>({ options, value, onChange, className }: SegmentedToggleProps<T>) {
+export function SegmentedToggle<T extends string>({
+  options,
+  value,
+  onChange,
+  className,
+}: SegmentedToggleProps<T>) {
   return (
     <div className={cn("inline-flex items-center gap-1 rounded-pill bg-card-muted p-1", className)}>
       {options.map((option) => (

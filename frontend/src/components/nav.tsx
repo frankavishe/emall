@@ -73,7 +73,10 @@ export function Nav() {
   return (
     <div className="sticky top-0 z-10 bg-canvas px-4 pt-4">
       <nav className="mx-auto flex max-w-6xl items-center justify-between rounded-pill bg-card px-3 py-2 shadow-nav">
-        <Link href="/" className="flex items-center gap-2 pl-2 pr-4 text-base font-semibold text-navy-900">
+        <Link
+          href="/"
+          className="flex items-center gap-2 pl-2 pr-4 text-base font-semibold text-navy-900"
+        >
           <span aria-hidden className="h-2.5 w-2.5 rounded-sm bg-teal-400" />
           E-Mall
         </Link>
@@ -103,10 +106,17 @@ export function Nav() {
                 <Avatar name={user.name} size="sm" />
                 <span className="flex flex-col leading-tight">
                   <span className="text-sm font-medium text-text-primary">{user.name}</span>
-                  <span className="text-xs capitalize text-text-muted">{user.role.toLowerCase()}</span>
+                  <span className="text-xs capitalize text-text-muted">
+                    {user.role.toLowerCase()}
+                  </span>
                 </span>
               </Link>
-              <Button variant="ghost" size="sm" onClick={handleLogout} className="hidden sm:inline-flex">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleLogout}
+                className="hidden sm:inline-flex"
+              >
                 Logout
               </Button>
             </>
@@ -130,7 +140,12 @@ export function Nav() {
             <span className="sr-only">Toggle menu</span>
             <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden>
               {mobileOpen ? (
-                <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth={1.6} strokeLinecap="round" />
+                <path
+                  d="M5 5l10 10M15 5L5 15"
+                  stroke="currentColor"
+                  strokeWidth={1.6}
+                  strokeLinecap="round"
+                />
               ) : (
                 <path
                   d="M3 5h14M3 10h14M3 15h14"
@@ -168,7 +183,9 @@ export function Nav() {
                 <Avatar name={user.name} size="sm" />
                 <span className="flex flex-1 flex-col leading-tight">
                   <span className="text-sm font-medium text-text-primary">{user.name}</span>
-                  <span className="text-xs capitalize text-text-muted">{user.role.toLowerCase()}</span>
+                  <span className="text-xs capitalize text-text-muted">
+                    {user.role.toLowerCase()}
+                  </span>
                 </span>
                 <Button variant="ghost" size="sm" onClick={handleLogout}>
                   Logout

@@ -26,7 +26,13 @@ export function PageShell({
   className,
 }: PageShellProps) {
   return (
-    <main className={cn("mx-auto flex w-full flex-col gap-6 px-4 py-8 sm:px-6", SIZE_CLASSES[size], className)}>
+    <main
+      className={cn(
+        "mx-auto flex w-full flex-col gap-6 px-4 py-8 sm:px-6",
+        SIZE_CLASSES[size],
+        className,
+      )}
+    >
       {(title || description || actions) && (
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex flex-col gap-1">
