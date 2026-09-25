@@ -4,6 +4,11 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { ApiError, checkout, type ShippingDetails } from "@/lib/api-client";
+import { PageShell } from "@/components/ui/page-shell";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { FormField, inputClassName } from "@/components/ui/form-field";
+import { ErrorText, LoadingText } from "@/components/ui/status-text";
 
 type FieldErrors = Partial<Record<keyof ShippingDetails, string>>;
 
@@ -85,54 +90,50 @@ export default function CheckoutPage() {
 
   if (isLoading || !user || user.role !== "CUSTOMER") {
     return (
-      <main className="mx-auto flex min-h-screen max-w-lg items-center justify-center px-6">
-        <p className="text-sm text-black/60">Loading…</p>
-      </main>
+      <PageShell size="md" className="min-h-screen items-center justify-center">
+        <LoadingText />
+      </PageShell>
     );
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-lg flex-col px-6 py-12">
-      <h1 className="mb-6 text-2xl font-semibold">Checkout</h1>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        {(Object.keys(EMPTY_SHIPPING) as (keyof ShippingDetails)[]).map((field) => (
-          <label key={field} className="flex flex-col gap-1 text-sm font-medium">
-            {FIELD_LABELS[field]}
-            <input
-              type="text"
-              required
-              value={shipping[field]}
-              onChange={(e) => updateField(field, e.target.value)}
-              className="rounded-md border border-black/15 px-3 py-2 text-base outline-none focus:border-black/40"
-            />
-            {fieldErrors[field] && (
-              <span className="text-xs text-red-600">{fieldErrors[field]}</span>
-            )}
-          </label>
-        ))}
+    <PageShell size="md">
+      <Card>
+        <h1 className="mb-6 text-2xl font-semibold text-text-primary">Checkout</h1>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          {(Object.keys(EMPTY_SHIPPING) as (keyof ShippingDetails)[]).map((field) => (
+            <FormField key={field} label={FIELD_LABELS[field]}>
+              <input
+                type="text"
+                required
+                value={shipping[field]}
+                onChange={(e) => updateField(field, e.target.value)}
+                className={inputClassName}
+              />
+              {fieldErrors[field] && (
+                <span className="text-xs text-status-cancelled">{fieldErrors[field]}</span>
+              )}
+            </FormField>
+          ))}
 
-        <label className="flex flex-col gap-1 text-sm font-medium">
-          Payment method
-          <select
-            value={paymentMethod}
-            onChange={(e) => setPaymentMethod(e.target.value)}
-            className="rounded-md border border-black/15 px-3 py-2 text-base outline-none focus:border-black/40"
-          >
-            <option value="card">Card</option>
-            <option value="mobile_money">Mobile money</option>
-          </select>
-        </label>
+          <FormField label="Payment method">
+            <select
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value)}
+              className={inputClassName}
+            >
+              <option value="card">Card</option>
+              <option value="mobile_money">Mobile money</option>
+            </select>
+          </FormField>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <ErrorText>{error}</ErrorText>}
 
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="mt-2 rounded-md bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-        >
-          {isSubmitting ? "Placing order…" : "Place order"}
-        </button>
-      </form>
-    </main>
+          <Button type="submit" disabled={isSubmitting} fullWidth className="mt-2">
+            {isSubmitting ? "Placing order…" : "Place order"}
+          </Button>
+        </form>
+      </Card>
+    </PageShell>
   );
 }

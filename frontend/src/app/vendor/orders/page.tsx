@@ -10,6 +10,11 @@ import {
   type PaginatedResponse,
   type VendorOrderItem,
 } from "@/lib/api-client";
+import { PageShell } from "@/components/ui/page-shell";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Pill, statusToTone } from "@/components/ui/pill";
+import { ErrorText, LoadingText, EmptyText } from "@/components/ui/status-text";
 
 // Mirrors backend/apps/orders/services.py's _VALID_TRANSITIONS — server-validated regardless,
 // this only constrains which buttons are offered (plan.md T016).
@@ -91,35 +96,35 @@ export default function VendorOrdersPage() {
 
   if (isLoading || !user || user.role !== "VENDOR") {
     return (
-      <main className="mx-auto flex min-h-screen max-w-3xl items-center justify-center px-6">
-        <p className="text-sm text-black/60">Loading…</p>
-      </main>
+      <PageShell size="md" className="min-h-screen items-center justify-center">
+        <LoadingText />
+      </PageShell>
     );
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col px-6 py-12">
-      <h1 className="mb-6 text-2xl font-semibold">Order fulfillment</h1>
-
-      {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+    <PageShell size="md" title="Order fulfillment">
+      {error && <ErrorText>{error}</ErrorText>}
 
       {isLoadingItems ? (
-        <p className="text-sm text-black/60">Loading order lines…</p>
+        <LoadingText>Loading order lines…</LoadingText>
       ) : !items || items.results.length === 0 ? (
-        <p className="text-sm text-black/60">No order lines awaiting fulfillment yet.</p>
+        <EmptyText>No order lines awaiting fulfillment yet.</EmptyText>
       ) : (
         <>
           <ul className="flex flex-col gap-4">
             {items.results.map((item) => (
-              <li key={item.id} className="rounded-md border border-black/15 p-4">
+              <Card as="li" key={item.id} padding="sm">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="font-medium">{item.product.name}</p>
-                    <p className="text-sm text-black/60">
+                    <p className="font-medium text-text-primary">{item.product.name}</p>
+                    <p className="text-sm text-text-muted">
                       Order #{item.order_id} &middot; {item.quantity} &times; ${item.unit_price}
                     </p>
-                    <p className="mt-1 text-sm text-black/60">Status: {item.status}</p>
-                    <div className="mt-2 text-sm text-black/60">
+                    <div className="mt-1">
+                      <Pill tone={statusToTone(item.status)}>{item.status}</Pill>
+                    </div>
+                    <div className="mt-2 text-sm text-text-muted">
                       <p>{item.shipping.recipient_name}</p>
                       <p>{item.shipping.address_line}</p>
                       <p>
@@ -132,48 +137,42 @@ export default function VendorOrdersPage() {
 
                   <div className="flex flex-col items-end gap-2">
                     {(NEXT_STATUSES[item.status] ?? []).map((nextStatus) => (
-                      <button
+                      <Button
                         key={nextStatus}
-                        type="button"
+                        variant={nextStatus === "CANCELLED" ? "danger" : "secondary"}
+                        size="sm"
                         disabled={pendingActionId === item.id}
                         onClick={() => handleAdvance(item, nextStatus)}
-                        className={`rounded-md border px-3 py-1.5 text-sm font-medium disabled:opacity-50 ${
-                          nextStatus === "CANCELLED"
-                            ? "border-black/15 text-red-600"
-                            : "border-black/15"
-                        }`}
                       >
                         Mark {nextStatus.charAt(0) + nextStatus.slice(1).toLowerCase()}
-                      </button>
+                      </Button>
                     ))}
                   </div>
                 </div>
-              </li>
+              </Card>
             ))}
           </ul>
 
           {(items.previous || items.next) && (
-            <div className="mt-6 flex items-center justify-between">
-              <button
-                type="button"
+            <div className="flex items-center justify-between">
+              <Button
+                variant="secondary"
                 disabled={!items.previous}
                 onClick={() => setPage((prev) => prev - 1)}
-                className="rounded-md border border-black/15 px-3 py-1.5 text-sm font-medium disabled:opacity-50"
               >
                 Previous
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="secondary"
                 disabled={!items.next}
                 onClick={() => setPage((prev) => prev + 1)}
-                className="rounded-md border border-black/15 px-3 py-1.5 text-sm font-medium disabled:opacity-50"
               >
                 Next
-              </button>
+              </Button>
             </div>
           )}
         </>
       )}
-    </main>
+    </PageShell>
   );
 }

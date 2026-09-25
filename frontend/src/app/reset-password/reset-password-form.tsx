@@ -3,6 +3,11 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch, ApiError } from "@/lib/api-client";
+import { PageShell } from "@/components/ui/page-shell";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { FormField, inputClassName } from "@/components/ui/form-field";
+import { ErrorText } from "@/components/ui/status-text";
 
 export default function ResetPasswordForm() {
   const router = useRouter();
@@ -36,28 +41,25 @@ export default function ResetPasswordForm() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6 py-12">
-      <h1 className="mb-6 text-2xl font-semibold">Set a new password</h1>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <label className="flex flex-col gap-1 text-sm font-medium">
-          New password
-          <input
-            type="password"
-            required
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            className="rounded-md border border-black/15 px-3 py-2 text-base outline-none focus:border-black/40"
-          />
-        </label>
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="mt-2 rounded-md bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-        >
-          {isSubmitting ? "Updating…" : "Update password"}
-        </button>
-      </form>
-    </main>
+    <PageShell size="sm" className="min-h-screen justify-center">
+      <Card>
+        <h1 className="mb-6 text-2xl font-semibold text-text-primary">Set a new password</h1>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <FormField label="New password">
+            <input
+              type="password"
+              required
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className={inputClassName}
+            />
+          </FormField>
+          {error && <ErrorText>{error}</ErrorText>}
+          <Button type="submit" disabled={isSubmitting} fullWidth className="mt-2">
+            {isSubmitting ? "Updating…" : "Update password"}
+          </Button>
+        </form>
+      </Card>
+    </PageShell>
   );
 }

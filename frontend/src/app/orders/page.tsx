@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { ApiError, listOrders, type OrderSummary, type PaginatedResponse } from "@/lib/api-client";
+import { PageShell } from "@/components/ui/page-shell";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Pill, statusToTone } from "@/components/ui/pill";
+import { ErrorText, LoadingText, EmptyText } from "@/components/ui/status-text";
 
 export default function OrdersPage() {
   const router = useRouter();
@@ -49,68 +54,66 @@ export default function OrdersPage() {
 
   if (isLoading || !user || user.role !== "CUSTOMER") {
     return (
-      <main className="mx-auto flex min-h-screen max-w-3xl items-center justify-center px-6">
-        <p className="text-sm text-black/60">Loading…</p>
-      </main>
+      <PageShell size="md" className="min-h-screen items-center justify-center">
+        <LoadingText />
+      </PageShell>
     );
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col px-6 py-12">
-      <h1 className="mb-6 text-2xl font-semibold">Your orders</h1>
-
-      {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+    <PageShell size="md" title="Your orders">
+      {error && <ErrorText>{error}</ErrorText>}
 
       {isLoadingOrders ? (
-        <p className="text-sm text-black/60">Loading orders…</p>
+        <LoadingText>Loading orders…</LoadingText>
       ) : !orders || orders.results.length === 0 ? (
-        <p className="text-sm text-black/60">
+        <EmptyText>
           You haven&apos;t placed any orders yet.{" "}
-          <Link href="/products" className="font-medium underline">
+          <Link href="/products" className="font-medium text-navy-900 underline">
             Browse products
           </Link>
-        </p>
+        </EmptyText>
       ) : (
         <>
           <ul className="flex flex-col gap-4">
             {orders.results.map((order) => (
-              <li key={order.id} className="rounded-md border border-black/15 p-4">
+              <Card as="li" key={order.id} padding="sm">
                 <Link href={`/orders/${order.id}`} className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium">Order #{order.id}</p>
-                    <p className="text-sm text-black/60">
-                      Placed {new Date(order.placed_at).toLocaleDateString()} &middot;{" "}
-                      {order.status}
+                    <p className="font-medium text-text-primary">Order #{order.id}</p>
+                    <p className="text-sm text-text-muted">
+                      Placed {new Date(order.placed_at).toLocaleDateString()}
                     </p>
                   </div>
-                  <p className="text-lg font-semibold">${order.total}</p>
+                  <div className="flex items-center gap-3">
+                    <Pill tone={statusToTone(order.status)}>{order.status}</Pill>
+                    <p className="text-lg font-semibold text-text-primary">${order.total}</p>
+                  </div>
                 </Link>
-              </li>
+              </Card>
             ))}
           </ul>
 
           {(orders.previous || orders.next) && (
-            <div className="mt-6 flex items-center justify-between">
-              <button
-                type="button"
+            <div className="flex items-center justify-between">
+              <Button
+                variant="secondary"
                 disabled={!orders.previous}
                 onClick={() => setPage((prev) => prev - 1)}
-                className="rounded-md border border-black/15 px-3 py-1.5 text-sm font-medium disabled:opacity-50"
               >
                 Previous
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="secondary"
                 disabled={!orders.next}
                 onClick={() => setPage((prev) => prev + 1)}
-                className="rounded-md border border-black/15 px-3 py-1.5 text-sm font-medium disabled:opacity-50"
               >
                 Next
-              </button>
+              </Button>
             </div>
           )}
         </>
       )}
-    </main>
+    </PageShell>
   );
 }

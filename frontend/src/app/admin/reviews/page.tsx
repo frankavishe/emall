@@ -10,6 +10,10 @@ import {
   type AdminReview,
   type PaginatedResponse,
 } from "@/lib/api-client";
+import { PageShell } from "@/components/ui/page-shell";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { ErrorText, LoadingText, EmptyText } from "@/components/ui/status-text";
 
 function stars(rating: number) {
   return [1, 2, 3, 4, 5].map((star) => (star <= rating ? "★" : "☆")).join("");
@@ -73,74 +77,70 @@ export default function AdminReviewsPage() {
 
   if (isLoading || !user || user.role !== "ADMINISTRATOR") {
     return (
-      <main className="mx-auto flex min-h-screen max-w-3xl items-center justify-center px-6">
-        <p className="text-sm text-black/60">Loading…</p>
-      </main>
+      <PageShell size="md" className="min-h-screen items-center justify-center">
+        <LoadingText />
+      </PageShell>
     );
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col px-6 py-12">
-      <h1 className="mb-6 text-2xl font-semibold">Review moderation</h1>
-
-      {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+    <PageShell size="md" title="Review moderation">
+      {error && <ErrorText>{error}</ErrorText>}
 
       {isLoadingReviews ? (
-        <p className="text-sm text-black/60">Loading reviews…</p>
+        <LoadingText>Loading reviews…</LoadingText>
       ) : !reviews || reviews.results.length === 0 ? (
-        <p className="text-sm text-black/60">No reviews to moderate.</p>
+        <EmptyText>No reviews to moderate.</EmptyText>
       ) : (
         <>
           <ul className="flex flex-col gap-4">
             {reviews.results.map((review) => (
-              <li key={review.id} className="rounded-md border border-black/15 p-4">
+              <Card as="li" key={review.id} padding="sm">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium">{review.product.name}</p>
-                    <p className="text-sm text-black/60">{review.shop.name}</p>
-                    <p className="mt-1 truncate text-sm text-black/60">{review.customer.email}</p>
+                    <p className="font-medium text-text-primary">{review.product.name}</p>
+                    <p className="text-sm text-text-muted">{review.shop.name}</p>
+                    <p className="mt-1 truncate text-sm text-text-muted">{review.customer.email}</p>
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-2">
                     <span aria-hidden="true" className="text-yellow-500">
                       {stars(review.rating)}
                     </span>
-                    <button
-                      type="button"
+                    <Button
+                      variant="danger"
+                      size="sm"
                       disabled={pendingActionId === review.id}
                       onClick={() => handleRemove(review.id)}
-                      className="rounded-md border border-black/15 px-3 py-1.5 text-sm font-medium text-red-600 disabled:opacity-50"
                     >
                       Remove
-                    </button>
+                    </Button>
                   </div>
                 </div>
-                {review.comment && <p className="mt-2 text-sm">{review.comment}</p>}
-              </li>
+                {review.comment && <p className="mt-2 text-sm text-text-primary">{review.comment}</p>}
+              </Card>
             ))}
           </ul>
 
           {(reviews.previous || reviews.next) && (
-            <div className="mt-6 flex items-center justify-between">
-              <button
-                type="button"
+            <div className="flex items-center justify-between">
+              <Button
+                variant="secondary"
                 disabled={!reviews.previous}
                 onClick={() => setPage((prev) => prev - 1)}
-                className="rounded-md border border-black/15 px-3 py-1.5 text-sm font-medium disabled:opacity-50"
               >
                 Previous
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="secondary"
                 disabled={!reviews.next}
                 onClick={() => setPage((prev) => prev + 1)}
-                className="rounded-md border border-black/15 px-3 py-1.5 text-sm font-medium disabled:opacity-50"
               >
                 Next
-              </button>
+              </Button>
             </div>
           )}
         </>
       )}
-    </main>
+    </PageShell>
   );
 }

@@ -6,6 +6,11 @@ import Link from "next/link";
 import { apiFetch, ApiError, submitReview } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import { StarRating } from "@/components/star-rating";
+import { PageShell } from "@/components/ui/page-shell";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { ErrorText, LoadingText, EmptyText } from "@/components/ui/status-text";
+import { cn } from "@/lib/cn";
 
 type ProductReview = {
   id: number;
@@ -122,30 +127,30 @@ export default function ProductDetailPage() {
 
   if (isLoading) {
     return (
-      <main className="mx-auto flex min-h-screen max-w-3xl items-center justify-center px-6">
-        <p className="text-sm text-black/60">Loading…</p>
-      </main>
+      <PageShell size="lg" className="min-h-screen items-center justify-center">
+        <LoadingText />
+      </PageShell>
     );
   }
 
   if (error || !product) {
     return (
-      <main className="mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center px-6 py-12">
-        <p className="mb-4 text-sm text-red-600">{error ?? "Product not found."}</p>
-        <Link href="/products" className="text-sm font-medium underline">
+      <PageShell size="lg" className="min-h-screen items-center justify-center">
+        <ErrorText>{error ?? "Product not found."}</ErrorText>
+        <Link href="/products" className="text-sm font-medium text-navy-900 underline">
           Back to products
         </Link>
-      </main>
+      </PageShell>
     );
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col px-6 py-12">
-      <Link href="/products" className="mb-6 text-sm font-medium underline">
+    <PageShell size="lg">
+      <Link href="/products" className="text-sm font-medium text-navy-900 underline">
         Back to products
       </Link>
 
-      <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
+      <Card className="grid grid-cols-1 gap-8 md:grid-cols-2">
         <div className="flex flex-col gap-3">
           {product.images.length > 0 ? (
             product.images.map((image) => (
@@ -154,41 +159,43 @@ export default function ProductDetailPage() {
                 key={image.id}
                 src={image.url}
                 alt={product.name}
-                className="w-full rounded-md object-cover"
+                className="w-full rounded-control object-cover"
               />
             ))
           ) : (
-            <div className="flex aspect-square w-full items-center justify-center rounded-md bg-black/5 text-sm text-black/40">
+            <div className="flex aspect-square w-full items-center justify-center rounded-control bg-card-muted text-sm text-text-muted">
               No image
             </div>
           )}
         </div>
 
         <div>
-          <h1 className="text-2xl font-semibold">{product.name}</h1>
-          <p className="mt-1 text-sm text-black/60">Sold by {product.shop.name}</p>
+          <h1 className="text-2xl font-semibold text-text-primary">{product.name}</h1>
+          <p className="mt-1 text-sm text-text-muted">Sold by {product.shop.name}</p>
           {product.category && (
-            <p className="mt-1 text-sm text-black/60">Category: {product.category.name}</p>
+            <p className="mt-1 text-sm text-text-muted">Category: {product.category.name}</p>
           )}
-          <p className="mt-4 text-xl font-medium">${product.price}</p>
-          <p className="mt-1 text-sm text-black/60">
+          <p className="mt-4 text-xl font-medium text-text-primary">${product.price}</p>
+          <p className="mt-1 text-sm text-text-muted">
             {product.stock_status === "in_stock" ? "In stock" : "Out of stock"}
           </p>
           <div className="mt-1">
             <StarRating rating={product.average_rating} reviewCount={product.review_count} />
           </div>
-          <p className="mt-6 whitespace-pre-line text-sm text-black/80">{product.description}</p>
+          <p className="mt-6 whitespace-pre-line text-sm text-text-primary/80">
+            {product.description}
+          </p>
 
           {product.stock_status === "in_stock" &&
             (!user ? (
-              <p className="mt-6 text-sm text-black/60">
-                <Link href="/login" className="font-medium underline">
+              <p className="mt-6 text-sm text-text-muted">
+                <Link href="/login" className="font-medium text-navy-900 underline">
                   Log in
                 </Link>{" "}
                 as a Customer to add this to your cart.
               </p>
             ) : user.role !== "CUSTOMER" ? (
-              <p className="mt-6 text-sm text-black/60">
+              <p className="mt-6 text-sm text-text-muted">
                 Only Customer accounts can add items to a cart.
               </p>
             ) : (
@@ -198,23 +205,18 @@ export default function ProductDetailPage() {
                   min={1}
                   value={quantity}
                   onChange={(event) => setQuantity(Math.max(1, Number(event.target.value)))}
-                  className="w-20 rounded-md border border-black/15 px-2 py-1 text-sm"
+                  className="w-20 rounded-control border border-border px-2 py-1 text-sm"
                 />
-                <button
-                  type="button"
-                  disabled={isAddingToCart}
-                  onClick={() => void handleAddToCart()}
-                  className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-                >
+                <Button disabled={isAddingToCart} onClick={() => void handleAddToCart()}>
                   Add to cart
-                </button>
+                </Button>
               </div>
             ))}
-          {addToCartMessage && <p className="mt-2 text-sm text-black/60">{addToCartMessage}</p>}
+          {addToCartMessage && <p className="mt-2 text-sm text-text-muted">{addToCartMessage}</p>}
 
           {user && user.role === "CUSTOMER" && (
-            <div className="mt-8 border-t border-black/10 pt-6">
-              <h2 className="text-sm font-semibold">Leave a review</h2>
+            <div className="mt-8 border-t border-border pt-6">
+              <h2 className="text-sm font-semibold text-text-primary">Leave a review</h2>
               <div className="mt-2 flex items-center gap-1">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <button
@@ -222,9 +224,10 @@ export default function ProductDetailPage() {
                     type="button"
                     onClick={() => setReviewRating(star)}
                     aria-label={`${star} star${star === 1 ? "" : "s"}`}
-                    className={`text-2xl leading-none ${
-                      star <= reviewRating ? "text-yellow-500" : "text-black/20"
-                    }`}
+                    className={cn(
+                      "text-2xl leading-none",
+                      star <= reviewRating ? "text-yellow-500" : "text-text-muted/40",
+                    )}
                   >
                     ★
                   </button>
@@ -235,42 +238,43 @@ export default function ProductDetailPage() {
                 onChange={(event) => setReviewComment(event.target.value)}
                 placeholder="Write a comment (optional)"
                 rows={3}
-                className="mt-3 w-full rounded-md border border-black/15 px-3 py-2 text-sm"
+                className="mt-3 w-full rounded-control border border-border px-3 py-2 text-sm"
               />
-              <button
-                type="button"
+              <Button
                 disabled={isSubmittingReview}
                 onClick={() => void handleSubmitReview()}
-                className="mt-3 rounded-md bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                className="mt-3"
               >
                 Submit review
-              </button>
-              {reviewMessage && <p className="mt-2 text-sm text-black/60">{reviewMessage}</p>}
+              </Button>
+              {reviewMessage && <p className="mt-2 text-sm text-text-muted">{reviewMessage}</p>}
             </div>
           )}
 
-          <div className="mt-8 border-t border-black/10 pt-6">
-            <h2 className="text-sm font-semibold">
+          <div className="mt-8 border-t border-border pt-6">
+            <h2 className="text-sm font-semibold text-text-primary">
               Reviews {product.review_count > 0 && `(${product.review_count})`}
             </h2>
             {product.reviews.length === 0 ? (
-              <p className="mt-2 text-sm text-black/60">No reviews yet.</p>
+              <EmptyText>No reviews yet.</EmptyText>
             ) : (
               <ul className="mt-3 flex flex-col gap-4">
                 {product.reviews.map((review) => (
-                  <li key={review.id} className="border-b border-black/10 pb-4 last:border-0">
+                  <li key={review.id} className="border-b border-border pb-4 last:border-0">
                     <div className="flex items-center gap-2">
                       <span aria-hidden="true" className="text-yellow-500">
                         {[1, 2, 3, 4, 5]
                           .map((star) => (star <= review.rating ? "★" : "☆"))
                           .join("")}
                       </span>
-                      <span className="text-sm font-medium">{review.customer_display_name}</span>
+                      <span className="text-sm font-medium text-text-primary">
+                        {review.customer_display_name}
+                      </span>
                     </div>
                     {review.comment && (
-                      <p className="mt-1 text-sm text-black/80">{review.comment}</p>
+                      <p className="mt-1 text-sm text-text-primary/80">{review.comment}</p>
                     )}
-                    <p className="mt-1 text-xs text-black/40">
+                    <p className="mt-1 text-xs text-text-muted">
                       {new Date(review.created_at).toLocaleDateString()}
                     </p>
                   </li>
@@ -279,7 +283,7 @@ export default function ProductDetailPage() {
             )}
           </div>
         </div>
-      </div>
-    </main>
+      </Card>
+    </PageShell>
   );
 }

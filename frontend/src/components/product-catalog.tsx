@@ -9,6 +9,10 @@ import {
   type Category,
 } from "@/lib/api-client";
 import { ProductCard } from "@/components/product-card";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { FormField, inputClassName } from "@/components/ui/form-field";
+import { LoadingText, EmptyText, ErrorText } from "@/components/ui/status-text";
 
 export function ProductCatalog() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -76,26 +80,21 @@ export function ProductCatalog() {
 
   return (
     <div className="flex flex-col gap-6">
-      <form
-        onSubmit={handleFilterSubmit}
-        className="flex flex-wrap items-end gap-3 rounded-md border border-black/15 p-4"
-      >
-        <label className="flex flex-col gap-1 text-sm font-medium">
-          Search
+      <Card as="form" onSubmit={handleFilterSubmit} className="flex flex-wrap items-end gap-3">
+        <FormField label="Search">
           <input
             type="text"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Keyword…"
-            className="rounded-md border border-black/15 px-3 py-2 text-base outline-none focus:border-black/40"
+            className={inputClassName}
           />
-        </label>
-        <label className="flex flex-col gap-1 text-sm font-medium">
-          Category
+        </FormField>
+        <FormField label="Category">
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            className="rounded-md border border-black/15 px-3 py-2 text-base outline-none focus:border-black/40"
+            className={inputClassName}
           >
             <option value="">All categories</option>
             {categories.map((c) => (
@@ -104,43 +103,36 @@ export function ProductCatalog() {
               </option>
             ))}
           </select>
-        </label>
-        <label className="flex flex-col gap-1 text-sm font-medium">
-          Min price
+        </FormField>
+        <FormField label="Min price">
           <input
             type="number"
             min="0"
             step="0.01"
             value={minPrice}
             onChange={(e) => setMinPrice(e.target.value)}
-            className="w-28 rounded-md border border-black/15 px-3 py-2 text-base outline-none focus:border-black/40"
+            className={`w-28 ${inputClassName}`}
           />
-        </label>
-        <label className="flex flex-col gap-1 text-sm font-medium">
-          Max price
+        </FormField>
+        <FormField label="Max price">
           <input
             type="number"
             min="0"
             step="0.01"
             value={maxPrice}
             onChange={(e) => setMaxPrice(e.target.value)}
-            className="w-28 rounded-md border border-black/15 px-3 py-2 text-base outline-none focus:border-black/40"
+            className={`w-28 ${inputClassName}`}
           />
-        </label>
-        <button
-          type="submit"
-          className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white"
-        >
-          Apply filters
-        </button>
-      </form>
+        </FormField>
+        <Button type="submit">Apply filters</Button>
+      </Card>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <ErrorText>{error}</ErrorText>}
 
       {isLoading ? (
-        <p className="text-sm text-black/60">Loading products…</p>
+        <LoadingText>Loading products…</LoadingText>
       ) : products.length === 0 ? (
-        <p className="text-sm text-black/60">No products match your search.</p>
+        <EmptyText>No products match your search.</EmptyText>
       ) : (
         <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
           {products.map((product) => (

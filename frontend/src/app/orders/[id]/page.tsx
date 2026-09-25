@@ -5,6 +5,10 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { ApiError, getOrder, type OrderDetail } from "@/lib/api-client";
+import { PageShell } from "@/components/ui/page-shell";
+import { Card } from "@/components/ui/card";
+import { Pill, statusToTone } from "@/components/ui/pill";
+import { ErrorText, LoadingText } from "@/components/ui/status-text";
 
 export default function OrderDetailPage() {
   const params = useParams<{ id: string }>();
@@ -51,83 +55,94 @@ export default function OrderDetailPage() {
 
   if (isLoading || !user || user.role !== "CUSTOMER") {
     return (
-      <main className="mx-auto flex min-h-screen max-w-3xl items-center justify-center px-6">
-        <p className="text-sm text-black/60">Loading…</p>
-      </main>
+      <PageShell size="md" className="min-h-screen items-center justify-center">
+        <LoadingText />
+      </PageShell>
     );
   }
 
   if (isLoadingOrder) {
     return (
-      <main className="mx-auto flex min-h-screen max-w-3xl items-center justify-center px-6">
-        <p className="text-sm text-black/60">Loading order…</p>
-      </main>
+      <PageShell size="md" className="min-h-screen items-center justify-center">
+        <LoadingText>Loading order…</LoadingText>
+      </PageShell>
     );
   }
 
   if (error || !order) {
     return (
-      <main className="mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center px-6 py-12">
-        <p className="mb-4 text-sm text-red-600">{error ?? "Order not found."}</p>
-        <Link href="/orders" className="text-sm font-medium underline">
+      <PageShell size="md" className="min-h-screen items-center justify-center">
+        <ErrorText>{error ?? "Order not found."}</ErrorText>
+        <Link href="/orders" className="text-sm font-medium text-navy-900 underline">
           Back to orders
         </Link>
-      </main>
+      </PageShell>
     );
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col px-6 py-12">
-      <Link href="/orders" className="mb-6 text-sm font-medium underline">
+    <PageShell size="md">
+      <Link href="/orders" className="text-sm font-medium text-navy-900 underline">
         Back to orders
       </Link>
 
-      <h1 className="text-2xl font-semibold">Order #{order.id}</h1>
-      <p className="mt-1 text-sm text-black/60">
-        Placed {new Date(order.placed_at).toLocaleString()} &middot; {order.status}
-      </p>
+      <Card className="flex flex-col gap-6">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h1 className="text-2xl font-semibold text-text-primary">Order #{order.id}</h1>
+            <p className="mt-1 text-sm text-text-muted">
+              Placed {new Date(order.placed_at).toLocaleString()}
+            </p>
+          </div>
+          <Pill tone={statusToTone(order.status)}>{order.status}</Pill>
+        </div>
 
-      <div className="mt-6 grid grid-cols-1 gap-8 md:grid-cols-2">
-        <div>
-          <h2 className="text-sm font-semibold text-black/60">Shipping</h2>
-          <p className="mt-2 text-sm">{order.shipping.recipient_name}</p>
-          <p className="text-sm">{order.shipping.address_line}</p>
-          <p className="text-sm">
-            {order.shipping.city}, {order.shipping.region} {order.shipping.postal_code}
-          </p>
-          <p className="text-sm">{order.shipping.country}</p>
-          <p className="text-sm">{order.shipping.phone}</p>
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
+          <div>
+            <h2 className="text-sm font-semibold text-text-muted">Shipping</h2>
+            <p className="mt-2 text-sm text-text-primary">{order.shipping.recipient_name}</p>
+            <p className="text-sm text-text-primary">{order.shipping.address_line}</p>
+            <p className="text-sm text-text-primary">
+              {order.shipping.city}, {order.shipping.region} {order.shipping.postal_code}
+            </p>
+            <p className="text-sm text-text-primary">{order.shipping.country}</p>
+            <p className="text-sm text-text-primary">{order.shipping.phone}</p>
+          </div>
+
+          <div>
+            <h2 className="text-sm font-semibold text-text-muted">Payment</h2>
+            <p className="mt-2 text-sm capitalize text-text-primary">
+              {order.payment.method.replace("_", " ")}
+            </p>
+            <p className="text-sm text-text-primary">{order.payment.status}</p>
+          </div>
         </div>
 
         <div>
-          <h2 className="text-sm font-semibold text-black/60">Payment</h2>
-          <p className="mt-2 text-sm capitalize">{order.payment.method.replace("_", " ")}</p>
-          <p className="text-sm">{order.payment.status}</p>
+          <h2 className="mb-2 text-sm font-semibold text-text-muted">Items</h2>
+          <ul className="flex flex-col gap-3">
+            {order.items.map((item) => (
+              <Card as="li" key={item.id} variant="muted" padding="sm">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="font-medium text-text-primary">{item.product.name}</p>
+                    <p className="text-sm text-text-muted">Sold by {item.shop_name}</p>
+                    <p className="mt-1 text-sm text-text-muted">
+                      {item.quantity} &times; ${item.unit_price}
+                    </p>
+                    <Pill tone={statusToTone(item.status)}>{item.status}</Pill>
+                  </div>
+                  <p className="font-medium text-text-primary">${item.subtotal}</p>
+                </div>
+              </Card>
+            ))}
+          </ul>
         </div>
-      </div>
 
-      <h2 className="mt-8 text-sm font-semibold text-black/60">Items</h2>
-      <ul className="mt-2 flex flex-col gap-4">
-        {order.items.map((item) => (
-          <li key={item.id} className="rounded-md border border-black/15 p-4">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="font-medium">{item.product.name}</p>
-                <p className="text-sm text-black/60">Sold by {item.shop_name}</p>
-                <p className="mt-1 text-sm text-black/60">
-                  {item.quantity} &times; ${item.unit_price}
-                </p>
-                <p className="mt-1 text-sm text-black/60">Status: {item.status}</p>
-              </div>
-              <p className="font-medium">${item.subtotal}</p>
-            </div>
-          </li>
-        ))}
-      </ul>
-
-      <div className="mt-6 flex justify-end border-t border-black/15 pt-6">
-        <p className="text-lg font-semibold">Total: ${order.total}</p>
-      </div>
-    </main>
+        <div className="flex justify-end border-t border-border pt-6">
+          <p className="text-lg font-semibold text-text-primary">Total: ${order.total}</p>
+        </div>
+      </Card>
+    </PageShell>
   );
 }

@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { apiFetch, ApiError } from "@/lib/api-client";
+import { PageShell } from "@/components/ui/page-shell";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { ErrorText, LoadingText, EmptyText } from "@/components/ui/status-text";
 
 type CartItem = {
   id: number;
@@ -108,43 +112,41 @@ export default function CartPage() {
 
   if (isLoading || !user || user.role !== "CUSTOMER") {
     return (
-      <main className="mx-auto flex min-h-screen max-w-3xl items-center justify-center px-6">
-        <p className="text-sm text-black/60">Loading…</p>
-      </main>
+      <PageShell size="md" className="min-h-screen items-center justify-center">
+        <LoadingText />
+      </PageShell>
     );
   }
 
   const hasUnavailableItem = cart?.items.some((item) => !item.is_available) ?? false;
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col px-6 py-12">
-      <h1 className="mb-6 text-2xl font-semibold">Your cart</h1>
-
-      {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+    <PageShell size="md" title="Your cart">
+      {error && <ErrorText>{error}</ErrorText>}
 
       {isLoadingCart ? (
-        <p className="text-sm text-black/60">Loading cart…</p>
+        <LoadingText>Loading cart…</LoadingText>
       ) : !cart || cart.items.length === 0 ? (
-        <p className="text-sm text-black/60">
+        <EmptyText>
           Your cart is empty.{" "}
-          <Link href="/products" className="font-medium underline">
+          <Link href="/products" className="font-medium text-navy-900 underline">
             Browse products
           </Link>
-        </p>
+        </EmptyText>
       ) : (
         <>
           <ul className="flex flex-col gap-4">
             {cart.items.map((item) => (
-              <li key={item.id} className="rounded-md border border-black/15 p-4">
+              <Card as="li" key={item.id} padding="sm">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="font-medium">{item.product.name}</p>
-                    <p className="text-sm text-black/60">Sold by {item.product.shop_name}</p>
-                    <p className="mt-1 text-sm text-black/60">
+                    <p className="font-medium text-text-primary">{item.product.name}</p>
+                    <p className="text-sm text-text-muted">Sold by {item.product.shop_name}</p>
+                    <p className="mt-1 text-sm text-text-muted">
                       ${item.unit_price} each &middot; Subtotal: ${item.subtotal}
                     </p>
                     {!item.is_available && (
-                      <p className="mt-1 text-sm text-red-600">
+                      <p className="mt-1 text-sm text-status-cancelled">
                         Unavailable: {item.unavailable_reason}
                       </p>
                     )}
@@ -157,50 +159,41 @@ export default function CartPage() {
                       value={item.quantity}
                       disabled={pendingItemId === item.id}
                       onChange={(event) => handleQuantityChange(item, Number(event.target.value))}
-                      className="w-20 rounded-md border border-black/15 px-2 py-1 text-sm"
+                      className="w-20 rounded-control border border-border px-2 py-1 text-sm"
                     />
-                    <button
-                      type="button"
+                    <Button
+                      variant="danger"
+                      size="sm"
                       disabled={pendingItemId === item.id}
                       onClick={() => handleRemove(item)}
-                      className="rounded-md border border-black/15 px-3 py-1.5 text-sm font-medium text-red-600 disabled:opacity-50"
                     >
                       Remove
-                    </button>
+                    </Button>
                   </div>
                 </div>
-              </li>
+              </Card>
             ))}
           </ul>
 
-          <div className="mt-6 flex flex-col items-end gap-2 border-t border-black/15 pt-6">
+          <Card className="flex flex-col items-end gap-2">
             <div className="flex w-full items-center justify-between">
-              <p className="text-lg font-semibold">Total: ${cart.total}</p>
+              <p className="text-lg font-semibold text-text-primary">Total: ${cart.total}</p>
               {hasUnavailableItem ? (
-                <button
-                  type="button"
-                  disabled
-                  className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white opacity-50"
-                >
-                  Checkout
-                </button>
+                <Button disabled>Checkout</Button>
               ) : (
-                <Link
-                  href="/checkout"
-                  className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white"
-                >
-                  Checkout
-                </Link>
+                <Button asChild>
+                  <Link href="/checkout">Checkout</Link>
+                </Button>
               )}
             </div>
             {hasUnavailableItem && (
-              <p className="text-sm text-red-600">
+              <p className="text-sm text-status-cancelled">
                 Remove or adjust the unavailable item(s) above before checking out.
               </p>
             )}
-          </div>
+          </Card>
         </>
       )}
-    </main>
+    </PageShell>
   );
 }

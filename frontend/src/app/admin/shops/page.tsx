@@ -4,6 +4,13 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { apiFetch, listAdminShops, ApiError, type AdminShop } from "@/lib/api-client";
+import { PageShell } from "@/components/ui/page-shell";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Pill, statusToTone } from "@/components/ui/pill";
+import { SegmentedToggle } from "@/components/ui/segmented-toggle";
+import { ErrorText, LoadingText, EmptyText } from "@/components/ui/status-text";
+import { inputClassName } from "@/components/ui/form-field";
 
 type StatusFilter = "" | "PENDING" | "APPROVED" | "REJECTED";
 
@@ -95,65 +102,60 @@ export default function AdminShopsPage() {
 
   if (isLoading || !user || user.role !== "ADMINISTRATOR") {
     return (
-      <main className="mx-auto flex min-h-screen max-w-3xl items-center justify-center px-6">
-        <p className="text-sm text-black/60">Loading…</p>
-      </main>
+      <PageShell size="md" className="min-h-screen items-center justify-center">
+        <LoadingText />
+      </PageShell>
     );
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col px-6 py-12">
-      <h1 className="mb-6 text-2xl font-semibold">Shop approvals</h1>
+    <PageShell size="md" title="Shop approvals">
+      <SegmentedToggle
+        options={[
+          { value: "PENDING", label: "PENDING" },
+          { value: "APPROVED", label: "APPROVED" },
+          { value: "REJECTED", label: "REJECTED" },
+          { value: "", label: "ALL" },
+        ]}
+        value={statusFilter}
+        onChange={setStatusFilter}
+        className="self-start"
+      />
 
-      <div className="mb-6 flex gap-2">
-        {(["PENDING", "APPROVED", "REJECTED", ""] as StatusFilter[]).map((option) => (
-          <button
-            key={option || "ALL"}
-            type="button"
-            onClick={() => setStatusFilter(option)}
-            className={`rounded-md border px-3 py-1.5 text-sm font-medium ${
-              statusFilter === option
-                ? "border-black bg-black text-white"
-                : "border-black/15 text-black/70"
-            }`}
-          >
-            {option || "ALL"}
-          </button>
-        ))}
-      </div>
-
-      {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
+      {error && <ErrorText>{error}</ErrorText>}
 
       {isLoadingShops ? (
-        <p className="text-sm text-black/60">Loading shops…</p>
+        <LoadingText>Loading shops…</LoadingText>
       ) : shops.length === 0 ? (
-        <p className="text-sm text-black/60">No shops match this filter.</p>
+        <EmptyText>No shops match this filter.</EmptyText>
       ) : (
         <ul className="flex flex-col gap-4">
           {shops.map((shop) => (
-            <li key={shop.id} className="rounded-md border border-black/15 p-4">
+            <Card as="li" key={shop.id} padding="sm">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="font-medium">{shop.name}</p>
-                  <p className="text-sm text-black/60">
+                  <p className="font-medium text-text-primary">{shop.name}</p>
+                  <p className="text-sm text-text-muted">
                     {shop.owner_name} &middot; {shop.owner_email}
                   </p>
-                  <p className="mt-1 text-sm text-black/60">Status: {shop.status}</p>
+                  <div className="mt-1">
+                    <Pill tone={statusToTone(shop.status)}>{shop.status}</Pill>
+                  </div>
                   {shop.status_reason && (
-                    <p className="mt-1 text-sm text-black/60">Reason: {shop.status_reason}</p>
+                    <p className="mt-1 text-sm text-text-muted">Reason: {shop.status_reason}</p>
                   )}
                 </div>
 
                 {shop.status === "PENDING" && (
                   <div className="flex flex-col items-end gap-2">
-                    <button
-                      type="button"
+                    <Button
+                      variant="secondary"
+                      size="sm"
                       disabled={pendingActionId === shop.id}
                       onClick={() => handleApprove(shop.id)}
-                      className="rounded-md border border-black/15 px-3 py-1.5 text-sm font-medium disabled:opacity-50"
                     >
                       Approve
-                    </button>
+                    </Button>
                     <input
                       type="text"
                       placeholder="Reason (optional)"
@@ -161,23 +163,23 @@ export default function AdminShopsPage() {
                       onChange={(e) =>
                         setRejectReasons((prev) => ({ ...prev, [shop.id]: e.target.value }))
                       }
-                      className="rounded-md border border-black/15 px-2 py-1 text-sm outline-none focus:border-black/40"
+                      className={`text-sm ${inputClassName}`}
                     />
-                    <button
-                      type="button"
+                    <Button
+                      variant="danger"
+                      size="sm"
                       disabled={pendingActionId === shop.id}
                       onClick={() => handleReject(shop.id)}
-                      className="rounded-md border border-black/15 px-3 py-1.5 text-sm font-medium disabled:opacity-50"
                     >
                       Reject
-                    </button>
+                    </Button>
                   </div>
                 )}
               </div>
-            </li>
+            </Card>
           ))}
         </ul>
       )}
-    </main>
+    </PageShell>
   );
 }
