@@ -69,6 +69,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         await refreshUser();
       } catch {
+        // The refresh cookie decoded to a token whose user no longer exists (e.g. stale
+        // session from a wiped dev DB). Clear the now-poisoned access token too, so it
+        // doesn't keep getting attached to unrelated public requests (e.g. the product
+        // catalog) and failing them with an auth error a guest should never see.
+        setAccessToken(null);
         setUser(null);
       } finally {
         if (!cancelled) setIsLoading(false);
