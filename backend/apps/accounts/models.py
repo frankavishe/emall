@@ -3,6 +3,9 @@ from django.contrib.auth.models import PermissionsMixin
 from django.db import models
 from django.utils import timezone
 
+# Wrong guesses allowed against a single OTP before it is burned and a new one must be requested.
+MAX_OTP_ATTEMPTS = 5
+
 
 class UserManager(BaseUserManager):
     use_in_migrations = True
@@ -68,21 +71,35 @@ class EmailVerificationToken(models.Model):
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="email_verification_tokens"
     )
-    token = models.CharField(max_length=64, unique=True, db_index=True)
+    # HMAC of the 6-digit OTP (see accounts.services), never the raw code. Not unique: codes
+    # are short enough that two users can legitimately hold the same one.
+    token = models.CharField(max_length=64, db_index=True)
+    attempts = models.PositiveSmallIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()
     used_at = models.DateTimeField(null=True, blank=True)
 
     def is_valid(self):
-        return self.used_at is None and self.expires_at > timezone.now()
+        return (
+            self.used_at is None
+            and self.attempts < MAX_OTP_ATTEMPTS
+            and self.expires_at > timezone.now()
+        )
 
 
 class PasswordResetToken(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="password_reset_tokens")
-    token = models.CharField(max_length=64, unique=True, db_index=True)
+    # HMAC of the 6-digit OTP (see accounts.services), never the raw code. Not unique: codes
+    # are short enough that two users can legitimately hold the same one.
+    token = models.CharField(max_length=64, db_index=True)
+    attempts = models.PositiveSmallIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()
     used_at = models.DateTimeField(null=True, blank=True)
 
     def is_valid(self):
-        return self.used_at is None and self.expires_at > timezone.now()
+        return (
+            self.used_at is None
+            and self.attempts < MAX_OTP_ATTEMPTS
+            and self.expires_at > timezone.now()
+        )

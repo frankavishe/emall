@@ -9,7 +9,6 @@ tokens are set *exclusively* as an httpOnly/Secure/SameSite cookie, never in a J
 from django.conf import settings
 from django.contrib.auth import authenticate
 from django.db import transaction
-from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -32,7 +31,7 @@ from .serializers import (
     UserProfileSerializer,
     VerifyEmailConfirmSerializer,
 )
-from .services import issue_password_reset_token, issue_verification_token
+from .services import check_otp, issue_password_reset_token, issue_verification_token
 
 
 class TokenResponseMixin:
@@ -200,37 +199,29 @@ class VerifyEmailRequestView(APIView):
         return Response(status=status.HTTP_202_ACCEPTED)
 
 
+INVALID_CODE_DETAIL = "This code is invalid or has expired."
+
+
 class VerifyEmailConfirmView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "otp_confirm"
 
     def post(self, request):
         serializer = VerifyEmailConfirmSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        raw_token = serializer.validated_data["token"]
+        email = serializer.validated_data["email"].strip().lower()
+        code = serializer.validated_data["code"]
 
-        try:
-            token = EmailVerificationToken.objects.select_related("user").get(token=raw_token)
-        except EmailVerificationToken.DoesNotExist:
-            return Response(
-                {"detail": "This verification link is invalid or has expired."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if token.user.is_email_verified:
+        user = User.objects.filter(email=email).first()
+        if user is not None and user.is_email_verified:
             return Response({"detail": "Email already verified."}, status=status.HTTP_200_OK)
 
-        if not token.is_valid():
-            return Response(
-                {"detail": "This verification link is invalid or has expired."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        if user is None or not check_otp(EmailVerificationToken, user, code):
+            return Response({"detail": INVALID_CODE_DETAIL}, status=status.HTTP_400_BAD_REQUEST)
 
-        with transaction.atomic():
-            token.used_at = timezone.now()
-            token.save(update_fields=["used_at"])
-            token.user.is_email_verified = True
-            token.user.save(update_fields=["is_email_verified"])
-
+        user.is_email_verified = True
+        user.save(update_fields=["is_email_verified"])
         return Response({"detail": "Email verified."}, status=status.HTTP_200_OK)
 
 
@@ -249,39 +240,28 @@ class PasswordResetRequestView(APIView):
             issue_password_reset_token(user)
 
         return Response(
-            {"detail": "If that email is registered, a reset link has been sent."},
+            {"detail": "If that email is registered, a reset code has been sent."},
             status=status.HTTP_202_ACCEPTED,
         )
 
 
 class PasswordResetConfirmView(APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "otp_confirm"
 
     def post(self, request):
         serializer = PasswordResetConfirmSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        raw_token = serializer.validated_data["token"]
+        email = serializer.validated_data["email"].strip().lower()
+        code = serializer.validated_data["code"]
         new_password = serializer.validated_data["new_password"]
 
-        try:
-            token = PasswordResetToken.objects.select_related("user").get(token=raw_token)
-        except PasswordResetToken.DoesNotExist:
-            return Response(
-                {"detail": "This reset link is invalid or has expired."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if not token.is_valid():
-            return Response(
-                {"detail": "This reset link is invalid or has expired."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        user = User.objects.filter(email=email).first()
+        if user is None or not check_otp(PasswordResetToken, user, code):
+            return Response({"detail": INVALID_CODE_DETAIL}, status=status.HTTP_400_BAD_REQUEST)
 
         with transaction.atomic():
-            token.used_at = timezone.now()
-            token.save(update_fields=["used_at"])
-
-            user = token.user
             user.set_password(new_password)
             user.save(update_fields=["password"])
 

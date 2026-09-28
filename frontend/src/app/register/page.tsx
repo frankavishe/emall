@@ -35,7 +35,7 @@ export default function RegisterPage() {
       } else {
         await registerCustomer(name, email, password);
       }
-      router.push("/");
+      router.push("/verify-email");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
     } finally {

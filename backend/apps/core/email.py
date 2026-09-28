@@ -15,11 +15,11 @@ from django.core.mail import send_mail
 
 class EmailService(ABC):
     @abstractmethod
-    def send_verification_email(self, user, token):
+    def send_verification_email(self, user, code):
         ...
 
     @abstractmethod
-    def send_password_reset_email(self, user, token):
+    def send_password_reset_email(self, user, code):
         ...
 
     @abstractmethod
@@ -30,20 +30,28 @@ class EmailService(ABC):
 class DjangoEmailService(EmailService):
     """Sends via `django.core.mail`, transport controlled by `settings.EMAIL_BACKEND`."""
 
-    def send_verification_email(self, user, token):
-        link = f"{settings.FRONTEND_BASE_URL}/verify-email?token={token}"
+    def send_verification_email(self, user, code):
         send_mail(
-            subject="Verify your email address",
-            message=f"Hi {user.name},\n\nVerify your email by visiting:\n{link}\n",
+            subject="Your eMall verification code",
+            message=(
+                f"Hi {user.name},\n\n"
+                f"Your eMall email verification code is: {code}\n\n"
+                "It expires in 10 minutes. If you didn't create an eMall account, you can "
+                "ignore this email.\n"
+            ),
             from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[user.email],
         )
 
-    def send_password_reset_email(self, user, token):
-        link = f"{settings.FRONTEND_BASE_URL}/reset-password?token={token}"
+    def send_password_reset_email(self, user, code):
         send_mail(
-            subject="Reset your password",
-            message=f"Hi {user.name},\n\nReset your password by visiting:\n{link}\n",
+            subject="Your eMall password reset code",
+            message=(
+                f"Hi {user.name},\n\n"
+                f"Your eMall password reset code is: {code}\n\n"
+                "It expires in 10 minutes. If you didn't ask to reset your password, you can "
+                "ignore this email — your password has not changed.\n"
+            ),
             from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[user.email],
         )

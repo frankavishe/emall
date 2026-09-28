@@ -162,6 +162,7 @@ REST_FRAMEWORK = {
         "login": "5/min",
         "password_reset": "5/min",
         "verify_email": "5/min",
+        "otp_confirm": "10/min",
     },
 }
 
@@ -202,5 +203,13 @@ CORS_ALLOW_CREDENTIALS = True
 # --- Email (task T015 — the deliberately mocked edge, Constitution Principle IV) ----------
 EMAIL_BACKEND = env("EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend")
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="no-reply@emall.local")
+# SMTP transport (e.g. Gmail: smtp.gmail.com:587 + TLS + an App Password). Only read when
+# EMAIL_BACKEND is django.core.mail.backends.smtp.EmailBackend.
+EMAIL_HOST = env("EMAIL_HOST", default="smtp.gmail.com")
+EMAIL_PORT = env.int("EMAIL_PORT", default=587)
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
+EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
+EMAIL_TIMEOUT = env.int("EMAIL_TIMEOUT", default=10)
 
 FRONTEND_BASE_URL = env("FRONTEND_BASE_URL", default="http://localhost:3000")

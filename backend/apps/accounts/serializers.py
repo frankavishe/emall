@@ -65,7 +65,8 @@ class LoginSerializer(serializers.Serializer):
 
 
 class VerifyEmailConfirmSerializer(serializers.Serializer):
-    token = serializers.CharField()
+    email = serializers.EmailField()
+    code = serializers.RegexField(r"^\d{6}$", error_messages={"invalid": "Enter the 6-digit code."})
 
 
 class PasswordResetRequestSerializer(serializers.Serializer):
@@ -73,7 +74,8 @@ class PasswordResetRequestSerializer(serializers.Serializer):
 
 
 class PasswordResetConfirmSerializer(serializers.Serializer):
-    token = serializers.CharField()
+    email = serializers.EmailField()
+    code = serializers.RegexField(r"^\d{6}$", error_messages={"invalid": "Enter the 6-digit code."})
     new_password = serializers.CharField(write_only=True)
 
     def validate_new_password(self, value):
