@@ -14,19 +14,19 @@ import { Button } from "@/components/ui/button";
 import { FormField, inputClassName } from "@/components/ui/form-field";
 import { LoadingText, EmptyText, ErrorText } from "@/components/ui/status-text";
 
-export function ProductCatalog() {
+export function ProductCatalog({ initialCategory = "" }: { initialCategory?: string }) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<CatalogProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [q, setQ] = useState("");
-  const [category, setCategory] = useState("");
+  const [category, setCategory] = useState(initialCategory);
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [appliedFilters, setAppliedFilters] = useState({
     q: "",
-    category: "",
+    category: initialCategory,
     minPrice: "",
     maxPrice: "",
   });

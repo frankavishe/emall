@@ -13,6 +13,7 @@ import {
   type AdminOrderItem,
 } from "@/lib/api-client";
 import { ProductCatalog } from "@/components/product-catalog";
+import { PromoSlideshow } from "@/components/promo-slideshow";
 import { PageShell } from "@/components/ui/page-shell";
 import { Card } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
@@ -64,6 +65,8 @@ function GuestHomepage() {
         </div>
       </Card>
 
+      <PromoSlideshow />
+
       <ProductCatalog />
     </PageShell>
   );
@@ -83,6 +86,8 @@ function CustomerHomepage() {
           </Button>
         </div>
       </Card>
+
+      <PromoSlideshow />
 
       <ProductCatalog />
     </PageShell>
