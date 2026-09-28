@@ -2,12 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import {
-  listCategories,
-  listProducts,
-  type CatalogProduct,
-  type Category,
-} from "@/lib/api-client";
+import { listCategories, listProducts, type CatalogProduct, type Category } from "@/lib/api-client";
 import { StarRating } from "@/components/star-rating";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/cn";
@@ -142,7 +137,11 @@ export function PromoSlideshow() {
         </div>
         {total > 1 && (
           <div className="flex items-center gap-1">
-            <ArrowButton label="Previous slide" onClick={() => goTo(active - 1)} path="M15 19l-7-7 7-7" />
+            <ArrowButton
+              label="Previous slide"
+              onClick={() => goTo(active - 1)}
+              path="M15 19l-7-7 7-7"
+            />
             <ArrowButton label="Next slide" onClick={() => goTo(active + 1)} path="M9 5l7 7-7 7" />
           </div>
         )}
@@ -258,7 +257,15 @@ function ProductTile({ product }: { product: CatalogProduct }) {
   );
 }
 
-function ArrowButton({ label, onClick, path }: { label: string; onClick: () => void; path: string }) {
+function ArrowButton({
+  label,
+  onClick,
+  path,
+}: {
+  label: string;
+  onClick: () => void;
+  path: string;
+}) {
   return (
     <button
       type="button"

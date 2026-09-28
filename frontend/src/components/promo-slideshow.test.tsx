@@ -12,7 +12,9 @@ const api = await import("@/lib/api-client");
 const listCategories = vi.mocked(api.listCategories);
 const listProducts = vi.mocked(api.listProducts);
 
-function product(overrides: Partial<CatalogProduct> & { id: number; category: string }): CatalogProduct {
+function product(
+  overrides: Partial<CatalogProduct> & { id: number; category: string },
+): CatalogProduct {
   return {
     name: `Product ${overrides.id}`,
     price: "10000",
@@ -93,7 +95,9 @@ describe("PromoSlideshow", () => {
     expect(screen.getByRole("link", { name: /Browse Beauty/ }).getAttribute("href")).toBe(
       "/products?category=beauty",
     );
-    expect(screen.getByRole("link", { name: /Product 3/ }).getAttribute("href")).toBe("/products/3");
+    expect(screen.getByRole("link", { name: /Product 3/ }).getAttribute("href")).toBe(
+      "/products/3",
+    );
     // Products on inactive slides are hidden from assistive tech.
     expect(screen.queryByRole("link", { name: /Ledger Guide/ })).toBeNull();
   });
@@ -116,7 +120,9 @@ describe("PromoSlideshow", () => {
 
   it("autoplays and pauses while hovered", async () => {
     await renderLoaded();
-    const wrapper = screen.getByRole("heading", { name: "Shop Beauty" }).closest("article")!.parentElement!;
+    const wrapper = screen
+      .getByRole("heading", { name: "Shop Beauty" })
+      .closest("article")!.parentElement!;
 
     fireEvent.mouseEnter(wrapper);
     act(() => {
