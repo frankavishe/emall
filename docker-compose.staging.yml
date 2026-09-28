@@ -21,8 +21,11 @@ services:
       timeout: 5s
       retries: 10
 
+  # MinIO no longer publishes public images (minio/minio and minio/mc are gone from Docker Hub
+  # and Quay), so use Chainguard's builds. The -dev tags include sh/wget, which the
+  # healthcheck and minio-init script below need.
   minio:
-    image: minio/minio:latest
+    image: cgr.dev/chainguard/minio:latest-dev
     environment:
       MINIO_ROOT_USER: emall-minio
       MINIO_ROOT_PASSWORD: staging-simulation-password
@@ -30,13 +33,13 @@ services:
     ports:
       - "9000:9000"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9000/minio/health/live"]
       interval: 5s
       timeout: 5s
       retries: 10
 
   minio-init:
-    image: minio/mc:latest
+    image: cgr.dev/chainguard/minio-client:latest-dev
     depends_on:
       minio:
         condition: service_healthy
@@ -60,8 +63,10 @@ services:
       DEBUG: "False"
       ALLOWED_HOSTS: localhost,127.0.0.1,backend
       CORS_ALLOWED_ORIGINS: http://localhost:3000
-      EMAIL_BACKEND: django.core.mail.backends.console.EmailBackend
-      DEFAULT_FROM_EMAIL: no-reply@emall.local
+      EMAIL_BACKEND: ${EMAIL_BACKEND:-django.core.mail.backends.console.EmailBackend}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-no-reply@emall.local}
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
       ACCESS_TOKEN_LIFETIME_MINUTES: "15"
       REFRESH_TOKEN_LIFETIME_DAYS: "7"
       ADMIN_SEED_EMAIL: admin@emall.local

@@ -1,4 +1,7 @@
+import re
+
 import pytest
+from django.core import mail
 from django.utils import timezone
 
 from apps.accounts.models import EmailVerificationToken
@@ -49,3 +52,23 @@ def test_verify_email_request_is_throttled_after_repeated_attempts(api_client):
 
     response = api_client.post("/api/auth/verify-email/request")
     assert response.status_code == 429
+
+
+def test_verify_email_request_emails_a_six_digit_code_that_verifies_the_account(api_client):
+    user = UserFactory(is_email_verified=False)
+    _authenticate(api_client, user)
+
+    api_client.post("/api/auth/verify-email/request")
+
+    assert len(mail.outbox) == 1
+    assert mail.outbox[0].to == [user.email]
+    assert "http" not in mail.outbox[0].body
+    code = re.search(r"\b(\d{6})\b", mail.outbox[0].body).group(1)
+
+    response = api_client.post(
+        "/api/auth/verify-email/confirm", {"email": user.email, "code": code}, format="json"
+    )
+
+    assert response.status_code == 200
+    user.refresh_from_db()
+    assert user.is_email_verified is True

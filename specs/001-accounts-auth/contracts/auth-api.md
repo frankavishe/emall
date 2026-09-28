@@ -87,12 +87,19 @@ verified, response still `202` but no email is sent — avoids leaking internal 
 code alone, though the body may say so for a good UX per spec AC6).
 
 ### `POST /api/auth/verify-email/confirm`
-Satisfies FR-023, FR-026. No auth required (token itself is the credential).
+Satisfies FR-023, FR-026. No auth required (email + emailed code are the credential).
+Throttled (`otp_confirm`, 10/min).
 
-Request: `{ "token": "..." }`
+Request: `{ "email": "...", "code": "123456" }`
 Response `200`: `{ "detail": "Email verified." }` or, if already verified via this same account,
 `{ "detail": "Email already verified." }` (AC6 — not an error).
-Error `400`: `{ "detail": "This verification link is invalid or has expired." }` (AC5).
+Error `400`: `{ "detail": "This code is invalid or has expired." }` (AC5): the same body for an
+unknown email, wrong/expired/used code, or a code locked after 5 wrong attempts.
+
+### One-time codes (OTP)
+Verification and reset emails carry a 6-digit code (no links), valid for 10 minutes. Only an
+HMAC of the code is stored. A code dies on use, on expiry, or after 5 wrong attempts. Issuing a
+new code invalidates any earlier unused code of the same kind.
 
 ## Password Reset
 
@@ -101,16 +108,18 @@ Satisfies FR-027, FR-028, FR-029. No auth required.
 
 Request: `{ "email": "..." }`
 Response `202` **always**, identical body regardless of whether the email is registered:
-`{ "detail": "If that email is registered, a reset link has been sent." }` (FR-028, SC-010).
+`{ "detail": "If that email is registered, a reset code has been sent." }` (FR-028, SC-010).
 
 ### `POST /api/auth/password-reset/confirm`
-Satisfies FR-030, FR-031, FR-032. No auth required (token is the credential).
+Satisfies FR-030, FR-031, FR-032. No auth required (email + emailed code are the credential).
+Throttled (`otp_confirm`, 10/min).
 
-Request: `{ "token": "...", "new_password": "•••••••••" }`
-Response `200`: `{ "detail": "Password updated. Please log in again." }`. Server-side, in one
-transaction: validates password strength (FR-021), sets new hashed password, marks the token used,
-blacklists every outstanding refresh token for that user (FR-031).
-Error `400`: invalid/expired/already-used token, or weak password.
+Request: `{ "email": "...", "code": "123456", "new_password": "•••••••••" }`
+Response `200`: `{ "detail": "Password updated. Please log in again." }`. Server-side: validates
+password strength (FR-021) before touching the code, consumes the code, sets the new hashed
+password, and blacklists every outstanding refresh token for that user (FR-031).
+Error `400`: `{ "detail": "This code is invalid or has expired." }`, or a `new_password` field
+error for a weak password.
 
 ## Vendor Shop Management
 

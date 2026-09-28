@@ -1,4 +1,7 @@
+import re
+
 import pytest
+from django.core import mail
 
 from apps.accounts.models import PasswordResetToken
 from tests.factories import UserFactory
@@ -15,7 +18,7 @@ def test_password_reset_request_registered_email_returns_202(api_client):
 
     assert response.status_code == 202
     assert (
-        response.data["detail"] == "If that email is registered, a reset link has been sent."
+        response.data["detail"] == "If that email is registered, a reset code has been sent."
     )
     assert PasswordResetToken.objects.filter(user=user).exists()
 
@@ -29,7 +32,7 @@ def test_password_reset_request_unregistered_email_returns_identical_202(api_cli
 
     assert response.status_code == 202
     assert (
-        response.data["detail"] == "If that email is registered, a reset link has been sent."
+        response.data["detail"] == "If that email is registered, a reset code has been sent."
     )
 
 
@@ -58,3 +61,26 @@ def test_password_reset_request_is_throttled_after_repeated_attempts(api_client)
 
     response = api_client.post("/api/auth/password-reset/request", payload, format="json")
     assert response.status_code == 429
+
+
+def test_password_reset_request_emails_a_six_digit_code_that_resets_the_password(api_client):
+    user = UserFactory(email="ama@example.com", password="a-strong-password-1")
+
+    api_client.post(
+        "/api/auth/password-reset/request", {"email": "ama@example.com"}, format="json"
+    )
+
+    assert len(mail.outbox) == 1
+    assert mail.outbox[0].to == ["ama@example.com"]
+    assert "http" not in mail.outbox[0].body
+    code = re.search(r"\b(\d{6})\b", mail.outbox[0].body).group(1)
+
+    response = api_client.post(
+        "/api/auth/password-reset/confirm",
+        {"email": "ama@example.com", "code": code, "new_password": "a-new-strong-password-2"},
+        format="json",
+    )
+
+    assert response.status_code == 200
+    user.refresh_from_db()
+    assert user.check_password("a-new-strong-password-2")

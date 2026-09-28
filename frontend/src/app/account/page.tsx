@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { ApiError } from "@/lib/api-client";
@@ -77,7 +78,16 @@ export default function AccountPage() {
           <div className="flex justify-between">
             <dt className="text-text-muted">Email verified</dt>
             <dd className="font-medium text-text-primary">
-              {user.is_email_verified ? "Yes" : "No"}
+              {user.is_email_verified ? (
+                "Yes"
+              ) : (
+                <>
+                  No ·{" "}
+                  <Link href="/verify-email" className="text-navy-900 underline">
+                    Verify now
+                  </Link>
+                </>
+              )}
             </dd>
           </div>
         </dl>
