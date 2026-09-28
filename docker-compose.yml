@@ -13,8 +13,11 @@ services:
     volumes:
       - emall_pg_data:/var/lib/postgresql/data
 
+  # MinIO no longer publishes public images (minio/minio and minio/mc are gone from Docker Hub
+  # and Quay), so use Chainguard's builds. The -dev tags include sh/wget, which the
+  # healthcheck and minio-init script below need.
   minio:
-    image: minio/minio:latest
+    image: cgr.dev/chainguard/minio:latest-dev
     container_name: emall-minio
     restart: unless-stopped
     environment:
@@ -25,12 +28,20 @@ services:
       - "9000:9000" # S3 API
       - "9001:9001" # Web console
     volumes:
-      - emall_minio_data:/data
+      # Not the old emall_minio_data volume: the Chainguard build runs as non-root and doesn't
+      # read that volume's root-owned on-disk format.
+      - emall_minio_store:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   minio-init:
-    image: minio/mc:latest
+    image: cgr.dev/chainguard/minio-client:latest-dev
     depends_on:
-      - minio
+      minio:
+        condition: service_healthy
     entrypoint: >
       sh -c "
       mc alias set local http://minio:9000 emall-minio emall_dev_password &&
@@ -40,4 +51,4 @@ services:
 
 volumes:
   emall_pg_data:
-  emall_minio_data:
+  emall_minio_store:
