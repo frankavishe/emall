@@ -22,6 +22,11 @@ environ.Env.read_env(BASE_DIR / ".env")
 SECRET_KEY = env("SECRET_KEY")
 DEBUG = env("DEBUG")
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
+# Needed for Django admin's CSRF check once it's served over HTTPS (e.g. https://api.mangimall.com).
+CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
+# In production Caddy terminates TLS and forwards plain HTTP; trust its X-Forwarded-Proto header
+# so request.is_secure() is True (see docker-compose.prod.yml).
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 
 # Application definition
@@ -50,6 +55,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # Serves collectstatic output (Django admin CSS/JS) straight from gunicorn in production.
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",

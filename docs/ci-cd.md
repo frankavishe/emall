@@ -58,3 +58,8 @@ promotion pipeline below.
   status checks and at least 1 approving review before merging.
 - `staging`/`main` intentionally do *not* require a PR - they're only ever updated by the
   promotion jobs above pushing directly with `PROMOTION_PAT`.
+
+## Production deploy
+
+CI doesn't deploy production yet. The live site on the Contabo VPS is built and started by
+hand from `main`: see [deploy-contabo.md](deploy-contabo.md).

@@ -1,0 +1,24 @@
+# Reverse proxy + automatic Let's Encrypt HTTPS for docker-compose.prod.yml.
+# Domains come from .env.prod (SHOP_DOMAIN, API_DOMAIN, MEDIA_DOMAIN).
+
+{
+	email {$ACME_EMAIL}
+}
+
+{$SHOP_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy frontend:3000
+}
+
+www.{$SHOP_DOMAIN} {
+	redir https://{$SHOP_DOMAIN}{uri} permanent
+}
+
+{$API_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy backend:8000
+}
+
+{$MEDIA_DOMAIN} {
+	reverse_proxy minio:9000
+}

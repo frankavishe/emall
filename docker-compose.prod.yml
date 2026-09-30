@@ -1,0 +1,125 @@
+# Production stack for a single VPS (Contabo) — see docs/deploy-contabo.md.
+#
+# Run from the repo root:
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+#
+# Images are built on the server (not pulled from GHCR) because the frontend inlines
+# NEXT_PUBLIC_API_BASE_URL at build time and CI builds it with http://localhost:8000.
+# Only Caddy publishes ports; everything else is reachable solely on the compose network.
+
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Same Chainguard images as docker-compose.staging.yml. Runs as root so it can write to the
+  # freshly created named volume regardless of the image's default non-root uid.
+  minio:
+    image: cgr.dev/chainguard/minio:latest-dev
+    restart: unless-stopped
+    user: root
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    command: server /data --console-address ":9001"
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio-init:
+    image: cgr.dev/chainguard/minio-client:latest-dev
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      sh -c "
+      mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD} &&
+      mc mb -p local/emall-media &&
+      mc anonymous set download local/emall-media
+      "
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    env_file: .env.prod
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      DEBUG: "False"
+      ALLOWED_HOSTS: ${API_DOMAIN}
+      CORS_ALLOWED_ORIGINS: https://${SHOP_DOMAIN}
+      CSRF_TRUSTED_ORIGINS: https://${API_DOMAIN}
+      FRONTEND_BASE_URL: https://${SHOP_DOMAIN}
+      USE_S3_MEDIA: "True"
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      AWS_STORAGE_BUCKET_NAME: emall-media
+      AWS_S3_ENDPOINT_URL: http://minio:9000
+      # Browsers load images from the public media subdomain (path-style, bucket in the path).
+      AWS_S3_CUSTOM_DOMAIN: ${MEDIA_DOMAIN}/emall-media
+      AWS_S3_URL_PROTOCOL: "https:"
+    command: >
+      sh -c "python manage.py migrate --noinput &&
+             python manage.py seed_admin &&
+             gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/catalog/products')"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_BASE_URL: https://${API_DOMAIN}
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - frontend
+      - backend
+      - minio
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      SHOP_DOMAIN: ${SHOP_DOMAIN}
+      API_DOMAIN: ${API_DOMAIN}
+      MEDIA_DOMAIN: ${MEDIA_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  pgdata:
+  miniodata:
+  caddy_data:
+  caddy_config:
