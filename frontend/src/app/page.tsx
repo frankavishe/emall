@@ -356,7 +356,7 @@ function AdministratorHomepage() {
 }
 
 export default function Home() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, activeRole } = useAuth();
 
   if (isLoading) {
     return (
@@ -370,11 +370,11 @@ export default function Home() {
     return <GuestHomepage />;
   }
 
-  if (user.role === "CUSTOMER") {
+  if (activeRole === "CUSTOMER") {
     return <CustomerHomepage />;
   }
 
-  if (user.role === "VENDOR") {
+  if (activeRole === "VENDOR") {
     return <VendorHomepage shop={user.shops?.[0]} />;
   }
 

@@ -7,13 +7,15 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.pagination import LimitedPageNumberPagination
-from apps.core.permissions import IsAdministrator, IsVendor, require_verified_email
+from apps.core.permissions import IsAdministrator, IsCustomer, require_verified_email
 from apps.vendors.models import Shop
 from apps.vendors.serializers import AdminShopListSerializer, ShopSerializer
 
 
 class VendorShopListCreateView(ListCreateAPIView):
-    permission_classes = [IsVendor]
+    # IsCustomer = any non-admin account: a customer opening their first shop becomes a vendor
+    # on the same account (one email, both roles).
+    permission_classes = [IsCustomer]
     serializer_class = ShopSerializer
     pagination_class = None
 
@@ -23,7 +25,11 @@ class VendorShopListCreateView(ListCreateAPIView):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        shop = serializer.save()
+        with transaction.atomic():
+            shop = serializer.save()
+            if not request.user.is_vendor:
+                request.user.is_vendor = True
+                request.user.save(update_fields=["is_vendor"])
         return Response(self.get_serializer(shop).data, status=status.HTTP_201_CREATED)
 
 

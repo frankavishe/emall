@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { apiFetch, ApiError, submitReview } from "@/lib/api-client";
-import { useAuth } from "@/lib/auth-context";
+import { hasRole, useAuth } from "@/lib/auth-context";
 import { StarRating } from "@/components/star-rating";
 import { PageShell } from "@/components/ui/page-shell";
 import { Card } from "@/components/ui/card";
@@ -197,7 +197,7 @@ export default function ProductDetailPage() {
                 </Link>{" "}
                 as a Customer to add this to your cart.
               </p>
-            ) : user.role !== "CUSTOMER" ? (
+            ) : !hasRole(user, "CUSTOMER") ? (
               <p className="mt-6 text-sm text-text-muted">
                 Only Customer accounts can add items to a cart.
               </p>
@@ -217,7 +217,7 @@ export default function ProductDetailPage() {
             ))}
           {addToCartMessage && <p className="mt-2 text-sm text-text-muted">{addToCartMessage}</p>}
 
-          {user && user.role === "CUSTOMER" && (
+          {user && hasRole(user, "CUSTOMER") && (
             <div className="mt-8 border-t border-border pt-6">
               <h2 className="text-sm font-semibold text-text-primary">Leave a review</h2>
               <div className="mt-2 flex items-center gap-1">

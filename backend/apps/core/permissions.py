@@ -17,7 +17,7 @@ def IsRole(role):
             return bool(
                 request.user
                 and request.user.is_authenticated
-                and request.user.role == role
+                and request.user.has_role(role)
             )
 
     _IsRole.__name__ = f"Is{role.title()}"

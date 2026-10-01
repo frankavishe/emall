@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth-context";
+import { hasRole, useAuth } from "@/lib/auth-context";
 import { apiFetch, ApiError } from "@/lib/api-client";
 import { PageShell } from "@/components/ui/page-shell";
 import { Card } from "@/components/ui/card";
@@ -51,7 +51,7 @@ export default function EditVendorProductPage() {
   const [isTogglingPublish, setIsTogglingPublish] = useState(false);
 
   useEffect(() => {
-    if (!isLoading && (!user || user.role !== "VENDOR")) {
+    if (!isLoading && (!user || !hasRole(user, "VENDOR"))) {
       router.replace("/login");
     }
   }, [isLoading, user, router]);
@@ -68,7 +68,7 @@ export default function EditVendorProductPage() {
   }, []);
 
   useEffect(() => {
-    if (user?.role !== "VENDOR") return;
+    if (!hasRole(user, "VENDOR")) return;
     async function loadProduct() {
       try {
         const results = await apiFetch<{ results: VendorProduct[] }>("/api/vendor/products");
@@ -139,7 +139,7 @@ export default function EditVendorProductPage() {
     }
   }
 
-  if (isLoading || !user || user.role !== "VENDOR" || !product) {
+  if (isLoading || !user || !hasRole(user, "VENDOR") || !product) {
     return (
       <PageShell size="sm" className="min-h-screen items-center justify-center">
         {error ? <ErrorText>{error}</ErrorText> : <LoadingText />}

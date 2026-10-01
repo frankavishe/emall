@@ -37,9 +37,10 @@ def test_register_vendor_ignores_role_override(api_client):
     )
 
     assert response.status_code == 201
-    assert response.data["user"]["role"] == "VENDOR"
+    assert response.data["user"]["roles"] == ["CUSTOMER", "VENDOR"]
     user = User.objects.get(email="kofi-admin-attempt@example.com")
-    assert user.role == User.Role.VENDOR
+    assert user.role == User.Role.CUSTOMER
+    assert user.is_vendor
 
 
 def test_no_public_endpoint_creates_administrator(api_client):

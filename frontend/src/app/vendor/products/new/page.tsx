@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth-context";
+import { hasRole, useAuth } from "@/lib/auth-context";
 import { apiFetch, ApiError } from "@/lib/api-client";
 import { PageShell } from "@/components/ui/page-shell";
 import { Card } from "@/components/ui/card";
@@ -32,7 +32,7 @@ export default function NewVendorProductPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!isLoading && (!user || user.role !== "VENDOR")) {
+    if (!isLoading && (!user || !hasRole(user, "VENDOR"))) {
       router.replace("/login");
     }
   }, [isLoading, user, router]);
@@ -82,7 +82,7 @@ export default function NewVendorProductPage() {
     }
   }
 
-  if (isLoading || !user || user.role !== "VENDOR") {
+  if (isLoading || !user || !hasRole(user, "VENDOR")) {
     return (
       <PageShell size="sm" className="min-h-screen items-center justify-center">
         <LoadingText />

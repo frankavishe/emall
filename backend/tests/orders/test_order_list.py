@@ -78,8 +78,8 @@ def test_order_list_requires_authentication(api_client):
 
 
 def test_order_list_requires_customer_role(api_client):
-    vendor = UserFactory(role=User.Role.VENDOR)
-    _authenticate(api_client, vendor)
+    admin = UserFactory(role=User.Role.ADMINISTRATOR)
+    _authenticate(api_client, admin)
 
     response = api_client.get("/api/orders")
 

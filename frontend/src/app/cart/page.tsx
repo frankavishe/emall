@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useAuth } from "@/lib/auth-context";
+import { hasRole, useAuth } from "@/lib/auth-context";
 import { apiFetch, ApiError } from "@/lib/api-client";
 import { PageShell } from "@/components/ui/page-shell";
 import { Card } from "@/components/ui/card";
@@ -36,7 +36,7 @@ export default function CartPage() {
   const [pendingItemId, setPendingItemId] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!isLoading && (!user || user.role !== "CUSTOMER")) {
+    if (!isLoading && (!user || !hasRole(user, "CUSTOMER"))) {
       router.replace("/login");
     }
   }, [isLoading, user, router]);
@@ -55,7 +55,7 @@ export default function CartPage() {
   }, []);
 
   useEffect(() => {
-    if (user?.role !== "CUSTOMER") return;
+    if (!hasRole(user, "CUSTOMER")) return;
     let cancelled = false;
 
     async function run() {
@@ -111,7 +111,7 @@ export default function CartPage() {
     }
   }
 
-  if (isLoading || !user || user.role !== "CUSTOMER") {
+  if (isLoading || !user || !hasRole(user, "CUSTOMER")) {
     return (
       <PageShell size="md" className="min-h-screen items-center justify-center">
         <LoadingText />

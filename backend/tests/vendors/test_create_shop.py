@@ -39,3 +39,15 @@ def test_create_shop_rejects_duplicate_name(api_client):
 
     assert response.status_code == 400
     assert Shop.objects.filter(owner=vendor).count() == 0
+
+
+def test_customer_creating_first_shop_becomes_vendor(api_client):
+    customer = UserFactory(role=User.Role.CUSTOMER)
+
+    _authenticate(api_client, customer)
+    response = api_client.post("/api/vendor/shops", {"name": "Customer's Shop"}, format="json")
+
+    assert response.status_code == 201
+    customer.refresh_from_db()
+    assert customer.is_vendor
+    assert customer.roles == ["CUSTOMER", "VENDOR"]

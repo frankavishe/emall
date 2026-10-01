@@ -91,24 +91,27 @@ class RegisterVendorView(TokenResponseMixin, APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        serializer = RegisterVendorSerializer(data=request.data)
+        serializer = RegisterVendorSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
+        # An existing customer account adding a shop is an upgrade, not a new account.
+        upgraded = serializer.existing_user is not None
         with transaction.atomic():
             user, shop = serializer.save()
 
-        try:
-            issue_verification_token(user)
-        except Exception:
-            pass
+        if not user.is_email_verified:
+            try:
+                issue_verification_token(user)
+            except Exception:
+                pass
 
         access, refresh = self.issue_tokens(user)
         response = Response(
             {
                 "access": access,
                 "user": UserProfileSerializer(user).data,
-                "shops": ShopBriefSerializer([shop], many=True).data,
+                "shops": ShopBriefSerializer(user.shops.all(), many=True).data,
             },
-            status=status.HTTP_201_CREATED,
+            status=status.HTTP_200_OK if upgraded else status.HTTP_201_CREATED,
         )
         self.set_refresh_cookie(response, refresh)
         return response
@@ -183,7 +186,7 @@ class MeView(APIView):
 
     def get(self, request):
         data = UserProfileSerializer(request.user).data
-        if request.user.role == request.user.Role.VENDOR:
+        if request.user.has_role(User.Role.VENDOR):
             data["shops"] = ShopBriefSerializer(request.user.shops.all(), many=True).data
         return Response(data)
 

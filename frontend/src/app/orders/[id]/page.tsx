@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { useAuth } from "@/lib/auth-context";
+import { hasRole, useAuth } from "@/lib/auth-context";
 import { ApiError, getOrder, type OrderDetail } from "@/lib/api-client";
 import { PageShell } from "@/components/ui/page-shell";
 import { Card } from "@/components/ui/card";
@@ -20,13 +20,13 @@ export default function OrderDetailPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isLoading && (!user || user.role !== "CUSTOMER")) {
+    if (!isLoading && (!user || !hasRole(user, "CUSTOMER"))) {
       router.replace("/login");
     }
   }, [isLoading, user, router]);
 
   useEffect(() => {
-    if (user?.role !== "CUSTOMER") return;
+    if (!hasRole(user, "CUSTOMER")) return;
     let cancelled = false;
 
     async function run() {
@@ -54,7 +54,7 @@ export default function OrderDetailPage() {
     };
   }, [user, params.id]);
 
-  if (isLoading || !user || user.role !== "CUSTOMER") {
+  if (isLoading || !user || !hasRole(user, "CUSTOMER")) {
     return (
       <PageShell size="md" className="min-h-screen items-center justify-center">
         <LoadingText />

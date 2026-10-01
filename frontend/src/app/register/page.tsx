@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import { ApiError } from "@/lib/api-client";
+import { errorMessage } from "@/lib/api-client";
 import { PageShell } from "@/components/ui/page-shell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,13 +31,16 @@ export default function RegisterPage() {
     setIsSubmitting(true);
     try {
       if (accountType === "vendor") {
-        await registerVendor(name, email, password, shopName);
-      } else {
-        await registerCustomer(name, email, password);
+        // An existing customer account (same email + password) gets the shop added to it,
+        // and may already be verified.
+        const user = await registerVendor(name, email, password, shopName);
+        router.push(user.is_email_verified ? "/" : "/verify-email");
+        return;
       }
+      await registerCustomer(name, email, password);
       router.push("/verify-email");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
+      setError(errorMessage(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -85,15 +88,21 @@ export default function RegisterPage() {
             />
           </FormField>
           {accountType === "vendor" && (
-            <FormField label="Shop name">
-              <input
-                type="text"
-                required
-                value={shopName}
-                onChange={(e) => setShopName(e.target.value)}
-                className={inputClassName}
-              />
-            </FormField>
+            <>
+              <FormField label="Shop name">
+                <input
+                  type="text"
+                  required
+                  value={shopName}
+                  onChange={(e) => setShopName(e.target.value)}
+                  className={inputClassName}
+                />
+              </FormField>
+              <p className="text-xs text-text-muted">
+                Already shopping here as a customer? Use the same email and password — the shop is
+                added to your existing account.
+              </p>
+            </>
           )}
           {error && <ErrorText>{error}</ErrorText>}
           <Button type="submit" disabled={isSubmitting} fullWidth className="mt-2">

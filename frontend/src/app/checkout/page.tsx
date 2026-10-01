@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth-context";
+import { hasRole, useAuth } from "@/lib/auth-context";
 import { ApiError, checkout, type ShippingDetails } from "@/lib/api-client";
 import { PageShell } from "@/components/ui/page-shell";
 import { Card } from "@/components/ui/card";
@@ -42,7 +42,7 @@ export default function CheckoutPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!isLoading && (!user || user.role !== "CUSTOMER")) {
+    if (!isLoading && (!user || !hasRole(user, "CUSTOMER"))) {
       router.replace("/login");
     }
   }, [isLoading, user, router]);
@@ -88,7 +88,7 @@ export default function CheckoutPage() {
     }
   }
 
-  if (isLoading || !user || user.role !== "CUSTOMER") {
+  if (isLoading || !user || !hasRole(user, "CUSTOMER")) {
     return (
       <PageShell size="md" className="min-h-screen items-center justify-center">
         <LoadingText />

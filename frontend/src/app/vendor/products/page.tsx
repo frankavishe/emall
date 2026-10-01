@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useAuth } from "@/lib/auth-context";
+import { hasRole, useAuth } from "@/lib/auth-context";
 import { apiFetch, ApiError } from "@/lib/api-client";
 import { PageShell } from "@/components/ui/page-shell";
 import { Card } from "@/components/ui/card";
@@ -41,7 +41,7 @@ export default function VendorProductsPage() {
   const [pendingActionId, setPendingActionId] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!isLoading && (!user || user.role !== "VENDOR")) {
+    if (!isLoading && (!user || !hasRole(user, "VENDOR"))) {
       router.replace("/login");
     }
   }, [isLoading, user, router]);
@@ -60,7 +60,7 @@ export default function VendorProductsPage() {
   }, []);
 
   useEffect(() => {
-    if (user?.role !== "VENDOR") return;
+    if (!hasRole(user, "VENDOR")) return;
     let cancelled = false;
 
     async function run() {
@@ -117,7 +117,7 @@ export default function VendorProductsPage() {
     }
   }
 
-  if (isLoading || !user || user.role !== "VENDOR") {
+  if (isLoading || !user || !hasRole(user, "VENDOR")) {
     return (
       <PageShell size="md" className="min-h-screen items-center justify-center">
         <LoadingText />

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth-context";
+import { hasRole, useAuth } from "@/lib/auth-context";
 import {
   ApiError,
   listVendorReviews,
@@ -27,13 +27,13 @@ export default function VendorReviewsPage() {
   const [page, setPage] = useState(1);
 
   useEffect(() => {
-    if (!isLoading && (!user || user.role !== "VENDOR")) {
+    if (!isLoading && (!user || !hasRole(user, "VENDOR"))) {
       router.replace("/login");
     }
   }, [isLoading, user, router]);
 
   useEffect(() => {
-    if (user?.role !== "VENDOR") return;
+    if (!hasRole(user, "VENDOR")) return;
     let cancelled = false;
 
     async function run() {
@@ -59,7 +59,7 @@ export default function VendorReviewsPage() {
     };
   }, [user, page]);
 
-  if (isLoading || !user || user.role !== "VENDOR") {
+  if (isLoading || !user || !hasRole(user, "VENDOR")) {
     return (
       <PageShell size="md" className="min-h-screen items-center justify-center">
         <LoadingText />

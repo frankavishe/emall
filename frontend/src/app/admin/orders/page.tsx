@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth-context";
+import { hasRole, useAuth } from "@/lib/auth-context";
 import {
   ApiError,
   listAdminOrderItems,
@@ -26,13 +26,13 @@ export default function AdminOrdersPage() {
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
   useEffect(() => {
-    if (!isLoading && (!user || user.role !== "ADMINISTRATOR")) {
+    if (!isLoading && (!user || !hasRole(user, "ADMINISTRATOR"))) {
       router.replace("/login");
     }
   }, [isLoading, user, router]);
 
   useEffect(() => {
-    if (user?.role !== "ADMINISTRATOR") return;
+    if (!hasRole(user, "ADMINISTRATOR")) return;
     let cancelled = false;
 
     async function run() {
@@ -58,7 +58,7 @@ export default function AdminOrdersPage() {
     };
   }, [user, page]);
 
-  if (isLoading || !user || user.role !== "ADMINISTRATOR") {
+  if (isLoading || !user || !hasRole(user, "ADMINISTRATOR")) {
     return (
       <PageShell size="md" className="min-h-screen items-center justify-center">
         <LoadingText />

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth-context";
+import { hasRole, useAuth } from "@/lib/auth-context";
 import { apiFetch, listAdminShops, ApiError, type AdminShop } from "@/lib/api-client";
 import { PageShell } from "@/components/ui/page-shell";
 import { Card } from "@/components/ui/card";
@@ -25,7 +25,7 @@ export default function AdminShopsPage() {
   const [rejectReasons, setRejectReasons] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    if (!isLoading && (!user || user.role !== "ADMINISTRATOR")) {
+    if (!isLoading && (!user || !hasRole(user, "ADMINISTRATOR"))) {
       router.replace("/login");
     }
   }, [isLoading, user, router]);
@@ -44,7 +44,7 @@ export default function AdminShopsPage() {
   }, []);
 
   useEffect(() => {
-    if (user?.role !== "ADMINISTRATOR") return;
+    if (!hasRole(user, "ADMINISTRATOR")) return;
     let cancelled = false;
 
     async function run() {
@@ -100,7 +100,7 @@ export default function AdminShopsPage() {
     }
   }
 
-  if (isLoading || !user || user.role !== "ADMINISTRATOR") {
+  if (isLoading || !user || !hasRole(user, "ADMINISTRATOR")) {
     return (
       <PageShell size="md" className="min-h-screen items-center justify-center">
         <LoadingText />

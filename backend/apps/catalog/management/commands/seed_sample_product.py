@@ -28,12 +28,14 @@ class Command(BaseCommand):
             email=JOHN_EMAIL,
             defaults={
                 "name": "John",
-                "role": User.Role.VENDOR,
+                "role": User.Role.CUSTOMER,
+                "is_vendor": True,
                 "is_email_verified": True,
             },
         )
         john.name = "John"
-        john.role = User.Role.VENDOR
+        john.role = User.Role.CUSTOMER
+        john.is_vendor = True
         john.is_email_verified = True
         john.set_password(JOHN_PASSWORD)
         john.save()

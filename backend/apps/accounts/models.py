@@ -47,7 +47,11 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     email = models.EmailField(unique=True)
     name = models.CharField(max_length=255)
+    # CUSTOMER or ADMINISTRATOR. Vendor access is the separate `is_vendor` flag below, so one
+    # account (one email) can be both a customer and a vendor. VENDOR remains a legacy choice;
+    # save() folds it into CUSTOMER + is_vendor.
     role = models.CharField(max_length=20, choices=Role.choices)
+    is_vendor = models.BooleanField(default=False)
     is_email_verified = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
@@ -61,7 +65,26 @@ class User(AbstractBaseUser, PermissionsMixin):
     def save(self, *args, **kwargs):
         if self.email:
             self.email = self.email.lower()
+        if self.role == self.Role.VENDOR:
+            self.role = self.Role.CUSTOMER
+            self.is_vendor = True
+            update_fields = kwargs.get("update_fields")
+            if update_fields is not None:
+                kwargs["update_fields"] = {*update_fields, "role", "is_vendor"}
         super().save(*args, **kwargs)
+
+    @property
+    def roles(self):
+        """Every role this account can act as. Every non-admin account can shop as a customer."""
+        if self.role == self.Role.ADMINISTRATOR:
+            return [self.Role.ADMINISTRATOR.value]
+        roles = [self.Role.CUSTOMER.value]
+        if self.is_vendor:
+            roles.append(self.Role.VENDOR.value)
+        return roles
+
+    def has_role(self, role):
+        return role in self.roles
 
     def __str__(self):
         return self.email

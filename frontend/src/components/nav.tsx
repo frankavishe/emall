@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
+import type { Role } from "@/lib/auth-context";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
@@ -39,7 +40,7 @@ const ADMINISTRATOR_LINKS: NavLink[] = [
   { label: "Account", href: "/account" },
 ];
 
-function linksForRole(role: "CUSTOMER" | "VENDOR" | "ADMINISTRATOR" | null): NavLink[] {
+function linksForRole(role: Role | null): NavLink[] {
   switch (role) {
     case "CUSTOMER":
       return CUSTOMER_LINKS;
@@ -52,6 +53,44 @@ function linksForRole(role: "CUSTOMER" | "VENDOR" | "ADMINISTRATOR" | null): Nav
   }
 }
 
+const MODE_HOME: Partial<Record<Role, string>> = {
+  CUSTOMER: "/",
+  VENDOR: "/vendor/products",
+};
+
+/** Customer/Vendor switch for an account that holds both roles (one email, both modes). */
+function RoleSwitch({
+  roles,
+  activeRole,
+  onSwitch,
+}: {
+  roles: Role[];
+  activeRole: Role | null;
+  onSwitch: (role: Role) => void;
+}) {
+  return (
+    <div role="group" aria-label="Switch mode" className="flex rounded-pill bg-black/5 p-0.5">
+      {roles.map((role) => {
+        const active = role === activeRole;
+        return (
+          <button
+            key={role}
+            type="button"
+            aria-pressed={active}
+            onClick={() => onSwitch(role)}
+            className={cn(
+              "rounded-pill px-3 py-1 text-xs font-medium capitalize transition-colors",
+              active ? "bg-navy-900 text-white" : "text-text-muted hover:text-text-primary",
+            )}
+          >
+            {role.toLowerCase()}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function isLinkActive(pathname: string, href: string): boolean {
   if (href === "/") return pathname === "/";
   return pathname === href || pathname.startsWith(`${href}/`);
@@ -60,9 +99,17 @@ function isLinkActive(pathname: string, href: string): boolean {
 export function Nav() {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, logout } = useAuth();
-  const links = linksForRole(user?.role ?? null);
+  const { user, logout, activeRole, setActiveRole } = useAuth();
+  const links = linksForRole(activeRole);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const canSwitch = !!user && user.roles.length > 1;
+
+  function handleSwitch(role: Role) {
+    if (role === activeRole) return;
+    setActiveRole(role);
+    setMobileOpen(false);
+    router.push(MODE_HOME[role] ?? "/");
+  }
 
   async function handleLogout() {
     setMobileOpen(false);
@@ -102,12 +149,17 @@ export function Nav() {
         <div className="flex items-center gap-3">
           {user ? (
             <>
+              {canSwitch && (
+                <div className="hidden sm:block">
+                  <RoleSwitch roles={user.roles} activeRole={activeRole} onSwitch={handleSwitch} />
+                </div>
+              )}
               <Link href="/account" className="hidden items-center gap-2 sm:flex">
                 <Avatar name={user.name} size="sm" />
                 <span className="flex flex-col leading-tight">
                   <span className="text-sm font-medium text-text-primary">{user.name}</span>
                   <span className="text-xs capitalize text-text-muted">
-                    {user.role.toLowerCase()}
+                    {activeRole?.toLowerCase()}
                   </span>
                 </span>
               </Link>
@@ -161,6 +213,11 @@ export function Nav() {
 
       {mobileOpen && (
         <div className="mx-auto mt-2 flex max-w-6xl flex-col gap-1 rounded-card bg-card p-3 shadow-nav md:hidden">
+          {canSwitch && user && (
+            <div className="mb-1 flex justify-center sm:hidden">
+              <RoleSwitch roles={user.roles} activeRole={activeRole} onSwitch={handleSwitch} />
+            </div>
+          )}
           {links.map((link) => {
             const active = isLinkActive(pathname, link.href);
             return (
@@ -184,7 +241,7 @@ export function Nav() {
                 <span className="flex flex-1 flex-col leading-tight">
                   <span className="text-sm font-medium text-text-primary">{user.name}</span>
                   <span className="text-xs capitalize text-text-muted">
-                    {user.role.toLowerCase()}
+                    {activeRole?.toLowerCase()}
                   </span>
                 </span>
                 <Button variant="ghost" size="sm" onClick={handleLogout}>

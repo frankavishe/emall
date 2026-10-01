@@ -25,9 +25,19 @@ def test_get_cart_creates_it_lazily_and_returns_empty_shape(api_client):
 
 
 def test_get_cart_requires_customer_role(api_client):
+    admin = UserFactory(role=User.Role.ADMINISTRATOR)
+    _authenticate(api_client, admin)
+
+    response = api_client.get("/api/cart")
+
+    assert response.status_code == 403
+
+
+def test_vendor_account_can_also_use_cart(api_client):
+    # One account (one email) can be both customer and vendor.
     vendor = UserFactory(role=User.Role.VENDOR)
     _authenticate(api_client, vendor)
 
     response = api_client.get("/api/cart")
 
-    assert response.status_code == 403
+    assert response.status_code == 200

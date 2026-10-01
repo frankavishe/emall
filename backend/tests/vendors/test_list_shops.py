@@ -27,13 +27,23 @@ def test_list_shops_returns_only_own_shops(api_client):
     assert names == [own_shop.name]
 
 
-def test_list_shops_forbidden_for_non_vendor(api_client):
+def test_list_shops_forbidden_for_administrator(api_client):
+    admin = UserFactory(role=User.Role.ADMINISTRATOR)
+
+    _authenticate(api_client, admin)
+    response = api_client.get("/api/vendor/shops")
+
+    assert response.status_code == 403
+
+
+def test_list_shops_empty_for_customer_without_shops(api_client):
     customer = UserFactory(role=User.Role.CUSTOMER)
 
     _authenticate(api_client, customer)
     response = api_client.get("/api/vendor/shops")
 
-    assert response.status_code == 403
+    assert response.status_code == 200
+    assert response.data == []
 
 
 def test_list_shops_unauthenticated_returns_401(api_client):

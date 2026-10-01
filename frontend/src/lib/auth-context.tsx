@@ -16,20 +16,52 @@ export type Shop = {
   status_reason?: string | null;
 };
 
+export type Role = "CUSTOMER" | "VENDOR" | "ADMINISTRATOR";
+
 export type AuthUser = {
   id: string;
   name: string;
   email: string;
-  role: "CUSTOMER" | "VENDOR" | "ADMINISTRATOR";
+  role: Role;
+  /** Every role this account can act as — one account (one email) can be customer and vendor. */
+  roles: Role[];
   is_email_verified: boolean;
   shops?: Shop[];
 };
+
+export function hasRole(user: AuthUser | null | undefined, role: Role): boolean {
+  return !!user && user.roles.includes(role);
+}
+
+// Which of a multi-role user's modes the UI is showing. A UI preference, not a credential, so
+// it is fine in localStorage (namespaced: other localhost projects share this origin's storage).
+const ACTIVE_ROLE_STORAGE_KEY = "emall.activeRole";
+
+function readStoredActiveRole(): Role | null {
+  try {
+    return window.localStorage.getItem(ACTIVE_ROLE_STORAGE_KEY) as Role | null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredActiveRole(role: Role | null) {
+  try {
+    if (role) window.localStorage.setItem(ACTIVE_ROLE_STORAGE_KEY, role);
+    else window.localStorage.removeItem(ACTIVE_ROLE_STORAGE_KEY);
+  } catch {
+    // Storage unavailable (private mode etc.) — the default mode is used instead.
+  }
+}
 
 type LoginResponse = { access: string; user: AuthUser };
 
 type AuthContextValue = {
   user: AuthUser | null;
   isLoading: boolean;
+  /** The mode the UI is in (nav links, home dashboard); null for guests. */
+  activeRole: Role | null;
+  setActiveRole: (role: Role) => void;
   login: (email: string, password: string) => Promise<void>;
   registerCustomer: (name: string, email: string, password: string) => Promise<void>;
   registerVendor: (
@@ -37,7 +69,7 @@ type AuthContextValue = {
     email: string,
     password: string,
     shopName: string,
-  ) => Promise<void>;
+  ) => Promise<AuthUser>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   requestShop: (name: string) => Promise<void>;
@@ -49,6 +81,20 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [preferredRole, setPreferredRole] = useState<Role | null>(() =>
+    typeof window === "undefined" ? null : readStoredActiveRole(),
+  );
+
+  const activeRole = useMemo<Role | null>(() => {
+    if (!user) return null;
+    if (preferredRole && user.roles.includes(preferredRole)) return preferredRole;
+    return user.roles.includes("VENDOR") ? "VENDOR" : user.roles[0];
+  }, [user, preferredRole]);
+
+  const setActiveRole = useCallback((role: Role) => {
+    setPreferredRole(role);
+    writeStoredActiveRole(role);
+  }, []);
 
   const refreshUser = useCallback(async () => {
     const me = await apiFetch<AuthUser>("/api/auth/me");
@@ -121,9 +167,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       );
       setAccessToken(result.access);
-      setUser({ ...result.user, shops: result.shops });
+      const user = { ...result.user, shops: result.shops };
+      setUser(user);
+      // A customer who just added a shop lands in vendor mode.
+      setActiveRole("VENDOR");
+      return user;
     },
-    [],
+    [setActiveRole],
   );
 
   const requestShop = useCallback(
@@ -147,6 +197,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setAccessToken(null);
       setUser(null);
+      setPreferredRole(null);
+      writeStoredActiveRole(null);
     }
   }, []);
 
@@ -154,6 +206,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       user,
       isLoading,
+      activeRole,
+      setActiveRole,
       login,
       registerCustomer,
       registerVendor,
@@ -165,6 +219,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [
       user,
       isLoading,
+      activeRole,
+      setActiveRole,
       login,
       registerCustomer,
       registerVendor,

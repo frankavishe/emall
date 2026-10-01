@@ -18,6 +18,25 @@ export function setAccessToken(token: string | null): void {
   accessToken = token;
 }
 
+/**
+ * A user-facing message for a failed request: the `detail` if there is one, otherwise the first
+ * DRF field error (e.g. `{"email": ["..."]}`), otherwise `fallback`.
+ */
+export function errorMessage(
+  err: unknown,
+  fallback = "Something went wrong. Please try again.",
+): string {
+  if (!(err instanceof ApiError)) return fallback;
+  const body = err.body;
+  if (body && typeof body === "object" && !("detail" in body)) {
+    for (const value of Object.values(body as Record<string, unknown>)) {
+      const first = Array.isArray(value) ? value[0] : value;
+      if (typeof first === "string") return first;
+    }
+  }
+  return err.message;
+}
+
 export class ApiError extends Error {
   status: number;
   body: unknown;

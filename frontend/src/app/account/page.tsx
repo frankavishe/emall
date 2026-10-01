@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth-context";
-import { ApiError } from "@/lib/api-client";
+import { hasRole, useAuth } from "@/lib/auth-context";
+import { errorMessage } from "@/lib/api-client";
 import { PageShell } from "@/components/ui/page-shell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -38,9 +38,7 @@ export default function AccountPage() {
       await requestShop(newShopName);
       setNewShopName("");
     } catch (err) {
-      setShopError(
-        err instanceof ApiError ? err.message : "Something went wrong. Please try again.",
-      );
+      setShopError(errorMessage(err));
     } finally {
       setIsRequestingShop(false);
     }
@@ -72,8 +70,10 @@ export default function AccountPage() {
             <dd className="font-medium text-text-primary">{user.email}</dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-text-muted">Role</dt>
-            <dd className="font-medium text-text-primary">{user.role}</dd>
+            <dt className="text-text-muted">{user.roles.length > 1 ? "Roles" : "Role"}</dt>
+            <dd className="font-medium capitalize text-text-primary">
+              {user.roles.map((role) => role.toLowerCase()).join(" · ")}
+            </dd>
           </div>
           <div className="flex justify-between">
             <dt className="text-text-muted">Email verified</dt>
@@ -92,7 +92,32 @@ export default function AccountPage() {
           </div>
         </dl>
 
-        {user.role === "VENDOR" && (
+        {hasRole(user, "CUSTOMER") && !hasRole(user, "VENDOR") && (
+          <section className="mt-8">
+            <h2 className="mb-1 text-lg font-semibold text-text-primary">Sell on E-Mall</h2>
+            <p className="mb-3 text-sm text-text-muted">
+              Open a shop on this same account — you&apos;ll keep shopping as a customer too. New
+              shops are reviewed by an administrator before you can sell.
+            </p>
+            <form onSubmit={handleRequestShop} className="flex flex-col gap-2">
+              <FormField label="Shop name">
+                <input
+                  type="text"
+                  required
+                  value={newShopName}
+                  onChange={(e) => setNewShopName(e.target.value)}
+                  className={inputClassName}
+                />
+              </FormField>
+              {shopError && <ErrorText>{shopError}</ErrorText>}
+              <Button type="submit" variant="secondary" disabled={isRequestingShop}>
+                {isRequestingShop ? "Opening…" : "Open a shop"}
+              </Button>
+            </form>
+          </section>
+        )}
+
+        {hasRole(user, "VENDOR") && (
           <section className="mt-8">
             <h2 className="mb-3 text-lg font-semibold text-text-primary">Your shops</h2>
             <ul className="flex flex-col gap-2 text-sm">
