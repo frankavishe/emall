@@ -328,3 +328,33 @@ jobs:
           git config user.email "ci-bot@users.noreply.github.com"
           git fetch origin staging
           git push origin origin/staging:refs/heads/main --force
+
+  # main -> production: SSHes into the Contabo VPS and rebuilds the prod stack from the
+  # checkout there. Runs on the push that promote-to-main makes (via PROMOTION_PAT, so it
+  # starts a new workflow run). Gated on main's own test/image jobs like the promote jobs
+  # above. `reset --hard` rather than `pull` because main is force-pushed (see
+  # promote-to-staging's comment); .env.prod is untracked, so it survives the reset.
+  deploy-production:
+    needs: [backend-image, frontend-image]
+    if: |
+      always() &&
+      github.event_name == 'push' && github.ref_name == 'main' &&
+      (needs.backend-image.result == 'success' || needs.backend-image.result == 'skipped') &&
+      (needs.frontend-image.result == 'success' || needs.frontend-image.result == 'skipped')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Contabo VPS
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          command_timeout: 30m
+          script: |
+            set -e
+            cd ~/emall
+            git fetch origin main
+            git reset --hard origin/main
+            docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+            docker image prune -f
