@@ -4,7 +4,7 @@ import { NewsletterForm } from "@/components/newsletter-form";
 type FooterLink = { label: string; href: string };
 
 const ABOUT_LINKS: FooterLink[] = [
-  { label: "About Us", href: "#" },
+  { label: "About Us", href: "/about" },
   { label: "Our Merchants", href: "#" },
   { label: "Careers & Internships", href: "#" },
   { label: "Press & Media", href: "#" },
