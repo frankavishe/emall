@@ -1,5 +1,5 @@
-import { describe, expect, it, beforeEach } from "vitest";
-import { ApiError, getAccessToken, setAccessToken } from "./api-client";
+import { afterEach, describe, expect, it, beforeEach, vi } from "vitest";
+import { ApiError, getAccessToken, refreshAccessToken, setAccessToken } from "./api-client";
 
 describe("ApiError", () => {
   it("extracts the detail message from a DRF-style error body", () => {
@@ -32,5 +32,43 @@ describe("access token store", () => {
   it("stores and returns the token that was set", () => {
     setAccessToken("test-token");
     expect(getAccessToken()).toBe("test-token");
+  });
+});
+
+describe("refreshAccessToken", () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    fetchMock.mockReset();
+    vi.unstubAllGlobals();
+    setAccessToken(null);
+  });
+
+  it("returns null instead of throwing when the API is unreachable", async () => {
+    setAccessToken("existing");
+    fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
+
+    await expect(refreshAccessToken()).resolves.toBeNull();
+    // A transient outage must not wipe the current session's token.
+    expect(getAccessToken()).toBe("existing");
+  });
+
+  it("stores and returns the new access token on success", async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ access: "fresh" }), { status: 200 }));
+
+    await expect(refreshAccessToken()).resolves.toBe("fresh");
+    expect(getAccessToken()).toBe("fresh");
+  });
+
+  it("clears the access token when the refresh is rejected", async () => {
+    setAccessToken("stale");
+    fetchMock.mockResolvedValue(new Response(null, { status: 401 }));
+
+    await expect(refreshAccessToken()).resolves.toBeNull();
+    expect(getAccessToken()).toBeNull();
   });
 });

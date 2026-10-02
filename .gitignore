@@ -24,3 +24,4 @@ Thumbs.db
 design/
 # Production secrets (docker-compose.prod.yml)
 .env.prod
+footer/

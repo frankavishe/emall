@@ -75,12 +75,22 @@ function buildRequestInit(options: RequestInit): RequestInit {
   return { ...options, headers, credentials: "include" };
 }
 
-/** Calls `/api/auth/refresh`; on success updates the in-memory access token and returns it. */
+/**
+ * Calls `/api/auth/refresh`; on success updates the in-memory access token and returns it.
+ * Returns null without throwing when the API is unreachable, so an outage reads as "no session"
+ * instead of an unhandled rejection. The current token is kept in that case — only an actual
+ * non-OK response from the API clears it.
+ */
 export async function refreshAccessToken(): Promise<string | null> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
-    method: "POST",
-    credentials: "include",
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+      method: "POST",
+      credentials: "include",
+    });
+  } catch {
+    return null;
+  }
   if (!response.ok) {
     setAccessToken(null);
     return null;

@@ -105,14 +105,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
 
     async function restoreSession() {
-      const token = await refreshAccessToken();
-      if (cancelled) return;
-      if (!token) {
-        setUser(null);
-        setIsLoading(false);
-        return;
-      }
       try {
+        const token = await refreshAccessToken();
+        if (cancelled) return;
+        if (!token) {
+          setUser(null);
+          return;
+        }
         await refreshUser();
       } catch {
         // The refresh cookie decoded to a token whose user no longer exists (e.g. stale

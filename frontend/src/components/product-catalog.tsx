@@ -59,7 +59,9 @@ export function ProductCatalog({ initialCategory = "" }: { initialCategory?: str
       } catch (err) {
         if (!cancelled) {
           setError(
-            err instanceof ApiError ? err.message : "Something went wrong. Please try again.",
+            err instanceof ApiError
+              ? err.message
+              : "Couldn't reach the store right now. Please try again shortly.",
           );
         }
       } finally {
@@ -131,7 +133,7 @@ export function ProductCatalog({ initialCategory = "" }: { initialCategory?: str
 
       {isLoading ? (
         <LoadingText>Loading products…</LoadingText>
-      ) : products.length === 0 ? (
+      ) : error ? null : products.length === 0 ? (
         <EmptyText>No products match your search.</EmptyText>
       ) : (
         <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
