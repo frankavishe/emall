@@ -59,8 +59,8 @@ export default function AboutPage() {
             retailer without the cost of a storefront.
           </p>
           <p className="text-sm leading-relaxed text-text-muted">
-            With a background in building software and a passion for Tanzania&apos;s growing
-            digital economy, Frank leads MangiMall&apos;s product and technology vision: seamless
+            With a background in building software and a passion for Tanzania&apos;s growing digital
+            economy, Frank leads MangiMall&apos;s product and technology vision: seamless
             mobile-money checkout, real-time order tracking, and tools that let any vendor launch a
             shop in minutes.
           </p>
