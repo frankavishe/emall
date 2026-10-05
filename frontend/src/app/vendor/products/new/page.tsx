@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FormField, inputClassName } from "@/components/ui/form-field";
 import { ErrorText, LoadingText } from "@/components/ui/status-text";
+import { ImagePicker } from "@/components/vendor/image-picker";
 
 type Category = { name: string; slug: string };
 type VendorShop = { id: number; name: string; status: string };
@@ -27,7 +28,7 @@ export default function NewVendorProductPage() {
   const [price, setPrice] = useState("");
   const [stockQuantity, setStockQuantity] = useState("");
   const [category, setCategory] = useState("");
-  const [images, setImages] = useState<FileList | null>(null);
+  const [images, setImages] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -66,9 +67,7 @@ export default function NewVendorProductPage() {
       if (price.trim()) formData.set("price", price);
       if (stockQuantity.trim()) formData.set("stock_quantity", stockQuantity);
       if (category.trim()) formData.set("category", category);
-      if (images) {
-        Array.from(images).forEach((file) => formData.append("images", file));
-      }
+      images.forEach((file) => formData.append("images", file));
 
       const product = await apiFetch<{ id: number }>("/api/vendor/products", {
         method: "POST",
@@ -172,15 +171,7 @@ export default function NewVendorProductPage() {
               ))}
             </select>
           </FormField>
-          <FormField label="Images">
-            <input
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={(e) => setImages(e.target.files)}
-              className="text-sm text-text-primary"
-            />
-          </FormField>
+          <ImagePicker files={images} onFilesChange={setImages} />
           {error && <ErrorText>{error}</ErrorText>}
           <Button type="submit" disabled={isSubmitting} fullWidth className="mt-2">
             {isSubmitting ? "Creating…" : "Create product"}
