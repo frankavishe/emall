@@ -105,15 +105,21 @@ export function Footer() {
               <span className="text-2xl font-extrabold tracking-tight text-white">E-Mall</span>
             </div>
             <p className="max-w-sm text-sm leading-relaxed text-slate-400">
-              Tanzania&apos;s premier electronics and hardware marketplace. We bridge quality tech
-              with verified local dealers like Frank Electronics to guarantee genuine gadgets, fast
-              doorstep fulfillment, and dependable warranties.
+              MangiMall is Tanzania&apos;s premier online mall — every shop under one trusted roof.
+              We connect shoppers with verified local vendors to guarantee genuine products,
+              mobile-money checkout, fast doorstep delivery, and dependable warranties.
             </p>
             <div className="flex flex-col gap-1.5 pt-2 text-xs text-slate-400">
-              <ContactLine icon="location">
-                Mlimani City Mall &amp; Kariakoo, Dar es Salaam, Tanzania
+              <ContactLine icon="location">Mabibo, Dar es Salaam, Tanzania</ContactLine>
+              <ContactLine icon="phone">
+                <a href="tel:+255774861380" className="transition-colors hover:text-teal-400">
+                  +255 774 861 380
+                </a>{" "}
+                /{" "}
+                <a href="tel:+255793403553" className="transition-colors hover:text-teal-400">
+                  +255 793 403 553
+                </a>
               </ContactLine>
-              <ContactLine icon="phone">+255 (0) 744 123 456 / +255 22 210 9988</ContactLine>
               <ContactLine icon="mail">support@emall.co.tz</ContactLine>
             </div>
           </div>
