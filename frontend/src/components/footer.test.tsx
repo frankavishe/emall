@@ -11,7 +11,7 @@ describe("Footer", () => {
     for (const heading of ["About", "Customer Care", "Stay Connected"]) {
       expect(screen.getByRole("heading", { name: heading })).toBeTruthy();
     }
-    expect(screen.getByText(/E-Mall Technologies Limited/)).toBeTruthy();
+    expect(screen.getByText(/MangiMall Technologies Limited/)).toBeTruthy();
   });
 
   it("labels every social link", () => {
