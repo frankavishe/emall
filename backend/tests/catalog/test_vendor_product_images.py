@@ -31,7 +31,9 @@ def _vendor_with_product(api_client, image_count=0):
     shop = ShopFactory(owner=vendor, status=Shop.Status.APPROVED)
     product = ProductFactory(shop=shop, is_published=False)
     for position in range(image_count):
-        ProductImage.objects.create(product=product, image=_png(f"seed{position}.png"), position=position)
+        ProductImage.objects.create(
+            product=product, image=_png(f"seed{position}.png"), position=position
+        )
     _authenticate(api_client, vendor)
     return vendor, shop, product
 
