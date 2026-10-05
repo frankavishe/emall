@@ -102,7 +102,7 @@ export function Footer() {
           <div className="flex flex-col gap-4 lg:col-span-2">
             <div className="flex items-center gap-2">
               <span aria-hidden className="h-2.5 w-2.5 rounded-sm bg-teal-400" />
-              <span className="text-2xl font-extrabold tracking-tight text-white">E-Mall</span>
+              <span className="text-2xl font-extrabold tracking-tight text-white">MangiMall</span>
             </div>
             <p className="max-w-sm text-sm leading-relaxed text-slate-400">
               MangiMall is Tanzania&apos;s premier online mall — every shop under one trusted roof.
@@ -120,7 +120,7 @@ export function Footer() {
                   +255 793 403 553
                 </a>
               </ContactLine>
-              <ContactLine icon="mail">support@emall.co.tz</ContactLine>
+              <ContactLine icon="mail">support@mangimall.com</ContactLine>
             </div>
           </div>
 
@@ -156,7 +156,7 @@ export function Footer() {
         </div>
 
         <div className="flex flex-col items-center justify-between gap-4 pt-8 text-xs text-slate-500 md:flex-row">
-          <p>© 2026 E-Mall Technologies Limited. All rights reserved.</p>
+          <p>© 2026 MangiMall Technologies Limited. All rights reserved.</p>
           <div className="flex flex-wrap items-center justify-center gap-3">
             <span className="text-[11px] font-medium text-slate-500">Accepted Payments:</span>
             {PAYMENT_BADGES.map((badge) => (
