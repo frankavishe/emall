@@ -62,7 +62,9 @@ export function ImagePicker({
   function toggleExisting(id: number) {
     if (!onRemovedIdsChange) return;
     onRemovedIdsChange(
-      removedIds.includes(id) ? removedIds.filter((removed) => removed !== id) : [...removedIds, id],
+      removedIds.includes(id)
+        ? removedIds.filter((removed) => removed !== id)
+        : [...removedIds, id],
     );
   }
 
