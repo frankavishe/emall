@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { FormField, inputClassName } from "@/components/ui/form-field";
 import { Pill } from "@/components/ui/pill";
 import { ErrorText, LoadingText } from "@/components/ui/status-text";
+import { ImagePicker } from "@/components/vendor/image-picker";
 
 type Category = { name: string; slug: string };
 
@@ -45,6 +46,8 @@ export default function EditVendorProductPage() {
   const [price, setPrice] = useState("");
   const [stockQuantity, setStockQuantity] = useState("");
   const [category, setCategory] = useState("");
+  const [newImages, setNewImages] = useState<File[]>([]);
+  const [removedImageIds, setRemovedImageIds] = useState<number[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -104,12 +107,16 @@ export default function EditVendorProductPage() {
       if (price.trim()) formData.set("price", price);
       if (stockQuantity.trim()) formData.set("stock_quantity", stockQuantity);
       if (category.trim()) formData.set("category", category);
+      newImages.forEach((file) => formData.append("images", file));
+      removedImageIds.forEach((id) => formData.append("remove_image_ids", String(id)));
 
       const updated = await apiFetch<VendorProduct>(`/api/vendor/products/${params.id}`, {
         method: "PATCH",
         body: formData,
       });
       setProduct(updated);
+      setNewImages([]);
+      setRemovedImageIds([]);
       setMessage("Saved.");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
@@ -208,6 +215,13 @@ export default function EditVendorProductPage() {
               ))}
             </select>
           </FormField>
+          <ImagePicker
+            files={newImages}
+            onFilesChange={setNewImages}
+            existing={product.images}
+            removedIds={removedImageIds}
+            onRemovedIdsChange={setRemovedImageIds}
+          />
           {error && <ErrorText>{error}</ErrorText>}
           {message && <p className="text-sm text-status-approved">{message}</p>}
           <div className="mt-2 flex gap-2">

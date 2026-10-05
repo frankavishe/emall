@@ -1,4 +1,4 @@
-from django.db.models import Avg, Count
+from django.db.models import Avg, Count, Max
 from rest_framework import serializers
 from rest_framework.exceptions import PermissionDenied
 
@@ -41,6 +41,7 @@ class ProductImageReadSerializer(serializers.ModelSerializer):
 
 
 MAX_PRODUCT_IMAGE_SIZE_BYTES = 5 * 1024 * 1024
+MAX_PRODUCT_IMAGES = 10
 
 
 class VendorProductWriteSerializer(serializers.ModelSerializer):
@@ -57,6 +58,11 @@ class VendorProductWriteSerializer(serializers.ModelSerializer):
     images = serializers.ListField(
         child=serializers.ImageField(), write_only=True, required=False
     )
+    # Update-only: ids of this product's existing images to delete. Ids belonging to other
+    # products are ignored (the delete is scoped to the instance).
+    remove_image_ids = serializers.ListField(
+        child=serializers.IntegerField(), write_only=True, required=False
+    )
 
     class Meta:
         model = Product
@@ -69,6 +75,7 @@ class VendorProductWriteSerializer(serializers.ModelSerializer):
             "stock_quantity",
             "category",
             "images",
+            "remove_image_ids",
             "is_published",
         ]
         read_only_fields = ["id", "is_published"]
@@ -121,24 +128,46 @@ class VendorProductWriteSerializer(serializers.ModelSerializer):
                     {"name": "A product with this name already exists in this shop."}
                 )
 
+        new_count = len(attrs.get("images", []))
+        if self.instance is None:
+            total = new_count
+        else:
+            remove_ids = set(attrs.get("remove_image_ids", []))
+            kept = self.instance.images.exclude(id__in=remove_ids).count()
+            total = kept + new_count
+        if total > MAX_PRODUCT_IMAGES:
+            raise serializers.ValidationError(
+                {"images": f"A product can have at most {MAX_PRODUCT_IMAGES} images."}
+            )
+
         return attrs
 
     def create(self, validated_data):
         images = validated_data.pop("images", [])
+        validated_data.pop("remove_image_ids", None)
         product = Product.objects.create(**validated_data)
         for position, image in enumerate(images):
             ProductImage.objects.create(product=product, image=image, position=position)
         return product
 
     def update(self, instance, validated_data):
-        images = validated_data.pop("images", None)
+        images = validated_data.pop("images", [])
+        remove_ids = validated_data.pop("remove_image_ids", [])
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
-        if images is not None:
-            instance.images.all().delete()
-            for position, image in enumerate(images):
-                ProductImage.objects.create(product=instance, image=image, position=position)
+        if remove_ids:
+            for product_image in instance.images.filter(id__in=remove_ids):
+                product_image.image.delete(save=False)
+                product_image.delete()
+        if images:
+            # Append after the current last image rather than replacing the gallery.
+            last = instance.images.aggregate(value=Max("position"))["value"]
+            start = 0 if last is None else last + 1
+            for offset, image in enumerate(images):
+                ProductImage.objects.create(
+                    product=instance, image=image, position=start + offset
+                )
         return instance
 
 
