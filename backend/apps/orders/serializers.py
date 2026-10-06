@@ -26,6 +26,23 @@ class CheckoutSerializer(serializers.Serializer):
     payment_method = serializers.CharField()
 
 
+def rider_brief(rider):
+    """`{id, name, phone}` for a line's assigned rider, or None. Phone comes from the rider's
+    `RiderProfile` (apps.delivery), so callers should `select_related("rider__rider_profile")`."""
+
+    if rider is None:
+        return None
+    profile = getattr(rider, "rider_profile", None)
+    return {"id": rider.id, "name": rider.name, "phone": profile.phone if profile else ""}
+
+
+class RiderBriefMixin(serializers.Serializer):
+    rider = serializers.SerializerMethodField()
+
+    def get_rider(self, obj):
+        return rider_brief(obj.rider)
+
+
 class OrderItemProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
@@ -33,14 +50,23 @@ class OrderItemProductSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-class OrderItemSerializer(serializers.ModelSerializer):
+class OrderItemSerializer(RiderBriefMixin, serializers.ModelSerializer):
     product = OrderItemProductSerializer(read_only=True)
     shop_name = serializers.CharField(source="product.shop.name", read_only=True)
     subtotal = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
 
     class Meta:
         model = OrderItem
-        fields = ["id", "product", "shop_name", "quantity", "unit_price", "subtotal", "status"]
+        fields = [
+            "id",
+            "product",
+            "shop_name",
+            "quantity",
+            "unit_price",
+            "subtotal",
+            "status",
+            "rider",
+        ]
         read_only_fields = fields
 
 
@@ -57,7 +83,7 @@ class VendorOrderItemShippingSerializer(serializers.Serializer):
     phone = serializers.CharField()
 
 
-class VendorOrderItemSerializer(serializers.ModelSerializer):
+class VendorOrderItemSerializer(RiderBriefMixin, serializers.ModelSerializer):
     """A Vendor's own fulfillment queue row — current status only, no history (Administrator-only,
     Clarifications session 2026-09-21)."""
 
@@ -67,7 +93,16 @@ class VendorOrderItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OrderItem
-        fields = ["id", "order_id", "product", "quantity", "unit_price", "status", "shipping"]
+        fields = [
+            "id",
+            "order_id",
+            "product",
+            "quantity",
+            "unit_price",
+            "status",
+            "shipping",
+            "rider",
+        ]
         read_only_fields = fields
 
     def get_shipping(self, obj):
@@ -88,7 +123,7 @@ class AdminOrderItemShopSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
-class AdminOrderItemSerializer(serializers.ModelSerializer):
+class AdminOrderItemSerializer(RiderBriefMixin, serializers.ModelSerializer):
     """Administrator oversight row — the only response shape that ever includes
     `status_history` (Clarifications session 2026-09-21)."""
 
@@ -110,6 +145,7 @@ class AdminOrderItemSerializer(serializers.ModelSerializer):
             "unit_price",
             "status",
             "status_history",
+            "rider",
         ]
         read_only_fields = fields
 
@@ -126,6 +162,10 @@ class OrderItemStatusUpdateSerializer(serializers.Serializer):
             OrderItem.Status.CANCELLED,
         ]
     )
+
+
+class AssignRiderSerializer(serializers.Serializer):
+    rider_id = serializers.IntegerField(allow_null=True)
 
 
 class PaymentRecordSerializer(serializers.ModelSerializer):

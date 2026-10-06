@@ -17,7 +17,7 @@ export type Shop = {
   logo_url: string | null;
 };
 
-export type Role = "CUSTOMER" | "VENDOR" | "ADMINISTRATOR";
+export type Role = "CUSTOMER" | "VENDOR" | "ADMINISTRATOR" | "RIDER";
 
 export type AuthUser = {
   id: string;

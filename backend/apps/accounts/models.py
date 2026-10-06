@@ -44,12 +44,13 @@ class User(AbstractBaseUser, PermissionsMixin):
         CUSTOMER = "CUSTOMER", "Customer"
         VENDOR = "VENDOR", "Vendor"
         ADMINISTRATOR = "ADMINISTRATOR", "Administrator"
+        RIDER = "RIDER", "Rider"
 
     email = models.EmailField(unique=True)
     name = models.CharField(max_length=255)
-    # CUSTOMER or ADMINISTRATOR. Vendor access is the separate `is_vendor` flag below, so one
-    # account (one email) can be both a customer and a vendor. VENDOR remains a legacy choice;
-    # save() folds it into CUSTOMER + is_vendor.
+    # CUSTOMER, ADMINISTRATOR or RIDER (admin-created delivery accounts). Vendor access is the
+    # separate `is_vendor` flag below, so one account (one email) can be both a customer and a
+    # vendor. VENDOR remains a legacy choice; save() folds it into CUSTOMER + is_vendor.
     role = models.CharField(max_length=20, choices=Role.choices)
     is_vendor = models.BooleanField(default=False)
     is_email_verified = models.BooleanField(default=False)
@@ -75,9 +76,12 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     @property
     def roles(self):
-        """Every role this account can act as. Every non-admin account can shop as a customer."""
+        """Every role this account can act as. Every non-admin, non-rider account can shop."""
         if self.role == self.Role.ADMINISTRATOR:
             return [self.Role.ADMINISTRATOR.value]
+        if self.role == self.Role.RIDER:
+            # Riders only deliver — they can't shop or open a shop.
+            return [self.Role.RIDER.value]
         roles = [self.Role.CUSTOMER.value]
         if self.is_vendor:
             roles.append(self.Role.VENDOR.value)

@@ -126,6 +126,14 @@ export default function VendorOrdersPage() {
                     <div className="mt-1">
                       <Pill tone={statusToTone(item.status)}>{item.status}</Pill>
                     </div>
+                    {item.rider && (
+                      <p className="mt-2 text-sm font-medium text-text-primary">
+                        Rider: {item.rider.name} &middot;{" "}
+                        <a href={`tel:${item.rider.phone}`} className="underline">
+                          {item.rider.phone}
+                        </a>
+                      </p>
+                    )}
                     <div className="mt-2 text-sm text-text-muted">
                       <p>{item.shipping.recipient_name}</p>
                       <p>{item.shipping.address_line}</p>

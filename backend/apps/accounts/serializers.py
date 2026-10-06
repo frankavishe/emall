@@ -66,7 +66,7 @@ class RegisterVendorSerializer(serializers.Serializer):
                 raise serializers.ValidationError({"password": list(exc.messages)}) from exc
             return attrs
 
-        if user.role == User.Role.ADMINISTRATOR:
+        if user.role in (User.Role.ADMINISTRATOR, User.Role.RIDER):
             raise serializers.ValidationError(
                 {"email": "An account with this email already exists."}
             )

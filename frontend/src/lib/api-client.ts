@@ -132,6 +132,9 @@ export type ShippingDetails = {
   phone: string;
 };
 
+/** The rider assigned to deliver an order line. */
+export type RiderBrief = { id: number; name: string; phone: string };
+
 export type OrderItem = {
   id: number;
   product: { id: number; name: string };
@@ -140,6 +143,7 @@ export type OrderItem = {
   unit_price: string;
   subtotal: string;
   status: string;
+  rider: RiderBrief | null;
 };
 
 export type OrderDetail = {
@@ -244,6 +248,7 @@ export type VendorOrderItem = {
   unit_price: string;
   status: string;
   shipping: ShippingDetails;
+  rider: RiderBrief | null;
 };
 
 /** `GET /api/vendor/order-items` (task T015, contracts/order-fulfillment-api.md). `limit` maps to
@@ -279,6 +284,7 @@ export type AdminOrderItem = {
   unit_price: string;
   status: string;
   status_history: { status: string; changed_at: string }[];
+  rider: RiderBrief | null;
 };
 
 export type AdminShop = {
@@ -388,4 +394,109 @@ export async function listAdminReviews(page = 1): Promise<PaginatedResponse<Admi
 /** `DELETE /api/admin/reviews/{id}` (task T040, contracts/feedback-api.md). */
 export async function deleteReviewAsAdmin(reviewId: number): Promise<void> {
   await apiFetch<void>(`/api/admin/reviews/${reviewId}`, { method: "DELETE" });
+}
+
+export type VehicleType = "MOTORCYCLE" | "BICYCLE" | "CAR" | "VAN" | "OTHER";
+
+export const VEHICLE_TYPES: { value: VehicleType; label: string }[] = [
+  { value: "MOTORCYCLE", label: "Motorcycle" },
+  { value: "BICYCLE", label: "Bicycle" },
+  { value: "CAR", label: "Car" },
+  { value: "VAN", label: "Van" },
+  { value: "OTHER", label: "Other" },
+];
+
+export type AdminRider = {
+  id: number;
+  name: string;
+  email: string;
+  is_active: boolean;
+  phone: string;
+  vehicle_type: VehicleType;
+  plate_number: string;
+  active_delivery_count: number;
+  date_joined: string;
+};
+
+export type NewRider = {
+  name: string;
+  email: string;
+  password: string;
+  phone: string;
+  vehicle_type: VehicleType;
+  plate_number: string;
+};
+
+/** `GET /api/admin/riders`; `isActive` filters to active/inactive riders. */
+export async function listAdminRiders(
+  options: { isActive?: boolean; page?: number; limit?: number } = {},
+): Promise<PaginatedResponse<AdminRider>> {
+  const params = new URLSearchParams();
+  if (options.isActive !== undefined) params.set("is_active", String(options.isActive));
+  if (options.page) params.set("page", String(options.page));
+  if (options.limit) params.set("page_size", String(options.limit));
+  const query = params.toString() ? `?${params.toString()}` : "";
+  return apiFetch<PaginatedResponse<AdminRider>>(`/api/admin/riders${query}`);
+}
+
+/** `POST /api/admin/riders` — an admin registers a rider with a temporary password. */
+export async function createRider(data: NewRider): Promise<AdminRider> {
+  return apiFetch<AdminRider>("/api/admin/riders", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+/** `PATCH /api/admin/riders/{id}` — edit details, (de)activate, or set a new password. */
+export async function updateRider(
+  riderId: number,
+  data: Partial<Omit<NewRider, "email">> & { is_active?: boolean },
+): Promise<AdminRider> {
+  return apiFetch<AdminRider>(`/api/admin/riders/${riderId}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+/** `POST /api/admin/order-items/{id}/rider` — `null` unassigns. */
+export async function assignOrderItemRider(
+  itemId: number,
+  riderId: number | null,
+): Promise<AdminOrderItem> {
+  return apiFetch<AdminOrderItem>(`/api/admin/order-items/${itemId}/rider`, {
+    method: "POST",
+    body: JSON.stringify({ rider_id: riderId }),
+  });
+}
+
+export type RiderDelivery = {
+  id: number;
+  order_id: number;
+  product: { id: number; name: string };
+  quantity: number;
+  status: string;
+  pickup: { shop_name: string };
+  dropoff: ShippingDetails;
+  rider_assigned_at: string | null;
+};
+
+/** `GET /api/rider/deliveries` — the rider's own active (default) or completed deliveries. */
+export async function listRiderDeliveries(
+  scope: "active" | "completed" = "active",
+  page = 1,
+): Promise<PaginatedResponse<RiderDelivery>> {
+  return apiFetch<PaginatedResponse<RiderDelivery>>(
+    `/api/rider/deliveries?scope=${scope}&page=${page}`,
+  );
+}
+
+/** `PATCH /api/rider/deliveries/{id}/status` — SHIPPED (picked up) or DELIVERED. */
+export async function updateDeliveryStatus(
+  itemId: number,
+  newStatus: "SHIPPED" | "DELIVERED",
+): Promise<RiderDelivery> {
+  return apiFetch<RiderDelivery>(`/api/rider/deliveries/${itemId}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status: newStatus }),
+  });
 }

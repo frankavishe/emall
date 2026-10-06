@@ -57,6 +57,16 @@ class OrderItem(models.Model):
     status = models.CharField(
         max_length=20, choices=Status.choices, default=Status.PENDING
     )
+    # Delivery rider, set only by `orders.services.assign_rider()`.
+    rider = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="deliveries",
+        limit_choices_to={"role": "RIDER"},
+    )
+    rider_assigned_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f"{self.product_id} x{self.quantity} (order {self.order_id})"

@@ -27,3 +27,4 @@ def IsRole(role):
 IsCustomer = IsRole("CUSTOMER")
 IsVendor = IsRole("VENDOR")
 IsAdministrator = IsRole("ADMINISTRATOR")
+IsRider = IsRole("RIDER")
