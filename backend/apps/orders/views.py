@@ -6,11 +6,13 @@ from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.accounts.models import User
 from apps.core.pagination import LimitedPageNumberPagination
 from apps.core.permissions import IsAdministrator, IsCustomer, IsVendor
 from apps.orders.models import Order, OrderItem, OrderItemStatusEvent
 from apps.orders.serializers import (
     AdminOrderItemSerializer,
+    AssignRiderSerializer,
     CheckoutSerializer,
     OrderDetailSerializer,
     OrderItemStatusUpdateSerializer,
@@ -18,9 +20,11 @@ from apps.orders.serializers import (
     VendorOrderItemSerializer,
 )
 from apps.orders.services import (
+    AssignmentError,
     CheckoutError,
     TransitionError,
     advance_order_item_status,
+    assign_rider,
     place_order,
 )
 from apps.vendors.models import Shop
@@ -84,7 +88,7 @@ class VendorOrderItemListView(ListAPIView):
     def get_queryset(self):
         return (
             OrderItem.objects.filter(product__shop__owner=self.request.user)
-            .select_related("product", "product__shop", "order")
+            .select_related("product", "product__shop", "order", "rider__rider_profile")
             .order_by("-order__placed_at")
         )
 
@@ -130,7 +134,9 @@ class AdminOrderItemListView(ListAPIView):
 
     def get_queryset(self):
         return (
-            OrderItem.objects.select_related("product", "product__shop", "order")
+            OrderItem.objects.select_related(
+                "product", "product__shop", "order", "rider__rider_profile"
+            )
             .prefetch_related(
                 Prefetch(
                     "status_events",
@@ -139,3 +145,42 @@ class AdminOrderItemListView(ListAPIView):
             )
             .order_by("-order__placed_at")
         )
+
+
+class AdminOrderItemAssignRiderView(APIView):
+    """Assigns a delivery rider to an order line (`{"rider_id": null}` unassigns)."""
+
+    permission_classes = [IsAdministrator]
+
+    def post(self, request, item_id):
+        serializer = AssignRiderSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        rider_id = serializer.validated_data["rider_id"]
+
+        order_item = get_object_or_404(OrderItem, pk=item_id)
+        rider = None
+        if rider_id is not None:
+            rider = User.objects.filter(pk=rider_id, role=User.Role.RIDER).first()
+            if rider is None:
+                return Response(
+                    {"rider_id": ["Rider not found."]}, status=status.HTTP_400_BAD_REQUEST
+                )
+
+        try:
+            assign_rider(order_item=order_item, rider=rider)
+        except AssignmentError as error:
+            return Response({"detail": error.detail}, status=status.HTTP_400_BAD_REQUEST)
+
+        order_item = (
+            OrderItem.objects.select_related(
+                "product", "product__shop", "order", "rider__rider_profile"
+            )
+            .prefetch_related(
+                Prefetch(
+                    "status_events",
+                    queryset=OrderItemStatusEvent.objects.order_by("changed_at"),
+                )
+            )
+            .get(pk=order_item.pk)
+        )
+        return Response(AdminOrderItemSerializer(order_item).data)

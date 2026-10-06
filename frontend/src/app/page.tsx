@@ -8,6 +8,7 @@ import {
   listVendorOrderItems,
   listAdminShops,
   listAdminOrderItems,
+  listRiderDeliveries,
   ApiError,
   type VendorOrderItem,
   type AdminOrderItem,
@@ -359,6 +360,83 @@ function AdministratorHomepage() {
   );
 }
 
+function useRiderSummary() {
+  const [toPickUp, setToPickUp] = useState<number | null>(null);
+  const [onTheWay, setOnTheWay] = useState<number | null>(null);
+  const [completed, setCompleted] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const [active, done] = await Promise.all([
+          listRiderDeliveries("active"),
+          listRiderDeliveries("completed"),
+        ]);
+        if (!cancelled) {
+          // A rider rarely has more than a page of active deliveries; the counts below are
+          // from the first page, which the deliveries page paginates through in full.
+          setToPickUp(active.results.filter((d) => d.status === "PROCESSING").length);
+          setOnTheWay(active.results.filter((d) => d.status === "SHIPPED").length);
+          setCompleted(done.count);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(
+            err instanceof ApiError ? err.message : "Something went wrong. Please try again.",
+          );
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    }
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return { toPickUp, onTheWay, completed, isLoading, error };
+}
+
+function RiderHomepage() {
+  const { toPickUp, onTheWay, completed, isLoading, error } = useRiderSummary();
+
+  return (
+    <PageShell size="xl">
+      <Card variant="hero" className="flex flex-wrap items-center justify-between gap-4">
+        <h1 className="text-2xl font-semibold">Ready to ride</h1>
+        <Button variant="primary" className="bg-teal-400 text-navy-900 hover:bg-teal-300" asChild>
+          <Link href="/rider/deliveries">View deliveries</Link>
+        </Button>
+      </Card>
+
+      {isLoading ? (
+        <LoadingText>Loading deliveries…</LoadingText>
+      ) : error ? (
+        <ErrorText>{error}</ErrorText>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <StatCard
+            variant="hero"
+            label="To pick up"
+            value={toPickUp}
+            trend={{ text: "waiting at shops" }}
+          />
+          <StatCard label="On the way" value={onTheWay} />
+          <StatCard label="Completed" value={completed} />
+        </div>
+      )}
+    </PageShell>
+  );
+}
+
 export default function Home() {
   const { user, isLoading, activeRole } = useAuth();
 
@@ -380,6 +458,10 @@ export default function Home() {
 
   if (activeRole === "VENDOR") {
     return <VendorHomepage shop={user.shops?.[0]} />;
+  }
+
+  if (activeRole === "RIDER") {
+    return <RiderHomepage />;
   }
 
   return <AdministratorHomepage />;

@@ -4,6 +4,7 @@ from factory.django import DjangoModelFactory
 from apps.accounts.models import User
 from apps.cart.models import Cart, CartItem
 from apps.catalog.models import Category, Product
+from apps.delivery.models import RiderProfile
 from apps.feedback.models import Review
 from apps.orders.models import Order, OrderItem
 from apps.vendors.models import Shop
@@ -24,6 +25,24 @@ class UserFactory(DjangoModelFactory):
         self.set_password(extracted or "a-strong-password-1")
         if create:
             self.save()
+
+
+class RiderFactory(UserFactory):
+    role = User.Role.RIDER
+    is_email_verified = True
+    profile = factory.RelatedFactory(
+        "tests.factories.RiderProfileFactory", factory_related_name="user"
+    )
+
+
+class RiderProfileFactory(DjangoModelFactory):
+    class Meta:
+        model = RiderProfile
+
+    user = factory.SubFactory(RiderFactory, profile=None)
+    phone = "+255700000001"
+    vehicle_type = RiderProfile.VehicleType.MOTORCYCLE
+    plate_number = "MC 123 ABC"
 
 
 class ShopFactory(DjangoModelFactory):

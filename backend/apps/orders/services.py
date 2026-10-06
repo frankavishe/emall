@@ -6,7 +6,9 @@ import logging
 from decimal import Decimal
 
 from django.db import transaction
+from django.utils import timezone
 
+from apps.accounts.models import User
 from apps.cart.models import CartItem
 from apps.catalog.models import Product
 from apps.core.email import get_email_service
@@ -87,6 +89,34 @@ def advance_order_item_status(*, order_item, new_status):
         OrderItemStatusEvent.objects.create(order_item=order_item, status=new_status)
         transaction.on_commit(lambda: _notify_order_item_status_change(order_item))
 
+    return order_item
+
+
+class AssignmentError(Exception):
+    """Raised when a rider can't be (un)assigned to an order line."""
+
+    def __init__(self, detail):
+        self.detail = detail
+        super().__init__(detail)
+
+
+# A line can only be handed to a rider once the vendor is preparing it, and until it's delivered.
+ASSIGNABLE_STATUSES = {OrderItem.Status.PROCESSING, OrderItem.Status.SHIPPED}
+
+
+def assign_rider(*, order_item, rider):
+    """Assigns `rider` to `order_item`, or unassigns when `rider` is None."""
+
+    if order_item.status not in ASSIGNABLE_STATUSES:
+        raise AssignmentError(
+            f"Only processing or shipped lines can be assigned (this one is {order_item.status})."
+        )
+    if rider is not None and (rider.role != User.Role.RIDER or not rider.is_active):
+        raise AssignmentError("That rider is not an active rider.")
+
+    order_item.rider = rider
+    order_item.rider_assigned_at = timezone.now() if rider is not None else None
+    order_item.save(update_fields=["rider", "rider_assigned_at"])
     return order_item
 
 

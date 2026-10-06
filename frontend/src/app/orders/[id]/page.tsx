@@ -132,6 +132,14 @@ export default function OrderDetailPage() {
                       {item.quantity} &times; {formatCurrency(item.unit_price)}
                     </p>
                     <Pill tone={statusToTone(item.status)}>{item.status}</Pill>
+                    {item.rider && item.status !== "DELIVERED" && item.status !== "CANCELLED" && (
+                      <p className="mt-1 text-sm text-text-muted">
+                        Your rider: {item.rider.name} &middot;{" "}
+                        <a href={`tel:${item.rider.phone}`} className="underline">
+                          {item.rider.phone}
+                        </a>
+                      </p>
+                    )}
                   </div>
                   <p className="font-medium text-text-primary">{formatCurrency(item.subtotal)}</p>
                 </div>

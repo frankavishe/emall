@@ -36,7 +36,14 @@ const ADMINISTRATOR_LINKS: NavLink[] = [
   { label: "Home", href: "/" },
   { label: "Shop Approvals", href: "/admin/shops" },
   { label: "Order Oversight", href: "/admin/orders" },
+  { label: "Riders", href: "/admin/riders" },
   { label: "Review Moderation", href: "/admin/reviews" },
+  { label: "Account", href: "/account" },
+];
+
+const RIDER_LINKS: NavLink[] = [
+  { label: "Home", href: "/" },
+  { label: "Deliveries", href: "/rider/deliveries" },
   { label: "Account", href: "/account" },
 ];
 
@@ -48,6 +55,8 @@ function linksForRole(role: Role | null): NavLink[] {
       return VENDOR_LINKS;
     case "ADMINISTRATOR":
       return ADMINISTRATOR_LINKS;
+    case "RIDER":
+      return RIDER_LINKS;
     default:
       return GUEST_LINKS;
   }
