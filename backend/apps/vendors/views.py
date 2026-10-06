@@ -14,6 +14,7 @@ from apps.vendors.serializers import (
     AdminShopListSerializer,
     ShopLogoSerializer,
     ShopSerializer,
+    ShopThemeSerializer,
 )
 
 
@@ -61,6 +62,20 @@ class VendorShopLogoView(APIView):
             shop.logo.delete(save=False)
             shop.logo = None
             shop.save(update_fields=["logo"])
+        return Response(ShopSerializer(shop, context={"request": request}).data)
+
+
+class VendorShopThemeView(APIView):
+    """Set or reset (PATCH) a shop's primary/accent colors. Like the logo: ownership only, any
+    approval status, no re-approval."""
+
+    permission_classes = [IsCustomer]
+
+    def patch(self, request, shop_id):
+        shop = get_object_or_404(Shop, pk=shop_id, owner=request.user)
+        serializer = ShopThemeSerializer(shop, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
         return Response(ShopSerializer(shop, context={"request": request}).data)
 
 

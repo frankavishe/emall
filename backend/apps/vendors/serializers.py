@@ -23,7 +23,7 @@ class ShopBriefSerializer(ShopLogoUrlMixin, serializers.ModelSerializer):
 
     class Meta:
         model = Shop
-        fields = ["id", "name", "status", "logo_url"]
+        fields = ["id", "name", "status", "logo_url", "primary_color", "accent_color"]
         read_only_fields = fields
 
 
@@ -32,8 +32,24 @@ class ShopSerializer(ShopLogoUrlMixin, serializers.ModelSerializer):
 
     class Meta:
         model = Shop
-        fields = ["id", "name", "status", "status_reason", "created_at", "logo_url"]
-        read_only_fields = ["id", "status", "status_reason", "created_at"]
+        fields = [
+            "id",
+            "name",
+            "status",
+            "status_reason",
+            "created_at",
+            "logo_url",
+            "primary_color",
+            "accent_color",
+        ]
+        read_only_fields = [
+            "id",
+            "status",
+            "status_reason",
+            "created_at",
+            "primary_color",
+            "accent_color",
+        ]
 
     def validate_name(self, value):
         if Shop.objects.filter(name=value).exists():
@@ -52,6 +68,21 @@ class ShopLogoSerializer(serializers.Serializer):
             max_mb = MAX_SHOP_LOGO_SIZE_BYTES // (1024 * 1024)
             raise serializers.ValidationError(f"The logo must be {max_mb}MB or smaller.")
         return value
+
+
+class ShopThemeSerializer(serializers.ModelSerializer):
+    """Partial update of a shop's colors. Each is `#rrggbb` (stored lowercase) or `""` to fall
+    back to the MangiMall default."""
+
+    class Meta:
+        model = Shop
+        fields = ["primary_color", "accent_color"]
+
+    def validate_primary_color(self, value):
+        return value.lower()
+
+    def validate_accent_color(self, value):
+        return value.lower()
 
 
 class AdminShopListSerializer(ShopLogoUrlMixin, serializers.ModelSerializer):

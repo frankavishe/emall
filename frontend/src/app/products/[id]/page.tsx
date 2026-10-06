@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { apiFetch, ApiError, submitReview } from "@/lib/api-client";
+import { apiFetch, ApiError, submitReview, type CatalogShop } from "@/lib/api-client";
 import { hasRole, useAuth } from "@/lib/auth-context";
 import { StarRating } from "@/components/star-rating";
 import { PageShell } from "@/components/ui/page-shell";
@@ -13,6 +13,7 @@ import { ErrorText, LoadingText, EmptyText } from "@/components/ui/status-text";
 import { ShopLogo } from "@/components/shop-logo";
 import { cn } from "@/lib/cn";
 import { formatCurrency } from "@/lib/currency";
+import { shopThemeStyle } from "@/lib/shop-theme";
 
 type ProductReview = {
   id: number;
@@ -29,7 +30,7 @@ type CatalogProductDetail = {
   price: string;
   category: { name: string; slug: string } | null;
   stock_status: "in_stock" | "out_of_stock";
-  shop: { id: number; name: string; logo_url: string | null };
+  shop: CatalogShop;
   images: { id: number; url: string; position: number }[];
   average_rating: number | null;
   review_count: number;
@@ -139,7 +140,7 @@ export default function ProductDetailPage() {
     return (
       <PageShell size="lg" className="min-h-screen items-center justify-center">
         <ErrorText>{error ?? "Product not found."}</ErrorText>
-        <Link href="/products" className="text-sm font-medium text-navy-900 underline">
+        <Link href="/products" className="text-sm font-medium text-text-primary underline">
           Back to products
         </Link>
       </PageShell>
@@ -147,150 +148,156 @@ export default function ProductDetailPage() {
   }
 
   return (
-    <PageShell size="lg">
-      <Link href="/products" className="text-sm font-medium text-navy-900 underline">
-        Back to products
-      </Link>
+    // `contents` keeps the layout untouched; the wrapper only scopes the shop's theme variables.
+    <div className="contents" style={shopThemeStyle(product.shop)}>
+      <PageShell size="lg">
+        <Link href="/products" className="text-sm font-medium text-text-primary underline">
+          Back to products
+        </Link>
 
-      <Card className="grid grid-cols-1 gap-8 md:grid-cols-2">
-        <div className="flex flex-col gap-3">
-          {product.images.length > 0 ? (
-            product.images.map((image) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                key={image.id}
-                src={image.url}
-                alt={product.name}
-                className="w-full rounded-control object-cover"
-              />
-            ))
-          ) : (
-            <div className="flex aspect-square w-full items-center justify-center rounded-control bg-card-muted text-sm text-text-muted">
-              No image
-            </div>
-          )}
-        </div>
-
-        <div>
-          <h1 className="text-2xl font-semibold text-text-primary">{product.name}</h1>
-          <p className="mt-1 flex items-center gap-2 text-sm text-text-muted">
-            <ShopLogo url={product.shop.logo_url} name={product.shop.name} size="sm" />
-            Sold by {product.shop.name}
-          </p>
-          {product.category && (
-            <p className="mt-1 text-sm text-text-muted">Category: {product.category.name}</p>
-          )}
-          <p className="mt-4 text-xl font-medium text-text-primary">
-            {formatCurrency(product.price)}
-          </p>
-          <p className="mt-1 text-sm text-text-muted">
-            {product.stock_status === "in_stock" ? "In stock" : "Out of stock"}
-          </p>
-          <div className="mt-1">
-            <StarRating rating={product.average_rating} reviewCount={product.review_count} />
-          </div>
-          <p className="mt-6 whitespace-pre-line text-sm text-text-primary/80">
-            {product.description}
-          </p>
-
-          {product.stock_status === "in_stock" &&
-            (!user ? (
-              <p className="mt-6 text-sm text-text-muted">
-                <Link href="/login" className="font-medium text-navy-900 underline">
-                  Log in
-                </Link>{" "}
-                as a Customer to add this to your cart.
-              </p>
-            ) : !hasRole(user, "CUSTOMER") ? (
-              <p className="mt-6 text-sm text-text-muted">
-                Only Customer accounts can add items to a cart.
-              </p>
-            ) : (
-              <div className="mt-6 flex items-center gap-3">
-                <input
-                  type="number"
-                  min={1}
-                  value={quantity}
-                  onChange={(event) => setQuantity(Math.max(1, Number(event.target.value)))}
-                  className="w-20 rounded-control border border-border px-2 py-1 text-sm"
+        <Card className="grid grid-cols-1 gap-8 md:grid-cols-2">
+          <div className="flex flex-col gap-3">
+            {product.images.length > 0 ? (
+              product.images.map((image) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={image.id}
+                  src={image.url}
+                  alt={product.name}
+                  className="w-full rounded-control object-cover"
                 />
-                <Button disabled={isAddingToCart} onClick={() => void handleAddToCart()}>
-                  Add to cart
-                </Button>
-              </div>
-            ))}
-          {addToCartMessage && <p className="mt-2 text-sm text-text-muted">{addToCartMessage}</p>}
-
-          {user && hasRole(user, "CUSTOMER") && (
-            <div className="mt-8 border-t border-border pt-6">
-              <h2 className="text-sm font-semibold text-text-primary">Leave a review</h2>
-              <div className="mt-2 flex items-center gap-1">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <button
-                    key={star}
-                    type="button"
-                    onClick={() => setReviewRating(star)}
-                    aria-label={`${star} star${star === 1 ? "" : "s"}`}
-                    className={cn(
-                      "text-2xl leading-none",
-                      star <= reviewRating ? "text-yellow-500" : "text-text-muted/40",
-                    )}
-                  >
-                    ★
-                  </button>
-                ))}
-              </div>
-              <textarea
-                value={reviewComment}
-                onChange={(event) => setReviewComment(event.target.value)}
-                placeholder="Write a comment (optional)"
-                rows={3}
-                className="mt-3 w-full rounded-control border border-border px-3 py-2 text-sm"
-              />
-              <Button
-                disabled={isSubmittingReview}
-                onClick={() => void handleSubmitReview()}
-                className="mt-3"
-              >
-                Submit review
-              </Button>
-              {reviewMessage && <p className="mt-2 text-sm text-text-muted">{reviewMessage}</p>}
-            </div>
-          )}
-
-          <div className="mt-8 border-t border-border pt-6">
-            <h2 className="text-sm font-semibold text-text-primary">
-              Reviews {product.review_count > 0 && `(${product.review_count})`}
-            </h2>
-            {product.reviews.length === 0 ? (
-              <EmptyText>No reviews yet.</EmptyText>
+              ))
             ) : (
-              <ul className="mt-3 flex flex-col gap-4">
-                {product.reviews.map((review) => (
-                  <li key={review.id} className="border-b border-border pb-4 last:border-0">
-                    <div className="flex items-center gap-2">
-                      <span aria-hidden="true" className="text-yellow-500">
-                        {[1, 2, 3, 4, 5]
-                          .map((star) => (star <= review.rating ? "★" : "☆"))
-                          .join("")}
-                      </span>
-                      <span className="text-sm font-medium text-text-primary">
-                        {review.customer_display_name}
-                      </span>
-                    </div>
-                    {review.comment && (
-                      <p className="mt-1 text-sm text-text-primary/80">{review.comment}</p>
-                    )}
-                    <p className="mt-1 text-xs text-text-muted">
-                      {new Date(review.created_at).toLocaleDateString()}
-                    </p>
-                  </li>
-                ))}
-              </ul>
+              <div className="flex aspect-square w-full items-center justify-center rounded-control bg-card-muted text-sm text-text-muted">
+                No image
+              </div>
             )}
           </div>
-        </div>
-      </Card>
-    </PageShell>
+
+          <div>
+            <h1 className="text-2xl font-semibold text-text-primary">{product.name}</h1>
+            <Link
+              href={`/shops/${product.shop.id}`}
+              className="mt-1 flex w-fit items-center gap-2 text-sm text-text-muted hover:text-text-primary"
+            >
+              <ShopLogo url={product.shop.logo_url} name={product.shop.name} size="sm" />
+              Sold by <span className="font-medium underline">{product.shop.name}</span>
+            </Link>
+            {product.category && (
+              <p className="mt-1 text-sm text-text-muted">Category: {product.category.name}</p>
+            )}
+            <p className="mt-4 text-xl font-medium text-text-primary">
+              {formatCurrency(product.price)}
+            </p>
+            <p className="mt-1 text-sm text-text-muted">
+              {product.stock_status === "in_stock" ? "In stock" : "Out of stock"}
+            </p>
+            <div className="mt-1">
+              <StarRating rating={product.average_rating} reviewCount={product.review_count} />
+            </div>
+            <p className="mt-6 whitespace-pre-line text-sm text-text-primary/80">
+              {product.description}
+            </p>
+
+            {product.stock_status === "in_stock" &&
+              (!user ? (
+                <p className="mt-6 text-sm text-text-muted">
+                  <Link href="/login" className="font-medium text-text-primary underline">
+                    Log in
+                  </Link>{" "}
+                  as a Customer to add this to your cart.
+                </p>
+              ) : !hasRole(user, "CUSTOMER") ? (
+                <p className="mt-6 text-sm text-text-muted">
+                  Only Customer accounts can add items to a cart.
+                </p>
+              ) : (
+                <div className="mt-6 flex items-center gap-3">
+                  <input
+                    type="number"
+                    min={1}
+                    value={quantity}
+                    onChange={(event) => setQuantity(Math.max(1, Number(event.target.value)))}
+                    className="w-20 rounded-control border border-border px-2 py-1 text-sm"
+                  />
+                  <Button disabled={isAddingToCart} onClick={() => void handleAddToCart()}>
+                    Add to cart
+                  </Button>
+                </div>
+              ))}
+            {addToCartMessage && <p className="mt-2 text-sm text-text-muted">{addToCartMessage}</p>}
+
+            {user && hasRole(user, "CUSTOMER") && (
+              <div className="mt-8 border-t border-border pt-6">
+                <h2 className="text-sm font-semibold text-text-primary">Leave a review</h2>
+                <div className="mt-2 flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setReviewRating(star)}
+                      aria-label={`${star} star${star === 1 ? "" : "s"}`}
+                      className={cn(
+                        "text-2xl leading-none",
+                        star <= reviewRating ? "text-yellow-500" : "text-text-muted/40",
+                      )}
+                    >
+                      ★
+                    </button>
+                  ))}
+                </div>
+                <textarea
+                  value={reviewComment}
+                  onChange={(event) => setReviewComment(event.target.value)}
+                  placeholder="Write a comment (optional)"
+                  rows={3}
+                  className="mt-3 w-full rounded-control border border-border px-3 py-2 text-sm"
+                />
+                <Button
+                  disabled={isSubmittingReview}
+                  onClick={() => void handleSubmitReview()}
+                  className="mt-3"
+                >
+                  Submit review
+                </Button>
+                {reviewMessage && <p className="mt-2 text-sm text-text-muted">{reviewMessage}</p>}
+              </div>
+            )}
+
+            <div className="mt-8 border-t border-border pt-6">
+              <h2 className="text-sm font-semibold text-text-primary">
+                Reviews {product.review_count > 0 && `(${product.review_count})`}
+              </h2>
+              {product.reviews.length === 0 ? (
+                <EmptyText>No reviews yet.</EmptyText>
+              ) : (
+                <ul className="mt-3 flex flex-col gap-4">
+                  {product.reviews.map((review) => (
+                    <li key={review.id} className="border-b border-border pb-4 last:border-0">
+                      <div className="flex items-center gap-2">
+                        <span aria-hidden="true" className="text-yellow-500">
+                          {[1, 2, 3, 4, 5]
+                            .map((star) => (star <= review.rating ? "★" : "☆"))
+                            .join("")}
+                        </span>
+                        <span className="text-sm font-medium text-text-primary">
+                          {review.customer_display_name}
+                        </span>
+                      </div>
+                      {review.comment && (
+                        <p className="mt-1 text-sm text-text-primary/80">{review.comment}</p>
+                      )}
+                      <p className="mt-1 text-xs text-text-muted">
+                        {new Date(review.created_at).toLocaleDateString()}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </Card>
+      </PageShell>
+    </div>
   );
 }

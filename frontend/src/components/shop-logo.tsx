@@ -37,7 +37,7 @@ export function ShopLogo({
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-full bg-navy-900 font-semibold text-white",
+        "inline-flex shrink-0 items-center justify-center rounded-full bg-navy-900 font-semibold text-on-primary",
         sizeClass,
         className,
       )}

@@ -176,7 +176,7 @@ class CatalogShopSerializer(ShopLogoUrlMixin, serializers.ModelSerializer):
 
     class Meta:
         model = Shop
-        fields = ["id", "name", "logo_url"]
+        fields = ["id", "name", "logo_url", "primary_color", "accent_color"]
         read_only_fields = fields
 
 

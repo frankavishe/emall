@@ -9,6 +9,11 @@ urlpatterns = [
         views.VendorShopLogoView.as_view(),
         name="vendor-shop-logo",
     ),
+    path(
+        "shops/<int:shop_id>/theme",
+        views.VendorShopThemeView.as_view(),
+        name="vendor-shop-theme",
+    ),
 ]
 
 admin_urlpatterns = [

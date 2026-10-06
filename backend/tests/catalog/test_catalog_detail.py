@@ -19,7 +19,13 @@ def test_detail_returns_full_shape(api_client):
     assert body["price"] == "9.99"
     assert body["category"]["slug"] == product.category.slug
     assert body["stock_status"] == "in_stock"
-    assert body["shop"] == {"id": shop.id, "name": "Kofi's Electronics", "logo_url": None}
+    assert body["shop"] == {
+        "id": shop.id,
+        "name": "Kofi's Electronics",
+        "logo_url": None,
+        "primary_color": "",
+        "accent_color": "",
+    }
     assert body["images"] == []
 
 
