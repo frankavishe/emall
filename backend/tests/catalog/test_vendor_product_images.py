@@ -105,6 +105,21 @@ def test_patch_removes_only_requested_images_of_this_product(api_client):
     assert ProductImage.objects.filter(id=foreign_image.id).exists()
 
 
+def test_removing_image_keeps_same_named_image_of_another_product(api_client):
+    _, _, product = _vendor_with_product(api_client)
+    own_image = ProductImage.objects.create(product=product, image=_png("photo.png"))
+    other_image = ProductImage.objects.create(product=ProductFactory(), image=_png("photo.png"))
+    assert own_image.image.name != other_image.image.name
+
+    api_client.patch(
+        f"/api/vendor/products/{product.id}",
+        {"remove_image_ids": [own_image.id]},
+        format="multipart",
+    )
+
+    assert other_image.image.storage.exists(other_image.image.name)
+
+
 def test_patch_rejects_exceeding_image_limit(api_client):
     _, _, product = _vendor_with_product(api_client, image_count=MAX_PRODUCT_IMAGES)
 

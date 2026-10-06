@@ -14,6 +14,7 @@ export type Shop = {
   name: string;
   status: "PENDING" | "APPROVED" | "REJECTED";
   status_reason?: string | null;
+  logo_url: string | null;
 };
 
 export type Role = "CUSTOMER" | "VENDOR" | "ADMINISTRATOR";

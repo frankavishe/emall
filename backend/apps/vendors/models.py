@@ -1,6 +1,8 @@
 from django.conf import settings
 from django.db import models
 
+from apps.core.uploads import UniqueUploadTo
+
 
 class Shop(models.Model):
     class Status(models.TextChoices):
@@ -16,6 +18,7 @@ class Shop(models.Model):
         max_length=20, choices=Status.choices, default=Status.PENDING
     )
     status_reason = models.TextField(null=True, blank=True)
+    logo = models.ImageField(upload_to=UniqueUploadTo("shops/logos"), null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     status_changed_at = models.DateTimeField(null=True, blank=True)
 

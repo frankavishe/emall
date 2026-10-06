@@ -173,6 +173,7 @@ export type CatalogProduct = {
   category: string | null;
   in_stock: boolean;
   shop_name: string;
+  shop_logo_url: string | null;
   thumbnail_url: string | null;
   average_rating: number | null;
   review_count: number;
@@ -288,6 +289,7 @@ export type AdminShop = {
   created_at: string;
   owner_name: string;
   owner_email: string;
+  logo_url: string | null;
 };
 
 /** `GET /api/admin/shops` (task T019, contracts/homepage-api.md). `limit` maps to the opt-in
@@ -352,6 +354,18 @@ export type VendorReview = {
 };
 
 /** `GET /api/vendor/reviews` (task T032, contracts/feedback-api.md). */
+/** `PUT /api/vendor/shops/:id/logo` — upload or replace a shop's logo (multipart). */
+export async function uploadShopLogo(shopId: string, file: File): Promise<void> {
+  const formData = new FormData();
+  formData.set("logo", file);
+  await apiFetch(`/api/vendor/shops/${shopId}/logo`, { method: "PUT", body: formData });
+}
+
+/** `DELETE /api/vendor/shops/:id/logo` */
+export async function removeShopLogo(shopId: string): Promise<void> {
+  await apiFetch(`/api/vendor/shops/${shopId}/logo`, { method: "DELETE" });
+}
+
 export async function listVendorReviews(page = 1): Promise<PaginatedResponse<VendorReview>> {
   return apiFetch<PaginatedResponse<VendorReview>>(`/api/vendor/reviews?page=${page}`);
 }

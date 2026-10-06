@@ -11,6 +11,7 @@ import { Pill, statusToTone } from "@/components/ui/pill";
 import { SegmentedToggle } from "@/components/ui/segmented-toggle";
 import { ErrorText, LoadingText, EmptyText } from "@/components/ui/status-text";
 import { inputClassName } from "@/components/ui/form-field";
+import { ShopLogo } from "@/components/shop-logo";
 
 type StatusFilter = "" | "PENDING" | "APPROVED" | "REJECTED";
 
@@ -133,17 +134,20 @@ export default function AdminShopsPage() {
           {shops.map((shop) => (
             <Card as="li" key={shop.id} padding="sm">
               <div className="flex items-start justify-between">
-                <div>
-                  <p className="font-medium text-text-primary">{shop.name}</p>
-                  <p className="text-sm text-text-muted">
-                    {shop.owner_name} &middot; {shop.owner_email}
-                  </p>
-                  <div className="mt-1">
-                    <Pill tone={statusToTone(shop.status)}>{shop.status}</Pill>
+                <div className="flex items-start gap-3">
+                  <ShopLogo url={shop.logo_url} name={shop.name} size="md" />
+                  <div>
+                    <p className="font-medium text-text-primary">{shop.name}</p>
+                    <p className="text-sm text-text-muted">
+                      {shop.owner_name} &middot; {shop.owner_email}
+                    </p>
+                    <div className="mt-1">
+                      <Pill tone={statusToTone(shop.status)}>{shop.status}</Pill>
+                    </div>
+                    {shop.status_reason && (
+                      <p className="mt-1 text-sm text-text-muted">Reason: {shop.status_reason}</p>
+                    )}
                   </div>
-                  {shop.status_reason && (
-                    <p className="mt-1 text-sm text-text-muted">Reason: {shop.status_reason}</p>
-                  )}
                 </div>
 
                 {shop.status === "PENDING" && (
