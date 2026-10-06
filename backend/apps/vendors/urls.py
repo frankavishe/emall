@@ -4,6 +4,11 @@ from . import views
 
 urlpatterns = [
     path("shops", views.VendorShopListCreateView.as_view(), name="vendor-shops"),
+    path(
+        "shops/<int:shop_id>/logo",
+        views.VendorShopLogoView.as_view(),
+        name="vendor-shop-logo",
+    ),
 ]
 
 admin_urlpatterns = [

@@ -109,7 +109,9 @@ class RegisterVendorView(TokenResponseMixin, APIView):
             {
                 "access": access,
                 "user": UserProfileSerializer(user).data,
-                "shops": ShopBriefSerializer(user.shops.all(), many=True).data,
+                "shops": ShopBriefSerializer(
+                    user.shops.all(), many=True, context={"request": request}
+                ).data,
             },
             status=status.HTTP_200_OK if upgraded else status.HTTP_201_CREATED,
         )
@@ -187,7 +189,9 @@ class MeView(APIView):
     def get(self, request):
         data = UserProfileSerializer(request.user).data
         if request.user.has_role(User.Role.VENDOR):
-            data["shops"] = ShopBriefSerializer(request.user.shops.all(), many=True).data
+            data["shops"] = ShopBriefSerializer(
+                request.user.shops.all(), many=True, context={"request": request}
+            ).data
         return Response(data)
 
 

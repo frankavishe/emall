@@ -3,13 +3,18 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.generics import ListAPIView, ListCreateAPIView
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.pagination import LimitedPageNumberPagination
 from apps.core.permissions import IsAdministrator, IsCustomer, require_verified_email
 from apps.vendors.models import Shop
-from apps.vendors.serializers import AdminShopListSerializer, ShopSerializer
+from apps.vendors.serializers import (
+    AdminShopListSerializer,
+    ShopLogoSerializer,
+    ShopSerializer,
+)
 
 
 class VendorShopListCreateView(ListCreateAPIView):
@@ -31,6 +36,32 @@ class VendorShopListCreateView(ListCreateAPIView):
                 request.user.is_vendor = True
                 request.user.save(update_fields=["is_vendor"])
         return Response(self.get_serializer(shop).data, status=status.HTTP_201_CREATED)
+
+
+class VendorShopLogoView(APIView):
+    """Upload/replace (PUT) or remove (DELETE) a shop's logo. Ownership only — a logo can be
+    set whatever the shop's approval status, and changing it doesn't trigger re-approval."""
+
+    permission_classes = [IsCustomer]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def put(self, request, shop_id):
+        shop = get_object_or_404(Shop, pk=shop_id, owner=request.user)
+        serializer = ShopLogoSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        if shop.logo:
+            shop.logo.delete(save=False)
+        shop.logo = serializer.validated_data["logo"]
+        shop.save(update_fields=["logo"])
+        return Response(ShopSerializer(shop, context={"request": request}).data)
+
+    def delete(self, request, shop_id):
+        shop = get_object_or_404(Shop, pk=shop_id, owner=request.user)
+        if shop.logo:
+            shop.logo.delete(save=False)
+            shop.logo = None
+            shop.save(update_fields=["logo"])
+        return Response(ShopSerializer(shop, context={"request": request}).data)
 
 
 class AdminShopListView(ListAPIView):

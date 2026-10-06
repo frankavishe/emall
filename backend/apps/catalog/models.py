@@ -1,5 +1,7 @@
 from django.db import models
 
+from apps.core.uploads import UniqueUploadTo
+
 
 class Category(models.Model):
     """Global, Administrator-owned classification list (spec.md Assumptions). This feature only
@@ -82,7 +84,7 @@ class ProductImage(models.Model):
     product = models.ForeignKey(
         Product, on_delete=models.CASCADE, related_name="images"
     )
-    image = models.ImageField(upload_to="products/")
+    image = models.ImageField(upload_to=UniqueUploadTo("products"))
     position = models.PositiveSmallIntegerField(default=0)
 
     class Meta:

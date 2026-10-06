@@ -22,6 +22,7 @@ import { Pill, statusToTone } from "@/components/ui/pill";
 import { ActivityRow } from "@/components/ui/activity-row";
 import { LoadingText, ErrorText, EmptyText } from "@/components/ui/status-text";
 import type { OrderStatusDatum } from "@/components/charts/order-status-bar-chart";
+import { ShopLogo } from "@/components/shop-logo";
 
 const OrderStatusBarChart = dynamic(
   () => import("@/components/charts/order-status-bar-chart").then((mod) => mod.OrderStatusBarChart),
@@ -151,7 +152,10 @@ function VendorHomepage({ shop }: { shop: Shop | undefined }) {
   return (
     <PageShell size="xl">
       <Card className="flex flex-col items-start gap-4">
-        <h1 className="text-2xl font-semibold text-text-primary">Your shop</h1>
+        <div className="flex items-center gap-3">
+          {shop && <ShopLogo url={shop.logo_url} name={shop.name} size="lg" />}
+          <h1 className="text-2xl font-semibold text-text-primary">Your shop</h1>
+        </div>
         {!shop ? (
           <>
             <p className="text-text-muted">You haven&apos;t requested a shop yet.</p>

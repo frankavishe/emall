@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { FormField, inputClassName } from "@/components/ui/form-field";
 import { Pill, statusToTone } from "@/components/ui/pill";
 import { ErrorText, LoadingText, EmptyText } from "@/components/ui/status-text";
+import { ShopLogoPicker } from "@/components/vendor/shop-logo-picker";
 
 export default function AccountPage() {
   const router = useRouter();
@@ -122,9 +123,15 @@ export default function AccountPage() {
             <h2 className="mb-3 text-lg font-semibold text-text-primary">Your shops</h2>
             <ul className="flex flex-col gap-2 text-sm">
               {(user.shops ?? []).map((shop) => (
-                <li key={shop.id} className="flex items-center justify-between">
-                  <span className="font-medium text-text-primary">{shop.name}</span>
-                  <Pill tone={statusToTone(shop.status)}>{shop.status}</Pill>
+                <li
+                  key={shop.id}
+                  className="flex flex-col gap-2 border-b border-border pb-3 last:border-0"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-text-primary">{shop.name}</span>
+                    <Pill tone={statusToTone(shop.status)}>{shop.status}</Pill>
+                  </div>
+                  <ShopLogoPicker shop={shop} />
                 </li>
               ))}
               {(user.shops ?? []).length === 0 && <EmptyText>No shops yet.</EmptyText>}

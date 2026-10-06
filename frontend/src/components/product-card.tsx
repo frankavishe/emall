@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { CatalogProduct } from "@/lib/api-client";
+import { ShopLogo } from "@/components/shop-logo";
 import { StarRating } from "@/components/star-rating";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/cn";
@@ -26,7 +27,10 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
           </div>
         )}
         <p className="font-medium text-text-primary">{product.name}</p>
-        <p className="text-sm text-text-muted">{product.shop_name}</p>
+        <p className="flex items-center gap-1.5 text-sm text-text-muted">
+          <ShopLogo url={product.shop_logo_url} name={product.shop_name} size="xs" />
+          {product.shop_name}
+        </p>
         <p className="text-sm font-medium text-text-primary">{formatCurrency(product.price)}</p>
         <p className="text-sm text-text-muted">{product.in_stock ? "In stock" : "Out of stock"}</p>
         <StarRating rating={product.average_rating} reviewCount={product.review_count} />

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { ShopLogo } from "@/components/shop-logo";
 import Link from "next/link";
 import { listCategories, listProducts, type CatalogProduct, type Category } from "@/lib/api-client";
 import { StarRating } from "@/components/star-rating";
@@ -249,7 +250,10 @@ function ProductTile({ product }: { product: CatalogProduct }) {
           </div>
         )}
         <p className="line-clamp-2 text-sm font-semibold text-text-primary">{product.name}</p>
-        <p className="text-xs text-text-muted">{product.shop_name}</p>
+        <p className="flex items-center gap-1 text-xs text-text-muted">
+          <ShopLogo url={product.shop_logo_url} name={product.shop_name} size="xs" />
+          {product.shop_name}
+        </p>
         <p className="text-sm font-bold text-text-primary">{formatCurrency(product.price)}</p>
         <StarRating rating={product.average_rating} reviewCount={product.review_count} />
       </Link>

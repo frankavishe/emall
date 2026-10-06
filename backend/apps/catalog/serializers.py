@@ -5,7 +5,7 @@ from rest_framework.exceptions import PermissionDenied
 from apps.catalog.models import Category, Product, ProductImage
 from apps.feedback.serializers import ReviewDisplaySerializer
 from apps.vendors.models import Shop
-from apps.vendors.serializers import ShopBriefSerializer
+from apps.vendors.serializers import ShopBriefSerializer, ShopLogoUrlMixin, shop_logo_url
 
 
 class ReviewAggregateMixin:
@@ -171,10 +171,12 @@ class VendorProductWriteSerializer(serializers.ModelSerializer):
         return instance
 
 
-class CatalogShopSerializer(serializers.ModelSerializer):
+class CatalogShopSerializer(ShopLogoUrlMixin, serializers.ModelSerializer):
+    logo_url = serializers.SerializerMethodField()
+
     class Meta:
         model = Shop
-        fields = ["id", "name"]
+        fields = ["id", "name", "logo_url"]
         read_only_fields = fields
 
 
@@ -186,6 +188,7 @@ class CatalogProductListSerializer(ReviewAggregateMixin, serializers.ModelSerial
     category = serializers.SlugRelatedField(slug_field="slug", read_only=True)
     in_stock = serializers.SerializerMethodField()
     shop_name = serializers.CharField(source="shop.name", read_only=True)
+    shop_logo_url = serializers.SerializerMethodField()
     thumbnail_url = serializers.SerializerMethodField()
     average_rating = serializers.SerializerMethodField()
     review_count = serializers.SerializerMethodField()
@@ -199,6 +202,7 @@ class CatalogProductListSerializer(ReviewAggregateMixin, serializers.ModelSerial
             "category",
             "in_stock",
             "shop_name",
+            "shop_logo_url",
             "thumbnail_url",
             "average_rating",
             "review_count",
@@ -207,6 +211,9 @@ class CatalogProductListSerializer(ReviewAggregateMixin, serializers.ModelSerial
 
     def get_in_stock(self, obj):
         return bool(obj.stock_quantity)
+
+    def get_shop_logo_url(self, obj):
+        return shop_logo_url(obj.shop, self.context.get("request"))
 
     def get_thumbnail_url(self, obj):
         image = obj.images.first()

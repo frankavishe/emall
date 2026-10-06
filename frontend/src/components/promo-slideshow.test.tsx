@@ -20,6 +20,7 @@ function product(
     price: "10000",
     in_stock: true,
     shop_name: "Shop A",
+    shop_logo_url: null,
     thumbnail_url: null,
     average_rating: null,
     review_count: 0,

@@ -10,6 +10,7 @@ import { PageShell } from "@/components/ui/page-shell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ErrorText, LoadingText, EmptyText } from "@/components/ui/status-text";
+import { ShopLogo } from "@/components/shop-logo";
 import { cn } from "@/lib/cn";
 import { formatCurrency } from "@/lib/currency";
 
@@ -28,7 +29,7 @@ type CatalogProductDetail = {
   price: string;
   category: { name: string; slug: string } | null;
   stock_status: "in_stock" | "out_of_stock";
-  shop: { id: number; name: string };
+  shop: { id: number; name: string; logo_url: string | null };
   images: { id: number; url: string; position: number }[];
   average_rating: number | null;
   review_count: number;
@@ -172,7 +173,10 @@ export default function ProductDetailPage() {
 
         <div>
           <h1 className="text-2xl font-semibold text-text-primary">{product.name}</h1>
-          <p className="mt-1 text-sm text-text-muted">Sold by {product.shop.name}</p>
+          <p className="mt-1 flex items-center gap-2 text-sm text-text-muted">
+            <ShopLogo url={product.shop.logo_url} name={product.shop.name} size="sm" />
+            Sold by {product.shop.name}
+          </p>
           {product.category && (
             <p className="mt-1 text-sm text-text-muted">Category: {product.category.name}</p>
           )}
