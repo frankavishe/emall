@@ -13,6 +13,7 @@ from apps.catalog.permissions import IsApprovedShopOwnerForProduct, IsProductOwn
 from apps.catalog.serializers import (
     CatalogProductDetailSerializer,
     CatalogProductListSerializer,
+    CatalogShopSerializer,
     CategorySerializer,
     VendorProductListSerializer,
     VendorProductWriteSerializer,
@@ -55,6 +56,11 @@ class CatalogProductListView(ListAPIView):
             queryset = queryset.filter(
                 models.Q(name__icontains=q) | models.Q(description__icontains=q)
             )
+        shop = params.get("shop")
+        if shop:
+            if not shop.isdigit():
+                return queryset.none()
+            queryset = queryset.filter(shop_id=shop)
         category = params.get("category")
         if category:
             queryset = queryset.filter(category__slug=category)
@@ -84,6 +90,17 @@ class CatalogProductDetailView(APIView):
         return Response(
             CatalogProductDetailSerializer(product, context={"request": request}).data
         )
+
+
+class CatalogShopDetailView(APIView):
+    """Public shop profile (name, logo, theme colors). Same uniform `404` as product detail for
+    a shop that isn't APPROVED."""
+
+    permission_classes = [AllowAny]
+
+    def get(self, request, shop_id):
+        shop = get_object_or_404(Shop, pk=shop_id, status=Shop.Status.APPROVED)
+        return Response(CatalogShopSerializer(shop, context={"request": request}).data)
 
 
 class VendorProductListCreateView(ListCreateAPIView):

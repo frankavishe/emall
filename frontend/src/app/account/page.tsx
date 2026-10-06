@@ -12,6 +12,7 @@ import { FormField, inputClassName } from "@/components/ui/form-field";
 import { Pill, statusToTone } from "@/components/ui/pill";
 import { ErrorText, LoadingText, EmptyText } from "@/components/ui/status-text";
 import { ShopLogoPicker } from "@/components/vendor/shop-logo-picker";
+import { ShopThemePicker } from "@/components/vendor/shop-theme-picker";
 
 export default function AccountPage() {
   const router = useRouter();
@@ -132,6 +133,15 @@ export default function AccountPage() {
                     <Pill tone={statusToTone(shop.status)}>{shop.status}</Pill>
                   </div>
                   <ShopLogoPicker shop={shop} />
+                  <ShopThemePicker shop={shop} />
+                  {shop.status === "APPROVED" && (
+                    <Link
+                      href={`/shops/${shop.id}`}
+                      className="self-start text-sm font-medium text-navy-900 underline"
+                    >
+                      View shop
+                    </Link>
+                  )}
                 </li>
               ))}
               {(user.shops ?? []).length === 0 && <EmptyText>No shops yet.</EmptyText>}

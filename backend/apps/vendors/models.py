@@ -1,7 +1,13 @@
 from django.conf import settings
+from django.core.validators import RegexValidator
 from django.db import models
 
 from apps.core.uploads import UniqueUploadTo
+
+# `#rrggbb`; an empty string means "use the MangiMall default".
+hex_color_validator = RegexValidator(
+    r"^#[0-9a-fA-F]{6}$", "Enter a color as #rrggbb."
+)
 
 
 class Shop(models.Model):
@@ -19,6 +25,12 @@ class Shop(models.Model):
     )
     status_reason = models.TextField(null=True, blank=True)
     logo = models.ImageField(upload_to=UniqueUploadTo("shops/logos"), null=True, blank=True)
+    primary_color = models.CharField(
+        max_length=7, blank=True, default="", validators=[hex_color_validator]
+    )
+    accent_color = models.CharField(
+        max_length=7, blank=True, default="", validators=[hex_color_validator]
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     status_changed_at = models.DateTimeField(null=True, blank=True)
 

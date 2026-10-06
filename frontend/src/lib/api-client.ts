@@ -191,6 +191,9 @@ export type ListProductsOptions = {
   category?: string;
   minPrice?: string;
   maxPrice?: string;
+  /** Restrict to one shop's products (the public shop page). */
+  shop?: string | number;
+  page?: number;
 };
 
 /** `GET /api/catalog/products`; `limit` maps to the opt-in `?page_size=` (task T005,
@@ -198,7 +201,7 @@ export type ListProductsOptions = {
 export async function listProducts(
   options?: number | ListProductsOptions,
 ): Promise<PaginatedResponse<CatalogProduct>> {
-  const { limit, q, category, minPrice, maxPrice } =
+  const { limit, q, category, minPrice, maxPrice, shop, page } =
     typeof options === "number" ? { limit: options } : (options ?? {});
 
   const params = new URLSearchParams();
@@ -207,11 +210,27 @@ export async function listProducts(
   if (category) params.set("category", category);
   if (minPrice?.trim()) params.set("min_price", minPrice.trim());
   if (maxPrice?.trim()) params.set("max_price", maxPrice.trim());
+  if (shop) params.set("shop", String(shop));
+  if (page && page > 1) params.set("page", String(page));
 
   const query = params.toString();
   return apiFetch<PaginatedResponse<CatalogProduct>>(
     `/api/catalog/products${query ? `?${query}` : ""}`,
   );
+}
+
+/** Public shop profile — what a shop page and themed product pages need. */
+export type CatalogShop = {
+  id: number;
+  name: string;
+  logo_url: string | null;
+  primary_color: string;
+  accent_color: string;
+};
+
+/** `GET /api/catalog/shops/:id` — `404` unless the shop is approved. */
+export async function getPublicShop(shopId: number | string): Promise<CatalogShop> {
+  return apiFetch<CatalogShop>(`/api/catalog/shops/${shopId}`);
 }
 
 /** `GET /api/catalog/categories`. */
@@ -370,6 +389,18 @@ export async function uploadShopLogo(shopId: string, file: File): Promise<void> 
 /** `DELETE /api/vendor/shops/:id/logo` */
 export async function removeShopLogo(shopId: string): Promise<void> {
   await apiFetch(`/api/vendor/shops/${shopId}/logo`, { method: "DELETE" });
+}
+
+/** `PATCH /api/vendor/shops/:id/theme` — each color is `#rrggbb`, or `""` to reset it to the
+ * MangiMall default. */
+export async function updateShopTheme(
+  shopId: string,
+  theme: { primary_color?: string; accent_color?: string },
+): Promise<void> {
+  await apiFetch(`/api/vendor/shops/${shopId}/theme`, {
+    method: "PATCH",
+    body: JSON.stringify(theme),
+  });
 }
 
 export async function listVendorReviews(page = 1): Promise<PaginatedResponse<VendorReview>> {

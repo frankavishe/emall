@@ -15,6 +15,9 @@ export type Shop = {
   status: "PENDING" | "APPROVED" | "REJECTED";
   status_reason?: string | null;
   logo_url: string | null;
+  /** `#rrggbb`, or `""` for the MangiMall default. */
+  primary_color?: string;
+  accent_color?: string;
 };
 
 export type Role = "CUSTOMER" | "VENDOR" | "ADMINISTRATOR" | "RIDER";
