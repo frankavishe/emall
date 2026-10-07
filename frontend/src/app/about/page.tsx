@@ -49,7 +49,7 @@ export default function AboutPage() {
         <div className="flex flex-col gap-3">
           <div>
             <h2 className="text-xl font-semibold text-text-primary">Frank Kavishe</h2>
-            <p className="text-sm font-medium text-navy-800">Founder &amp; CEO, MangiMall</p>
+            <p className="text-sm font-medium text-brand-text">Founder &amp; CEO, MangiMall</p>
           </div>
           <p className="text-sm leading-relaxed text-text-muted">
             Frank Kavishe is a technologist who wants to revolutionize the way malls work. He

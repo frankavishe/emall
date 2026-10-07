@@ -124,7 +124,7 @@ export default function ResetPasswordForm() {
 
         <p className="mt-6 text-sm text-text-muted">
           Remembered your password?{" "}
-          <Link href="/login" className="font-medium text-navy-900 underline">
+          <Link href="/login" className="font-medium text-brand-text underline">
             Log in
           </Link>
         </p>

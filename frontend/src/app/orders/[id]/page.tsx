@@ -74,7 +74,7 @@ export default function OrderDetailPage() {
     return (
       <PageShell size="md" className="min-h-screen items-center justify-center">
         <ErrorText>{error ?? "Order not found."}</ErrorText>
-        <Link href="/orders" className="text-sm font-medium text-navy-900 underline">
+        <Link href="/orders" className="text-sm font-medium text-brand-text underline">
           Back to orders
         </Link>
       </PageShell>
@@ -83,7 +83,7 @@ export default function OrderDetailPage() {
 
   return (
     <PageShell size="md">
-      <Link href="/orders" className="text-sm font-medium text-navy-900 underline">
+      <Link href="/orders" className="text-sm font-medium text-brand-text underline">
         Back to orders
       </Link>
 

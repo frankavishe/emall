@@ -85,7 +85,7 @@ export default function AccountPage() {
               ) : (
                 <>
                   No ·{" "}
-                  <Link href="/verify-email" className="text-navy-900 underline">
+                  <Link href="/verify-email" className="text-brand-text underline">
                     Verify now
                   </Link>
                 </>
@@ -137,7 +137,7 @@ export default function AccountPage() {
                   {shop.status === "APPROVED" && (
                     <Link
                       href={`/shops/${shop.id}`}
-                      className="self-start text-sm font-medium text-navy-900 underline"
+                      className="self-start text-sm font-medium text-brand-text underline"
                     >
                       View shop
                     </Link>

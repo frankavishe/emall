@@ -70,7 +70,7 @@ export default function OrdersPage() {
       ) : !orders || orders.results.length === 0 ? (
         <EmptyText>
           You haven&apos;t placed any orders yet.{" "}
-          <Link href="/products" className="font-medium text-navy-900 underline">
+          <Link href="/products" className="font-medium text-brand-text underline">
             Browse products
           </Link>
         </EmptyText>

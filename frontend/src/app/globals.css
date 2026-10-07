@@ -1,6 +1,11 @@
 @import "tailwindcss";
 
+/* `dark:` follows the `data-theme` attribute set on <html> by the theme init script (lib/theme.tsx). */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 :root {
+  color-scheme: light;
+
   /* Canvas & surfaces */
   --color-canvas: #f3f4f6;
   --color-card: #ffffff;
@@ -34,6 +39,8 @@
 
   /* Borders & shadows */
   --color-border: rgb(15 23 42 / 8%);
+  /* Subtle tint behind hovered ghost controls. */
+  --color-hover: rgb(15 23 42 / 5%);
   --shadow-card: 0 1px 2px rgb(15 23 42 / 4%), 0 8px 24px rgb(15 23 42 / 6%);
   --shadow-card-hover: 0 12px 32px rgb(15 23 42 / 10%);
   --shadow-nav: 0 8px 24px rgb(15 23 42 / 8%);
@@ -45,6 +52,29 @@
 
   --background: var(--color-canvas);
   --foreground: var(--color-text-primary);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-canvas: #0b1220;
+  --color-card: #111a2e;
+  --color-card-muted: #16213a;
+
+  /* Lifted so primary fills still stand out against dark cards. */
+  --color-navy-900: #1d4370;
+  --color-navy-800: #173a60;
+  --color-navy-700: #2b5a8a;
+  --color-teal-100: #134e4a;
+
+  --color-text-primary: #e2e8f0;
+  --color-text-muted: #94a3b8;
+
+  --color-border: rgb(255 255 255 / 8%);
+  --color-hover: rgb(255 255 255 / 6%);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 30%), 0 8px 24px rgb(0 0 0 / 30%);
+  --shadow-card-hover: 0 12px 32px rgb(0 0 0 / 45%);
+  --shadow-nav: 0 8px 24px rgb(0 0 0 / 35%);
 }
 
 @theme inline {
@@ -69,6 +99,10 @@
   --color-text-inverse: var(--color-text-inverse);
   --color-on-primary: var(--color-on-primary);
   --color-border: var(--color-border);
+  --color-hover: var(--color-hover);
+  /* Brand-colored text (links, emphasis). Inlined into each utility so a shop theme's inline
+   * navy/teal overrides still apply; navy in light mode, the lighter accent in dark mode. */
+  --color-brand-text: light-dark(var(--color-navy-900), var(--color-teal-300));
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --shadow-card: var(--shadow-card);

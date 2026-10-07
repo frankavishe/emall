@@ -331,7 +331,7 @@ function AdministratorHomepage() {
           <Card>
             <div className="mb-2 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-text-primary">Recent orders</h2>
-              <Link href="/admin/orders" className="text-sm font-medium text-navy-900 underline">
+              <Link href="/admin/orders" className="text-sm font-medium text-brand-text underline">
                 View all orders
               </Link>
             </div>

@@ -75,7 +75,7 @@ export default function VerifyEmailForm() {
           <p className="text-sm text-text-primary/80">Your email address has been confirmed.</p>
           <Link
             href={user ? "/account" : "/login"}
-            className="mt-6 inline-block text-sm font-medium text-navy-900 underline"
+            className="mt-6 inline-block text-sm font-medium text-brand-text underline"
           >
             {user ? "Go to your account" : "Log in"}
           </Link>
@@ -133,7 +133,7 @@ export default function VerifyEmailForm() {
         ) : (
           <p className="mt-6 text-sm text-text-muted">
             Need a new code?{" "}
-            <Link href="/login" className="font-medium text-navy-900 underline">
+            <Link href="/login" className="font-medium text-brand-text underline">
               Log in
             </Link>
             , then choose &ldquo;Verify now&rdquo; on your account page.

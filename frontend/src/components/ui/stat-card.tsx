@@ -41,7 +41,7 @@ export function StatCard({
               variant === "hero"
                 ? "bg-white/15 text-text-inverse"
                 : trend.tone === "positive"
-                  ? "bg-teal-100 text-navy-900"
+                  ? "bg-teal-100 text-brand-text"
                   : "bg-card-muted text-text-muted",
             )}
           >

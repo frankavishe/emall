@@ -16,10 +16,26 @@ const MAX_SLIDES = 5;
 const PRODUCTS_PER_SLIDE = 2;
 
 const THEMES = [
-  { gradient: "from-teal-50/80 via-emerald-50/40 to-white", badge: "bg-emerald-500" },
-  { gradient: "from-amber-50/80 via-orange-50/30 to-white", badge: "bg-amber-500" },
-  { gradient: "from-sky-50 via-indigo-50/30 to-white", badge: "bg-navy-900" },
-  { gradient: "from-rose-50/80 via-pink-50/30 to-white", badge: "bg-rose-500" },
+  {
+    gradient:
+      "from-teal-50/80 via-emerald-50/40 to-white dark:from-teal-900/40 dark:via-card dark:to-card",
+    badge: "bg-emerald-500",
+  },
+  {
+    gradient:
+      "from-amber-50/80 via-orange-50/30 to-white dark:from-amber-900/30 dark:via-card dark:to-card",
+    badge: "bg-amber-500",
+  },
+  {
+    gradient:
+      "from-sky-50 via-indigo-50/30 to-white dark:from-sky-900/40 dark:via-card dark:to-card",
+    badge: "bg-navy-900",
+  },
+  {
+    gradient:
+      "from-rose-50/80 via-pink-50/30 to-white dark:from-rose-900/30 dark:via-card dark:to-card",
+    badge: "bg-rose-500",
+  },
 ] as const;
 
 export type CategorySlide = {
@@ -193,7 +209,7 @@ export function PromoSlideshow() {
                 <div className="pt-2">
                   <Link
                     href={`/products?category=${encodeURIComponent(slide.category.slug)}`}
-                    className="inline-block rounded-pill bg-navy-900 px-6 py-3 text-sm font-semibold text-white shadow-card transition hover:bg-navy-800 hover:shadow-card-hover"
+                    className="inline-block rounded-pill bg-navy-900 px-6 py-3 text-sm font-semibold text-on-primary shadow-card transition hover:bg-navy-800 hover:shadow-card-hover"
                   >
                     Browse {slide.category.name} →
                   </Link>
@@ -220,7 +236,9 @@ export function PromoSlideshow() {
               onClick={() => goTo(index)}
               className={cn(
                 "h-2 rounded-full transition-all",
-                index === active ? "w-6 bg-navy-900" : "w-2 bg-slate-300 hover:bg-slate-400",
+                index === active
+                  ? "w-6 bg-navy-900"
+                  : "w-2 bg-text-muted/40 hover:bg-text-muted/60",
               )}
             />
           ))}
