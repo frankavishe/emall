@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { hasRole, useAuth } from "@/lib/auth-context";
 import { apiFetch, listAdminShops, ApiError, type AdminShop } from "@/lib/api-client";
@@ -137,7 +138,12 @@ export default function AdminShopsPage() {
                 <div className="flex items-start gap-3">
                   <ShopLogo url={shop.logo_url} name={shop.name} size="md" />
                   <div>
-                    <p className="font-medium text-text-primary">{shop.name}</p>
+                    <Link
+                      href={`/admin/shops/${shop.id}`}
+                      className="font-medium text-text-primary underline-offset-2 hover:underline"
+                    >
+                      {shop.name}
+                    </Link>
                     <p className="text-sm text-text-muted">
                       {shop.owner_name} &middot; {shop.owner_email}
                     </p>

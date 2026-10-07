@@ -133,7 +133,7 @@ class AdminOrderItemListView(ListAPIView):
     pagination_class = LimitedPageNumberPagination
 
     def get_queryset(self):
-        return (
+        queryset = (
             OrderItem.objects.select_related(
                 "product", "product__shop", "order", "rider__rider_profile"
             )
@@ -145,6 +145,16 @@ class AdminOrderItemListView(ListAPIView):
             )
             .order_by("-order__placed_at")
         )
+        shop = self.request.query_params.get("shop", "")
+        if shop.isdigit():
+            queryset = queryset.filter(product__shop_id=int(shop))
+        status_param = self.request.query_params.get("status")
+        if status_param:
+            queryset = queryset.filter(status=status_param)
+        order = self.request.query_params.get("order", "")
+        if order.isdigit():
+            queryset = queryset.filter(order_id=int(order))
+        return queryset
 
 
 class AdminOrderItemAssignRiderView(APIView):

@@ -123,6 +123,11 @@ export default function VendorOrdersPage() {
                       Order #{item.order_id} &middot; {item.quantity} &times;{" "}
                       {formatCurrency(item.unit_price)}
                     </p>
+                    <p className="text-sm text-text-muted">
+                      You earn {formatCurrency(item.vendor_earning)} (after{" "}
+                      {formatCurrency(item.commission_amount)} mall commission)
+                      {item.payout_id ? " · paid out" : ""}
+                    </p>
                     <div className="mt-1">
                       <Pill tone={statusToTone(item.status)}>{item.status}</Pill>
                     </div>

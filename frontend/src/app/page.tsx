@@ -9,6 +9,8 @@ import {
   listAdminShops,
   listAdminOrderItems,
   listRiderDeliveries,
+  getFinanceSummary,
+  getVendorEarnings,
   ApiError,
   type VendorOrderItem,
   type AdminOrderItem,
@@ -24,6 +26,8 @@ import { ActivityRow } from "@/components/ui/activity-row";
 import { LoadingText, ErrorText, EmptyText } from "@/components/ui/status-text";
 import type { OrderStatusDatum } from "@/components/charts/order-status-bar-chart";
 import { ShopLogo } from "@/components/shop-logo";
+import { formatCurrency } from "@/lib/currency";
+import { useApi } from "@/lib/use-api";
 
 const OrderStatusBarChart = dynamic(
   () => import("@/components/charts/order-status-bar-chart").then((mod) => mod.OrderStatusBarChart),
@@ -197,6 +201,8 @@ function VendorHomepage({ shop }: { shop: Shop | undefined }) {
           <ErrorText>{error}</ErrorText>
         ) : (
           <>
+            <VendorBalanceStrip />
+
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <StatCard variant="hero" label="Total orders" value={totalCount} />
               <StatCard label="Pending fulfillment" value={pendingCount} />
@@ -289,6 +295,45 @@ function useAdminSummary() {
   return { pendingCount, approvedCount, rejectedCount, orders, isLoading, error };
 }
 
+/** Mall money at a glance; full breakdown on /admin/finance. */
+function AdminFinanceStrip() {
+  const summary = useApi(() => getFinanceSummary(), "admin-finance", true);
+  const figures = summary.data;
+  if (!figures) return summary.error ? <ErrorText>{summary.error}</ErrorText> : null;
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <StatCard label="Customer payments" value={formatCurrency(figures.gross_sales)} />
+      <StatCard
+        label="Mall commission earned"
+        value={formatCurrency(figures.commission_earned)}
+        trend={{ text: `+${formatCurrency(figures.commission_pending)} pending`, tone: "positive" }}
+      />
+      <Link href="/admin/finance" className="contents">
+        <StatCard
+          label="Owed to shops now"
+          value={formatCurrency(figures.available_balance)}
+          trend={{ text: "pay out →" }}
+        />
+      </Link>
+    </div>
+  );
+}
+
+/** The vendor's money across all their shops; details on /vendor/earnings. */
+function VendorBalanceStrip() {
+  const earnings = useApi(getVendorEarnings, "vendor-earnings", true);
+  if (!earnings.data) return null;
+  const total = (key: "available_balance" | "pending_earnings" | "paid_out") =>
+    earnings.data!.reduce((sum, shop) => sum + Number(shop[key]), 0);
+  return (
+    <Link href="/vendor/earnings" className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <StatCard label="Available balance" value={formatCurrency(total("available_balance"))} />
+      <StatCard label="Pending delivery" value={formatCurrency(total("pending_earnings"))} />
+      <StatCard label="Paid to you" value={formatCurrency(total("paid_out"))} />
+    </Link>
+  );
+}
+
 function AdministratorHomepage() {
   const { pendingCount, approvedCount, rejectedCount, orders, isLoading, error } =
     useAdminSummary();
@@ -306,6 +351,8 @@ function AdministratorHomepage() {
         <ErrorText>{error}</ErrorText>
       ) : (
         <>
+          <AdminFinanceStrip />
+
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <StatCard
               variant="hero"

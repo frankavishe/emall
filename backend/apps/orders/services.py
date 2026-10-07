@@ -12,6 +12,7 @@ from apps.accounts.models import User
 from apps.cart.models import CartItem
 from apps.catalog.models import Product
 from apps.core.email import get_email_service
+from apps.finance.services import split_line
 from apps.orders.models import Order, OrderItem, OrderItemStatusEvent
 from apps.payments.models import PaymentRecord
 from apps.payments.services import get_payment_service
@@ -163,13 +164,23 @@ def place_order(*, customer, shipping_data, payment_method):
         order = Order.objects.create(
             customer=customer, status=Order.Status.PLACED, **shipping_data
         )
+        # The customer pays the mall; each line freezes the mall's commission and what the mall
+        # owes the shop, at the shop's commission rate as of now.
+        rates = {}
         for item in cart_items:
+            shop = item.product.shop
+            if shop.id not in rates:
+                rates[shop.id] = shop.effective_commission_rate()
+            commission, vendor_earning = split_line(item.subtotal, rates[shop.id])
             OrderItem.objects.create(
                 order=order,
                 product=item.product,
                 quantity=item.quantity,
                 unit_price=item.product.price,
                 status=OrderItem.Status.PENDING,
+                commission_rate=rates[shop.id],
+                commission_amount=commission,
+                vendor_earning=vendor_earning,
             )
             item.product.stock_quantity -= item.quantity
             item.product.save(update_fields=["stock_quantity"])
@@ -177,6 +188,7 @@ def place_order(*, customer, shipping_data, payment_method):
         PaymentRecord.objects.create(
             order=order,
             method=payment_method,
+            amount=total,
             status=PaymentRecord.Status.SUCCEEDED,
             transaction_reference=payment_result.transaction_reference,
         )
