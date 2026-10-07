@@ -99,6 +99,10 @@ class VendorOrderItemSerializer(RiderBriefMixin, serializers.ModelSerializer):
             "product",
             "quantity",
             "unit_price",
+            "commission_rate",
+            "commission_amount",
+            "vendor_earning",
+            "payout_id",
             "status",
             "shipping",
             "rider",
@@ -143,6 +147,10 @@ class AdminOrderItemSerializer(RiderBriefMixin, serializers.ModelSerializer):
             "shop",
             "quantity",
             "unit_price",
+            "commission_rate",
+            "commission_amount",
+            "vendor_earning",
+            "payout_id",
             "status",
             "status_history",
             "rider",
@@ -171,7 +179,7 @@ class AssignRiderSerializer(serializers.Serializer):
 class PaymentRecordSerializer(serializers.ModelSerializer):
     class Meta:
         model = PaymentRecord
-        fields = ["method", "status"]
+        fields = ["method", "status", "amount"]
         read_only_fields = fields
 
 

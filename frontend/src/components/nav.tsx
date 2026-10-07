@@ -29,14 +29,18 @@ const VENDOR_LINKS: NavLink[] = [
   { label: "Home", href: "/" },
   { label: "My Products", href: "/vendor/products" },
   { label: "Vendor Orders", href: "/vendor/orders" },
+  { label: "Earnings", href: "/vendor/earnings" },
   { label: "Reviews", href: "/vendor/reviews" },
   { label: "Account", href: "/account" },
 ];
 
 const ADMINISTRATOR_LINKS: NavLink[] = [
   { label: "Home", href: "/" },
+  { label: "Finance", href: "/admin/finance" },
   { label: "Shop Approvals", href: "/admin/shops" },
+  { label: "Products", href: "/admin/products" },
   { label: "Order Oversight", href: "/admin/orders" },
+  { label: "Transactions", href: "/admin/transactions" },
   { label: "Riders", href: "/admin/riders" },
   { label: "Review Moderation", href: "/admin/reviews" },
   { label: "Account", href: "/account" },

@@ -68,6 +68,21 @@ class OrderItem(models.Model):
     )
     rider_assigned_at = models.DateTimeField(null=True, blank=True)
 
+    # Money split, frozen at checkout by `place_order()`: the customer pays the mall `subtotal`,
+    # the mall keeps `commission_amount` (`commission_rate` percent) and owes the shop
+    # `vendor_earning`. The earning becomes payable once the line is DELIVERED.
+    commission_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    commission_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    vendor_earning = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    # Set once the earning is included in a payout; cleared again if that payout fails.
+    payout = models.ForeignKey(
+        "finance.Payout",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="items",
+    )
+
     def __str__(self):
         return f"{self.product_id} x{self.quantity} (order {self.order_id})"
 

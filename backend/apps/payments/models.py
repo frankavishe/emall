@@ -13,6 +13,8 @@ class PaymentRecord(models.Model):
         "orders.Order", on_delete=models.CASCADE, related_name="payment"
     )
     method = models.CharField(max_length=50)
+    # What the customer paid the mall for the whole order.
+    amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     status = models.CharField(
         max_length=20, choices=Status.choices, default=Status.SUCCEEDED
     )

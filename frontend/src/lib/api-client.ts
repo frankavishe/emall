@@ -265,6 +265,10 @@ export type VendorOrderItem = {
   product: { id: number; name: string };
   quantity: number;
   unit_price: string;
+  commission_rate: string;
+  commission_amount: string;
+  vendor_earning: string;
+  payout_id: number | null;
   status: string;
   shipping: ShippingDetails;
   rider: RiderBrief | null;
@@ -301,6 +305,10 @@ export type AdminOrderItem = {
   shop: { id: number; name: string };
   quantity: number;
   unit_price: string;
+  commission_rate: string;
+  commission_amount: string;
+  vendor_earning: string;
+  payout_id: number | null;
   status: string;
   status_history: { status: string; changed_at: string }[];
   rider: RiderBrief | null;
@@ -530,4 +538,270 @@ export async function updateDeliveryStatus(
     method: "PATCH",
     body: JSON.stringify({ status: newStatus }),
   });
+}
+
+// --- Mall finance: commission, payouts, admin oversight ---------------------------------------
+
+/** Money figures shared by the platform summary, shop balances and vendor earnings. Decimal
+ * strings, TZS. */
+export type BalanceFigures = {
+  gross_sales: string;
+  commission_earned: string;
+  commission_pending: string;
+  pending_earnings: string;
+  available_balance: string;
+  in_payout: string;
+  paid_out: string;
+};
+
+export type PlatformSummary = BalanceFigures & {
+  order_count: number;
+  line_count: number;
+  default_commission_rate: string;
+};
+
+export type DateRange = { from?: string; to?: string };
+
+function dateRangeQuery(range: DateRange = {}): URLSearchParams {
+  const params = new URLSearchParams();
+  if (range.from) params.set("from", range.from);
+  if (range.to) params.set("to", range.to);
+  return params;
+}
+
+function withQuery(path: string, params: URLSearchParams): string {
+  const query = params.toString();
+  return query ? `${path}?${query}` : path;
+}
+
+export async function getFinanceSummary(range?: DateRange): Promise<PlatformSummary> {
+  return apiFetch<PlatformSummary>(withQuery("/api/admin/finance/summary", dateRangeQuery(range)));
+}
+
+export type PlatformSettings = { default_commission_rate: string; updated_at: string };
+
+export async function getFinanceSettings(): Promise<PlatformSettings> {
+  return apiFetch<PlatformSettings>("/api/admin/finance/settings");
+}
+
+export async function updateDefaultCommissionRate(rate: string): Promise<PlatformSettings> {
+  return apiFetch<PlatformSettings>("/api/admin/finance/settings", {
+    method: "PATCH",
+    body: JSON.stringify({ default_commission_rate: rate }),
+  });
+}
+
+export type ShopBalance = BalanceFigures & {
+  id: number;
+  name: string;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  logo_url: string | null;
+  owner_name: string;
+  owner_email: string;
+  /** Effective rate (override or mall default). */
+  commission_rate: string;
+  /** The shop's own override, or null when it uses the mall default. */
+  commission_rate_override: string | null;
+  has_payout_details: boolean;
+};
+
+export async function listShopBalances(page = 1): Promise<PaginatedResponse<ShopBalance>> {
+  return apiFetch<PaginatedResponse<ShopBalance>>(`/api/admin/finance/balances?page=${page}`);
+}
+
+export async function setShopCommissionRate(
+  shopId: number | string,
+  rate: string | null,
+): Promise<void> {
+  await apiFetch(`/api/admin/shops/${shopId}/commission`, {
+    method: "PATCH",
+    body: JSON.stringify({ commission_rate: rate }),
+  });
+}
+
+export type AdminShopDetail = {
+  id: number;
+  name: string;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  status_reason: string | null;
+  created_at: string;
+  status_changed_at: string | null;
+  logo_url: string | null;
+  owner: { id: number; name: string; email: string };
+  commission_rate: string | null;
+  payout_network: string;
+  payout_phone: string;
+  payout_account_name: string;
+  product_count: number;
+  published_product_count: number;
+  balance: BalanceFigures & { commission_rate: string; commission_rate_is_override: boolean };
+};
+
+export async function getAdminShop(shopId: number | string): Promise<AdminShopDetail> {
+  return apiFetch<AdminShopDetail>(`/api/admin/shops/${shopId}`);
+}
+
+export type PayoutStatus = "PENDING" | "PROCESSING" | "SUCCEEDED" | "FAILED";
+
+export type Payout = {
+  id: number;
+  reference: string;
+  shop: { id: number; name: string };
+  amount: string;
+  status: PayoutStatus;
+  network: string;
+  phone: string;
+  account_name: string;
+  provider_reference: string | null;
+  failure_reason: string;
+  created_by_name: string | null;
+  created_at: string;
+  completed_at: string | null;
+  line_count: number | null;
+};
+
+export type PayoutLine = {
+  id: number;
+  order_id: number;
+  product_name: string;
+  quantity: number;
+  unit_price: string;
+  subtotal: string;
+  commission_rate: string;
+  commission_amount: string;
+  vendor_earning: string;
+  status: string;
+};
+
+export type PayoutDetail = Payout & { items: PayoutLine[] };
+
+export async function createShopPayout(shopId: number | string): Promise<Payout> {
+  return apiFetch<Payout>(`/api/admin/shops/${shopId}/payouts`, { method: "POST" });
+}
+
+export async function listAdminPayouts(
+  options: { page?: number; shop?: number | string; status?: string } = {},
+): Promise<PaginatedResponse<Payout>> {
+  const params = new URLSearchParams({ page: String(options.page ?? 1) });
+  if (options.shop) params.set("shop", String(options.shop));
+  if (options.status) params.set("status", options.status);
+  return apiFetch<PaginatedResponse<Payout>>(withQuery("/api/admin/payouts", params));
+}
+
+export async function getAdminPayout(payoutId: number | string): Promise<PayoutDetail> {
+  return apiFetch<PayoutDetail>(`/api/admin/payouts/${payoutId}`);
+}
+
+export async function retryPayout(payoutId: number | string): Promise<Payout> {
+  return apiFetch<Payout>(`/api/admin/payouts/${payoutId}/retry`, { method: "POST" });
+}
+
+export type AdminTransaction = {
+  id: number;
+  order_id: number;
+  customer: { id: number; name: string; email: string };
+  amount: string;
+  method: string;
+  status: string;
+  transaction_reference: string;
+  created_at: string;
+  commission_total: string;
+  shop_count: number;
+};
+
+export async function listAdminTransactions(
+  options: DateRange & { page?: number; search?: string } = {},
+): Promise<PaginatedResponse<AdminTransaction>> {
+  const params = dateRangeQuery(options);
+  params.set("page", String(options.page ?? 1));
+  if (options.search) params.set("search", options.search);
+  return apiFetch<PaginatedResponse<AdminTransaction>>(
+    withQuery("/api/admin/transactions", params),
+  );
+}
+
+export type AdminOrderLine = PayoutLine & {
+  shop: { id: number; name: string };
+  payout: { id: number; status: PayoutStatus } | null;
+};
+
+export type AdminOrderDetail = ShippingDetails & {
+  id: number;
+  placed_at: string;
+  status: string;
+  customer: { id: number; name: string; email: string };
+  total: string;
+  commission_total: string;
+  payment: {
+    method: string;
+    status: string;
+    amount: string;
+    transaction_reference: string;
+    created_at: string;
+  } | null;
+  items: AdminOrderLine[];
+};
+
+export async function getAdminOrder(orderId: number | string): Promise<AdminOrderDetail> {
+  return apiFetch<AdminOrderDetail>(`/api/admin/orders/${orderId}`);
+}
+
+export type AdminProduct = {
+  id: number;
+  name: string;
+  shop: { id: number; name: string; status: string };
+  category: string | null;
+  price: string | null;
+  stock_quantity: number | null;
+  is_published: boolean;
+  is_deleted: boolean;
+  created_at: string;
+  units_sold: number;
+  revenue: string;
+};
+
+export async function listAdminProducts(
+  options: { page?: number; shop?: number | string; search?: string; published?: boolean } = {},
+): Promise<PaginatedResponse<AdminProduct>> {
+  const params = new URLSearchParams({ page: String(options.page ?? 1) });
+  if (options.shop) params.set("shop", String(options.shop));
+  if (options.search) params.set("search", options.search);
+  if (options.published !== undefined) params.set("published", String(options.published));
+  return apiFetch<PaginatedResponse<AdminProduct>>(withQuery("/api/admin/products", params));
+}
+
+export type PayoutNetwork = "MPESA" | "TIGOPESA" | "AIRTEL" | "HALOPESA";
+
+export type PayoutDetails = {
+  payout_network: PayoutNetwork | "";
+  payout_phone: string;
+  payout_account_name: string;
+};
+
+export type VendorShopEarnings = BalanceFigures & {
+  shop_id: number;
+  shop_name: string;
+  commission_rate: string;
+  has_payout_details: boolean;
+  payout_network: PayoutNetwork | "";
+  payout_phone: string;
+  payout_account_name: string;
+};
+
+export async function getVendorEarnings(): Promise<VendorShopEarnings[]> {
+  return apiFetch<VendorShopEarnings[]>("/api/vendor/earnings");
+}
+
+export async function updatePayoutDetails(
+  shopId: number | string,
+  details: PayoutDetails,
+): Promise<PayoutDetails> {
+  return apiFetch<PayoutDetails>(`/api/vendor/shops/${shopId}/payout-details`, {
+    method: "PATCH",
+    body: JSON.stringify(details),
+  });
+}
+
+export async function listVendorPayouts(page = 1): Promise<PaginatedResponse<Payout>> {
+  return apiFetch<PaginatedResponse<Payout>>(`/api/vendor/payouts?page=${page}`);
 }

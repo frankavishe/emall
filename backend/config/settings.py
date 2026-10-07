@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     "apps.payments",
     "apps.feedback",
     "apps.delivery",
+    "apps.finance",
 ]
 
 MIDDLEWARE = [
@@ -173,6 +174,11 @@ REST_FRAMEWORK = {
         "otp_confirm": "10/min",
     },
 }
+
+# --- Payouts to shop owners ----------------------------------------------
+# Which `apps.finance.disbursement` adapter sends vendor payouts ("mock" until a real
+# mobile-money provider is integrated).
+DISBURSEMENT_BACKEND = env("DISBURSEMENT_BACKEND", default="mock")
 
 # --- simplejwt (task T013) -----------------------------------------------
 # Access token stays short-lived and is returned to the frontend in the response body only
