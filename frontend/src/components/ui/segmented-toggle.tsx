@@ -24,7 +24,9 @@ export function SegmentedToggle<T extends string>({
           onClick={() => onChange(option.value)}
           className={cn(
             "rounded-pill px-3 py-1.5 text-sm font-medium transition-colors",
-            option.value === value ? "bg-navy-900 text-white" : "text-text-muted hover:bg-black/5",
+            option.value === value
+              ? "bg-navy-900 text-on-primary"
+              : "text-text-muted hover:bg-hover",
           )}
         >
           {option.label}

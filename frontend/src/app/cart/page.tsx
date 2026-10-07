@@ -130,7 +130,7 @@ export default function CartPage() {
       ) : !cart || cart.items.length === 0 ? (
         <EmptyText>
           Your cart is empty.{" "}
-          <Link href="/products" className="font-medium text-navy-900 underline">
+          <Link href="/products" className="font-medium text-brand-text underline">
             Browse products
           </Link>
         </EmptyText>

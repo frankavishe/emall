@@ -63,12 +63,12 @@ export default function LoginPage() {
         </form>
         <p className="mt-6 text-sm text-text-muted">
           Need an account?{" "}
-          <Link href="/register" className="font-medium text-navy-900 underline">
+          <Link href="/register" className="font-medium text-brand-text underline">
             Register
           </Link>
         </p>
         <p className="mt-2 text-sm text-text-muted">
-          <Link href="/forgot-password" className="font-medium text-navy-900 underline">
+          <Link href="/forgot-password" className="font-medium text-brand-text underline">
             Forgot your password?
           </Link>
         </p>

@@ -14,7 +14,7 @@ export type PillTone =
 const TONE_CLASSES: Record<PillTone, string> = {
   pending: "bg-status-pending/15 text-status-pending",
   processing: "bg-status-processing/15 text-status-processing",
-  shipped: "bg-status-shipped/15 text-navy-900",
+  shipped: "bg-status-shipped/15 text-brand-text",
   delivered: "bg-status-delivered/15 text-status-delivered",
   cancelled: "bg-status-cancelled/15 text-status-cancelled",
   approved: "bg-status-approved/15 text-status-approved",

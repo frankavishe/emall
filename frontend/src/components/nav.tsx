@@ -8,6 +8,7 @@ import type { Role } from "@/lib/auth-context";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
+import { useTheme } from "@/lib/theme";
 
 type NavLink = { label: string; href: string };
 
@@ -78,7 +79,7 @@ function RoleSwitch({
   onSwitch: (role: Role) => void;
 }) {
   return (
-    <div role="group" aria-label="Switch mode" className="flex rounded-pill bg-black/5 p-0.5">
+    <div role="group" aria-label="Switch mode" className="flex rounded-pill bg-hover p-0.5">
       {roles.map((role) => {
         const active = role === activeRole;
         return (
@@ -89,7 +90,7 @@ function RoleSwitch({
             onClick={() => onSwitch(role)}
             className={cn(
               "rounded-pill px-3 py-1 text-xs font-medium capitalize transition-colors",
-              active ? "bg-navy-900 text-white" : "text-text-muted hover:text-text-primary",
+              active ? "bg-navy-900 text-on-primary" : "text-text-muted hover:text-text-primary",
             )}
           >
             {role.toLowerCase()}
@@ -97,6 +98,39 @@ function RoleSwitch({
         );
       })}
     </div>
+  );
+}
+
+function ThemeToggle() {
+  const { theme, toggleTheme } = useTheme();
+  const dark = theme === "dark";
+  return (
+    <button
+      type="button"
+      aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
+      onClick={toggleTheme}
+      className="flex h-9 w-9 items-center justify-center rounded-full text-text-muted hover:bg-hover hover:text-text-primary"
+    >
+      <svg
+        viewBox="0 0 20 20"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.6}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="h-5 w-5"
+        aria-hidden
+      >
+        {dark ? (
+          <>
+            <circle cx="10" cy="10" r="3.5" />
+            <path d="M10 2v1.5M10 16.5V18M2 10h1.5M16.5 10H18M4.3 4.3l1.1 1.1M14.6 14.6l1.1 1.1M4.3 15.7l1.1-1.1M14.6 5.4l1.1-1.1" />
+          </>
+        ) : (
+          <path d="M16.5 12.2A7 7 0 0 1 7.8 3.5a7 7 0 1 0 8.7 8.7z" />
+        )}
+      </svg>
+    </button>
   );
 }
 
@@ -131,7 +165,7 @@ export function Nav() {
       <nav className="mx-auto flex max-w-6xl items-center justify-between rounded-pill bg-card px-3 py-2 shadow-nav">
         <Link
           href="/"
-          className="flex items-center gap-2 pl-2 pr-4 text-base font-semibold text-navy-900"
+          className="flex items-center gap-2 pl-2 pr-4 text-base font-semibold text-brand-text"
         >
           <span aria-hidden className="h-2.5 w-2.5 rounded-sm bg-teal-400" />
           E-Mall
@@ -146,7 +180,7 @@ export function Nav() {
                 href={link.href}
                 className={cn(
                   "rounded-pill px-4 py-1.5 text-sm font-medium transition-colors",
-                  active ? "bg-navy-900 text-white" : "text-text-muted hover:bg-black/5",
+                  active ? "bg-navy-900 text-on-primary" : "text-text-muted hover:bg-hover",
                 )}
               >
                 {link.label}
@@ -191,12 +225,13 @@ export function Nav() {
               </Button>
             </div>
           )}
+          <ThemeToggle />
           <button
             type="button"
             aria-label="Toggle menu"
             aria-expanded={mobileOpen}
             onClick={() => setMobileOpen((open) => !open)}
-            className="flex h-9 w-9 items-center justify-center rounded-full text-text-muted hover:bg-black/5 md:hidden"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-text-muted hover:bg-hover md:hidden"
           >
             <span className="sr-only">Toggle menu</span>
             <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden>
@@ -236,7 +271,7 @@ export function Nav() {
                 onClick={() => setMobileOpen(false)}
                 className={cn(
                   "rounded-control px-4 py-2 text-sm font-medium",
-                  active ? "bg-navy-900 text-white" : "text-text-muted hover:bg-black/5",
+                  active ? "bg-navy-900 text-on-primary" : "text-text-muted hover:bg-hover",
                 )}
               >
                 {link.label}

@@ -16,7 +16,7 @@ export function Avatar({ name, size = "md" }: { name: string; size?: keyof typeo
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-full bg-navy-900 font-semibold text-white",
+        "inline-flex shrink-0 items-center justify-center rounded-full bg-navy-900 font-semibold text-on-primary",
         SIZE_CLASSES[size],
       )}
       aria-hidden

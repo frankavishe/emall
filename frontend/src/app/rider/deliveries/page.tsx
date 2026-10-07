@@ -66,7 +66,7 @@ function DeliveryCard({
             <p className="text-text-muted">
               {dropoff.address_line}, {dropoff.city}, {dropoff.region}
             </p>
-            <a href={`tel:${dropoff.phone}`} className="font-medium text-navy-900 underline">
+            <a href={`tel:${dropoff.phone}`} className="font-medium text-brand-text underline">
               {dropoff.phone}
             </a>
           </div>
