@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useAuth, type Shop } from "@/lib/auth-context";
@@ -27,6 +27,7 @@ import { LoadingText, ErrorText, EmptyText } from "@/components/ui/status-text";
 import type { OrderStatusDatum } from "@/components/charts/order-status-bar-chart";
 import { ShopLogo } from "@/components/shop-logo";
 import { formatCurrency } from "@/lib/currency";
+import { cn } from "@/lib/cn";
 import { useApi } from "@/lib/use-api";
 
 const OrderStatusBarChart = dynamic(
@@ -295,26 +296,68 @@ function useAdminSummary() {
   return { pendingCount, approvedCount, rejectedCount, orders, isLoading, error };
 }
 
+function StatIcon({ children }: { children: ReactNode }) {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.6}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="h-[18px] w-[18px]"
+      aria-hidden
+    >
+      {children}
+    </svg>
+  );
+}
+
 /** Mall money at a glance; full breakdown on /admin/finance. */
 function AdminFinanceStrip() {
   const summary = useApi(() => getFinanceSummary(), "admin-finance", true);
   const figures = summary.data;
   if (!figures) return summary.error ? <ErrorText>{summary.error}</ErrorText> : null;
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-      <StatCard label="Customer payments" value={formatCurrency(figures.gross_sales)} />
+    <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+      <StatCard
+        label="Customer payments"
+        value={formatCurrency(figures.gross_sales)}
+        icon={
+          <StatIcon>
+            <path d="M3.5 6.5h12a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1zM3.5 6.5 13 3.5v3M13.5 11.5h1" />
+          </StatIcon>
+        }
+      />
       <StatCard
         label="Mall commission earned"
         value={formatCurrency(figures.commission_earned)}
         trend={{ text: `+${formatCurrency(figures.commission_pending)} pending`, tone: "positive" }}
+        icon={
+          <StatIcon>
+            <path d="M15 5 5 15" />
+            <circle cx="6" cy="6" r="1.8" />
+            <circle cx="14" cy="14" r="1.8" />
+          </StatIcon>
+        }
       />
-      <Link href="/admin/finance" className="contents">
-        <StatCard
-          label="Owed to shops now"
-          value={formatCurrency(figures.available_balance)}
-          trend={{ text: "pay out →" }}
-        />
-      </Link>
+      <StatCard
+        label="Owed to shops"
+        value={formatCurrency(figures.available_balance)}
+        icon={
+          <StatIcon>
+            <path d="M3.5 10.5 7 14l9.5-9.5M11 4.5h5.5V10" />
+          </StatIcon>
+        }
+        footer={
+          <Link
+            href="/admin/finance"
+            className="text-sm font-semibold text-text-primary hover:underline"
+          >
+            Process payout →
+          </Link>
+        }
+      />
     </div>
   );
 }
@@ -331,6 +374,18 @@ function VendorBalanceStrip() {
       <StatCard label="Pending delivery" value={formatCurrency(total("pending_earnings"))} />
       <StatCard label="Paid to you" value={formatCurrency(total("paid_out"))} />
     </Link>
+  );
+}
+
+function LegendChip({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <div className="flex flex-col gap-1 rounded-control bg-card-muted px-3 py-2">
+      <span className="flex items-center gap-1.5 text-xs text-text-muted">
+        <span aria-hidden className={cn("h-2 w-2 rounded-full", color)} />
+        {label}
+      </span>
+      <span className="text-sm font-semibold text-text-primary">{value}</span>
+    </div>
   );
 }
 
@@ -353,33 +408,96 @@ function AdministratorHomepage() {
         <>
           <AdminFinanceStrip />
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
             <StatCard
               variant="hero"
               label="Pending shop approvals"
               value={pendingCount}
-              trend={{ text: "needs review" }}
+              icon={
+                <StatIcon>
+                  <circle cx="10" cy="10" r="7" />
+                  <path d="M10 6v4l2.5 2" />
+                </StatIcon>
+              }
+              footer={
+                <Link
+                  href="/admin/shops"
+                  className="inline-flex items-center gap-1 rounded-pill bg-teal-400 px-3 py-1.5 text-sm font-semibold text-navy-900 transition-colors hover:bg-teal-300"
+                >
+                  Review now →
+                </Link>
+              }
             />
-            <StatCard label="Approved shops" value={approvedCount} />
-            <StatCard label="Rejected shops" value={rejectedCount} />
+            <StatCard
+              label="Approved shops"
+              value={approvedCount}
+              icon={
+                <StatIcon>
+                  <circle cx="10" cy="10" r="7" />
+                  <path d="m7 10 2 2 4-4" />
+                </StatIcon>
+              }
+              footer="Active on the marketplace"
+            />
+            <StatCard
+              label="Rejected shops"
+              value={rejectedCount}
+              icon={
+                <StatIcon>
+                  <circle cx="10" cy="10" r="7" />
+                  <path d="m7.5 7.5 5 5M12.5 7.5l-5 5" />
+                </StatIcon>
+              }
+              footer="Applications turned down"
+            />
           </div>
 
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <Card>
-              <h2 className="mb-4 text-sm font-semibold text-text-primary">Orders by status</h2>
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[3fr_2fr]">
+            <Card className="flex flex-col">
+              <div className="mb-4 flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-base font-semibold text-text-primary">Orders by status</h2>
+                  <p className="text-sm text-text-muted">
+                    {orders.length} most recent order {orders.length === 1 ? "item" : "items"}
+                  </p>
+                </div>
+                <Link
+                  href="/admin/orders"
+                  className="text-sm font-semibold text-text-primary hover:underline"
+                >
+                  View all
+                </Link>
+              </div>
               <OrderStatusBarChart data={chartData} />
             </Card>
-            <Card>
-              <h2 className="mb-4 text-sm font-semibold text-text-primary">Shop approval rate</h2>
-              <RadialGauge value={approvalRate} caption="Approved shops" />
+            <Card className="flex flex-col">
+              <div className="mb-2">
+                <h2 className="text-base font-semibold text-text-primary">Shop approval rate</h2>
+                <p className="text-sm text-text-muted">Of all reviewed applications</p>
+              </div>
+              <div className="flex flex-1 items-center">
+                <RadialGauge value={approvalRate} suffix="%" caption="approved" />
+              </div>
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                <LegendChip label="Approved" value={approvedCount ?? 0} color="bg-teal-400" />
+                <LegendChip label="Pending" value={pendingCount ?? 0} color="bg-status-pending" />
+                <LegendChip
+                  label="Rejected"
+                  value={rejectedCount ?? 0}
+                  color="bg-status-rejected"
+                />
+              </div>
             </Card>
           </div>
 
           <Card>
             <div className="mb-2 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-text-primary">Recent orders</h2>
-              <Link href="/admin/orders" className="text-sm font-medium text-brand-text underline">
-                View all orders
+              <h2 className="text-base font-semibold text-text-primary">Recent orders</h2>
+              <Link
+                href="/admin/orders"
+                className="text-sm font-semibold text-text-primary hover:underline"
+              >
+                See all
               </Link>
             </div>
             {recent.length === 0 ? (
@@ -397,10 +515,6 @@ function AdministratorHomepage() {
               </ul>
             )}
           </Card>
-
-          <Button variant="secondary" asChild className="self-start">
-            <Link href="/admin/shops">Review shop approvals</Link>
-          </Button>
         </>
       )}
     </PageShell>
