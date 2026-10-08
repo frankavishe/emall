@@ -130,7 +130,9 @@ class AdminCategoryWriteSerializer(serializers.ModelSerializer):
             siblings = siblings.exclude(pk=instance.pk)
         if siblings.exists():
             where = f"under {parent.name}" if parent else "at the top level"
-            raise serializers.ValidationError({"name": f"A category named {name} already exists {where}."})
+            raise serializers.ValidationError(
+                {"name": f"A category named {name} already exists {where}."}
+            )
         return attrs
 
     def create(self, validated_data):

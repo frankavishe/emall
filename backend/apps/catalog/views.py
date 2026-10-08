@@ -11,11 +11,11 @@ from rest_framework.views import APIView
 from apps.catalog.models import Category, Product
 from apps.catalog.permissions import IsApprovedShopOwnerForProduct, IsProductOwner
 from apps.catalog.serializers import (
+    AdminCategorySerializer,
+    AdminCategoryWriteSerializer,
     CatalogProductDetailSerializer,
     CatalogProductListSerializer,
     CatalogShopSerializer,
-    AdminCategorySerializer,
-    AdminCategoryWriteSerializer,
     CategoryConflict,
     CategoryTreeSerializer,
     VendorProductListSerializer,

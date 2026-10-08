@@ -47,7 +47,6 @@ from .services import (
     issue_verification_token,
 )
 
-
 BLOCKED_ACCOUNT_DETAIL = "This account has been blocked. Contact support."
 
 
