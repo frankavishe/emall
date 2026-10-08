@@ -37,6 +37,10 @@
   --color-status-rejected: #ef4444;
   --color-status-approved: #22c55e;
 
+  /* Admin sidebar (dark in both themes) */
+  --color-sidebar: #0b1733;
+  --color-sidebar-active: #1a2747;
+
   /* Borders & shadows */
   --color-border: rgb(15 23 42 / 8%);
   /* Subtle tint behind hovered ghost controls. */
@@ -66,6 +70,9 @@
   --color-navy-800: #173a60;
   --color-navy-700: #2b5a8a;
   --color-teal-100: #134e4a;
+
+  --color-sidebar: #070e1c;
+  --color-sidebar-active: #15203a;
 
   --color-text-primary: #e2e8f0;
   --color-text-muted: #94a3b8;
@@ -98,6 +105,8 @@
   --color-text-muted: var(--color-text-muted);
   --color-text-inverse: var(--color-text-inverse);
   --color-on-primary: var(--color-on-primary);
+  --color-sidebar: var(--color-sidebar);
+  --color-sidebar-active: var(--color-sidebar-active);
   --color-border: var(--color-border);
   --color-hover: var(--color-hover);
   /* Brand-colored text (links, emphasis). Inlined into each utility so a shop theme's inline

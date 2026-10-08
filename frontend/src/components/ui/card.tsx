@@ -13,8 +13,9 @@ type CardProps<T extends ElementType> = CardOwnProps<T> &
   Omit<ComponentPropsWithoutRef<T>, keyof CardOwnProps<T>>;
 
 const VARIANT_CLASSES = {
-  default: "bg-card text-text-primary shadow-card",
-  hero: "bg-navy-900 text-text-inverse shadow-card",
+  default: "border border-border bg-card text-text-primary shadow-card",
+  // Navy fading toward teal; built from the theme vars so shop-theme overrides still apply.
+  hero: "bg-navy-900 bg-[linear-gradient(135deg,var(--color-navy-900)_35%,color-mix(in_srgb,var(--color-navy-900)_65%,var(--color-teal-400)))] text-text-inverse shadow-card",
   muted: "bg-card-muted text-text-primary",
 } as const;
 

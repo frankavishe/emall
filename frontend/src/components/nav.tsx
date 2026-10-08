@@ -96,7 +96,7 @@ function RoleSwitch({
   );
 }
 
-function ThemeToggle() {
+export function ThemeToggle() {
   const { theme, toggleTheme } = useTheme();
   const dark = theme === "dark";
   return (
@@ -136,8 +136,8 @@ export function Nav() {
   const links = linksForRole(activeRole);
   const [mobileOpen, setMobileOpen] = useState(false);
   const canSwitch = !!user && user.roles.length > 1;
-  // Administrators have too many destinations for an inline row: they get the sidebar on large
-  // screens (AdminSidebar) and the grouped menu below that.
+  // Administrators have too many destinations for an inline row: they get the sidebar and top bar
+  // on large screens (AdminSidebar, AdminTopBar) and this nav's grouped menu below that.
   const isAdmin = activeRole === "ADMINISTRATOR";
 
   function handleSwitch(role: Role) {
@@ -154,7 +154,7 @@ export function Nav() {
   }
 
   return (
-    <div className="sticky top-0 z-10 bg-canvas px-4 pt-4">
+    <div className={cn("sticky top-0 z-10 bg-canvas px-4 pt-4", isAdmin && "lg:hidden")}>
       <nav
         className={cn(
           "mx-auto flex items-center justify-between rounded-pill bg-card px-3 py-2 shadow-nav",
@@ -163,10 +163,24 @@ export function Nav() {
       >
         <Link
           href="/"
-          className="flex items-center gap-2 pl-2 pr-4 text-base font-semibold text-brand-text"
+          className="flex items-center gap-2 whitespace-nowrap pl-2 pr-4 text-base font-semibold text-brand-text"
         >
-          <span aria-hidden className="h-2.5 w-2.5 rounded-sm bg-teal-400" />
+          {isAdmin ? (
+            <span
+              aria-hidden
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-400 text-xs font-bold text-navy-900"
+            >
+              E
+            </span>
+          ) : (
+            <span aria-hidden className="h-2.5 w-2.5 rounded-sm bg-teal-400" />
+          )}
           E-Mall
+          {isAdmin && (
+            <span className="rounded-pill bg-hover px-2 py-0.5 text-[10px] font-semibold tracking-wider text-text-muted">
+              ADMIN
+            </span>
+          )}
         </Link>
 
         <div className={cn("hidden items-center gap-1", !isAdmin && "md:flex")}>
