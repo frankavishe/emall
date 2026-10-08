@@ -183,7 +183,8 @@ export type CatalogProduct = {
   review_count: number;
 };
 
-export type Category = { name: string; slug: string };
+/** Public category tree node: top-level categories carry their subcategories in `children`. */
+export type Category = { name: string; slug: string; children?: Category[] };
 
 export type ListProductsOptions = {
   limit?: number;
@@ -495,6 +496,89 @@ export async function updateRider(
     method: "PATCH",
     body: JSON.stringify(data),
   });
+}
+
+export type AdminCustomer = {
+  id: number;
+  name: string;
+  email: string;
+  is_vendor: boolean;
+  is_email_verified: boolean;
+  is_active: boolean;
+  date_joined: string;
+  order_count: number;
+  total_spent: string;
+  shop_count: number;
+};
+
+export type AdminCustomerDetail = AdminCustomer & {
+  recent_orders: { id: number; placed_at: string; item_count: number; total: string }[];
+};
+
+/** `GET /api/admin/customers` — shopper accounts (vendors included), newest first. */
+export async function listAdminCustomers(
+  options: { q?: string; isActive?: boolean; page?: number } = {},
+): Promise<PaginatedResponse<AdminCustomer>> {
+  const params = new URLSearchParams();
+  if (options.q?.trim()) params.set("q", options.q.trim());
+  if (options.isActive !== undefined) params.set("is_active", String(options.isActive));
+  if (options.page && options.page > 1) params.set("page", String(options.page));
+  const query = params.toString() ? `?${params.toString()}` : "";
+  return apiFetch<PaginatedResponse<AdminCustomer>>(`/api/admin/customers${query}`);
+}
+
+export async function getAdminCustomer(customerId: number | string): Promise<AdminCustomerDetail> {
+  return apiFetch<AdminCustomerDetail>(`/api/admin/customers/${customerId}`);
+}
+
+/** `PATCH /api/admin/customers/{id}` — blocking also logs the customer out everywhere. */
+export async function updateCustomer(
+  customerId: number,
+  data: { is_active: boolean },
+): Promise<AdminCustomerDetail> {
+  return apiFetch<AdminCustomerDetail>(`/api/admin/customers/${customerId}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export type AdminCategory = {
+  id: number;
+  name: string;
+  slug: string;
+  parent: number | null;
+  product_count: number;
+  can_delete: boolean;
+  children: AdminCategory[];
+};
+
+/** `GET /api/admin/categories` — top-level categories with nested subcategories. */
+export async function listAdminCategories(): Promise<AdminCategory[]> {
+  return apiFetch<AdminCategory[]>("/api/admin/categories");
+}
+
+export async function createCategory(data: {
+  name: string;
+  parent: number | null;
+}): Promise<AdminCategory> {
+  return apiFetch<AdminCategory>("/api/admin/categories", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateCategory(
+  categoryId: number,
+  data: { name?: string; parent?: number | null },
+): Promise<AdminCategory> {
+  return apiFetch<AdminCategory>(`/api/admin/categories/${categoryId}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteCategory(categoryId: number): Promise<void> {
+  await apiFetch(`/api/admin/categories/${categoryId}`, { method: "DELETE" });
 }
 
 /** `POST /api/admin/order-items/{id}/rider` — `null` unassigns. */

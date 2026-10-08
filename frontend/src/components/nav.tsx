@@ -9,6 +9,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { useTheme } from "@/lib/theme";
+import { ADMIN_SECTIONS, AdminNavSections, isLinkActive } from "@/components/admin-sidebar";
 
 type NavLink = { label: string; href: string };
 
@@ -34,17 +35,7 @@ const VENDOR_LINKS: NavLink[] = [
   { label: "Account", href: "/account" },
 ];
 
-const ADMINISTRATOR_LINKS: NavLink[] = [
-  { label: "Home", href: "/" },
-  { label: "Finance", href: "/admin/finance" },
-  { label: "Shop Approvals", href: "/admin/shops" },
-  { label: "Products", href: "/admin/products" },
-  { label: "Order Oversight", href: "/admin/orders" },
-  { label: "Transactions", href: "/admin/transactions" },
-  { label: "Riders", href: "/admin/riders" },
-  { label: "Review Moderation", href: "/admin/reviews" },
-  { label: "Account", href: "/account" },
-];
+const ADMINISTRATOR_LINKS: NavLink[] = ADMIN_SECTIONS.flatMap((section) => section.links);
 
 const RIDER_LINKS: NavLink[] = [
   { label: "Home", href: "/" },
@@ -138,11 +129,6 @@ function ThemeToggle() {
   );
 }
 
-function isLinkActive(pathname: string, href: string): boolean {
-  if (href === "/") return pathname === "/";
-  return pathname === href || pathname.startsWith(`${href}/`);
-}
-
 export function Nav() {
   const router = useRouter();
   const pathname = usePathname();
@@ -150,6 +136,9 @@ export function Nav() {
   const links = linksForRole(activeRole);
   const [mobileOpen, setMobileOpen] = useState(false);
   const canSwitch = !!user && user.roles.length > 1;
+  // Administrators have too many destinations for an inline row: they get the sidebar on large
+  // screens (AdminSidebar) and the grouped menu below that.
+  const isAdmin = activeRole === "ADMINISTRATOR";
 
   function handleSwitch(role: Role) {
     if (role === activeRole) return;
@@ -166,7 +155,12 @@ export function Nav() {
 
   return (
     <div className="sticky top-0 z-10 bg-canvas px-4 pt-4">
-      <nav className="mx-auto flex max-w-6xl items-center justify-between rounded-pill bg-card px-3 py-2 shadow-nav">
+      <nav
+        className={cn(
+          "mx-auto flex items-center justify-between rounded-pill bg-card px-3 py-2 shadow-nav",
+          isAdmin ? "max-w-none" : "max-w-6xl",
+        )}
+      >
         <Link
           href="/"
           className="flex items-center gap-2 pl-2 pr-4 text-base font-semibold text-brand-text"
@@ -175,7 +169,7 @@ export function Nav() {
           E-Mall
         </Link>
 
-        <div className="hidden items-center gap-1 md:flex">
+        <div className={cn("hidden items-center gap-1", !isAdmin && "md:flex")}>
           {links.map((link) => {
             const active = isLinkActive(pathname, link.href);
             return (
@@ -235,7 +229,10 @@ export function Nav() {
             aria-label="Toggle menu"
             aria-expanded={mobileOpen}
             onClick={() => setMobileOpen((open) => !open)}
-            className="flex h-9 w-9 items-center justify-center rounded-full text-text-muted hover:bg-hover md:hidden"
+            className={cn(
+              "flex h-9 w-9 items-center justify-center rounded-full text-text-muted hover:bg-hover",
+              isAdmin ? "lg:hidden" : "md:hidden",
+            )}
           >
             <span className="sr-only">Toggle menu</span>
             <svg viewBox="0 0 20 20" fill="currentColor" className="h-5 w-5" aria-hidden>
@@ -260,28 +257,35 @@ export function Nav() {
       </nav>
 
       {mobileOpen && (
-        <div className="mx-auto mt-2 flex max-w-6xl flex-col gap-1 rounded-card bg-card p-3 shadow-nav md:hidden">
+        <div
+          className={cn(
+            "mx-auto mt-2 flex max-w-6xl flex-col gap-1 rounded-card bg-card p-3 shadow-nav",
+            isAdmin ? "max-h-[calc(100vh-6rem)] overflow-y-auto lg:hidden" : "md:hidden",
+          )}
+        >
           {canSwitch && user && (
             <div className="mb-1 flex justify-center sm:hidden">
               <RoleSwitch roles={user.roles} activeRole={activeRole} onSwitch={handleSwitch} />
             </div>
           )}
-          {links.map((link) => {
-            const active = isLinkActive(pathname, link.href);
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                onClick={() => setMobileOpen(false)}
-                className={cn(
-                  "rounded-control px-4 py-2 text-sm font-medium",
-                  active ? "bg-navy-900 text-on-primary" : "text-text-muted hover:bg-hover",
-                )}
-              >
-                {link.label}
-              </Link>
-            );
-          })}
+          {isAdmin && <AdminNavSections onNavigate={() => setMobileOpen(false)} />}
+          {!isAdmin &&
+            links.map((link) => {
+              const active = isLinkActive(pathname, link.href);
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setMobileOpen(false)}
+                  className={cn(
+                    "rounded-control px-4 py-2 text-sm font-medium",
+                    active ? "bg-navy-900 text-on-primary" : "text-text-muted hover:bg-hover",
+                  )}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
           <div className="mt-2 flex items-center gap-2 border-t border-border pt-2">
             {user ? (
               <>

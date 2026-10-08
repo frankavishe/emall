@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { hasRole, useAuth } from "@/lib/auth-context";
-import { apiFetch, ApiError } from "@/lib/api-client";
+import { apiFetch, ApiError, listCategories, type Category } from "@/lib/api-client";
 import { PageShell } from "@/components/ui/page-shell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,8 +11,7 @@ import { FormField, inputClassName } from "@/components/ui/form-field";
 import { Pill } from "@/components/ui/pill";
 import { ErrorText, LoadingText } from "@/components/ui/status-text";
 import { ImagePicker } from "@/components/vendor/image-picker";
-
-type Category = { name: string; slug: string };
+import { CategoryOptions } from "@/components/category-options";
 
 type VendorProduct = {
   id: number;
@@ -62,7 +61,7 @@ export default function EditVendorProductPage() {
   useEffect(() => {
     async function loadCategories() {
       try {
-        setCategories(await apiFetch<Category[]>("/api/catalog/categories"));
+        setCategories(await listCategories());
       } catch {
         // non-fatal
       }
@@ -208,11 +207,7 @@ export default function EditVendorProductPage() {
               className={inputClassName}
             >
               <option value="">—</option>
-              {categories.map((cat) => (
-                <option key={cat.slug} value={cat.slug}>
-                  {cat.name}
-                </option>
-              ))}
+              <CategoryOptions categories={categories} />
             </select>
           </FormField>
           <ImagePicker

@@ -19,6 +19,8 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 
+from apps.accounts.urls import admin_urlpatterns as accounts_admin_urlpatterns
+from apps.catalog.urls import admin_urlpatterns as catalog_admin_urlpatterns
 from apps.catalog.urls import vendor_urlpatterns as catalog_vendor_urlpatterns
 from apps.delivery.urls import admin_urlpatterns as delivery_admin_urlpatterns
 from apps.delivery.urls import rider_urlpatterns
@@ -42,6 +44,8 @@ urlpatterns = [
     path("api/vendor/", include(feedback_vendor_urlpatterns)),
     path("api/vendor/", include(finance_vendor_urlpatterns)),
     path("api/catalog/", include("apps.catalog.urls")),
+    path("api/admin/", include(accounts_admin_urlpatterns)),
+    path("api/admin/", include(catalog_admin_urlpatterns)),
     path("api/admin/", include(vendor_admin_urlpatterns)),
     path("api/admin/", include(orders_admin_urlpatterns)),
     path("api/admin/", include(feedback_admin_urlpatterns)),

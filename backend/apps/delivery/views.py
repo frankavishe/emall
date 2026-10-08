@@ -5,9 +5,9 @@ from rest_framework import status
 from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 
 from apps.accounts.models import User
+from apps.accounts.services import blacklist_all_tokens
 from apps.core.pagination import LimitedPageNumberPagination
 from apps.core.permissions import IsAdministrator, IsRider
 from apps.delivery.serializers import (
@@ -32,12 +32,6 @@ def _riders():
             )
         )
     )
-
-
-def _blacklist_all_tokens(user):
-    """Logs the user out everywhere: their refresh tokens stop working immediately."""
-    for outstanding in OutstandingToken.objects.filter(user=user):
-        BlacklistedToken.objects.get_or_create(token=outstanding)
 
 
 class AdminRiderListCreateView(ListAPIView):
@@ -77,7 +71,7 @@ class AdminRiderDetailView(APIView):
             serializer.update(rider, serializer.validated_data)
             # Deactivation or a new password logs the rider out of every device.
             if (was_active and not rider.is_active) or "password" in serializer.validated_data:
-                _blacklist_all_tokens(rider)
+                blacklist_all_tokens(rider)
 
         return Response(AdminRiderSerializer(_riders().get(pk=rider.pk)).data)
 

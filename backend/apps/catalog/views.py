@@ -11,27 +11,102 @@ from rest_framework.views import APIView
 from apps.catalog.models import Category, Product
 from apps.catalog.permissions import IsApprovedShopOwnerForProduct, IsProductOwner
 from apps.catalog.serializers import (
+    AdminCategorySerializer,
+    AdminCategoryWriteSerializer,
     CatalogProductDetailSerializer,
     CatalogProductListSerializer,
     CatalogShopSerializer,
-    CategorySerializer,
+    CategoryConflict,
+    CategoryTreeSerializer,
     VendorProductListSerializer,
     VendorProductWriteSerializer,
 )
 from apps.core.pagination import LimitedPageNumberPagination
-from apps.core.permissions import IsVendor
+from apps.core.permissions import IsAdministrator, IsVendor
 from apps.vendors.models import Shop
 
 
 class CategoryListView(ListAPIView):
-    """Public, read-only (research.md §3: categories are Administrator-owned, no CRUD here).
-    Pulled forward from its original US3 phase — the US1 vendor create-product form needs a
-    category picker too, and there is no separate vendor-facing category list."""
+    """Public, read-only category tree: top-level categories with their subcategories. Serves
+    both the catalog filter and the vendor product form's category picker. Administrators manage
+    categories through AdminCategoryListCreateView."""
 
     permission_classes = [AllowAny]
     pagination_class = None
-    serializer_class = CategorySerializer
-    queryset = Category.objects.order_by("name")
+    serializer_class = CategoryTreeSerializer
+    queryset = (
+        Category.objects.filter(parent__isnull=True)
+        .prefetch_related(
+            models.Prefetch("children", queryset=Category.objects.order_by("name"))
+        )
+        .order_by("name")
+    )
+
+
+def _admin_categories():
+    return Category.objects.annotate(
+        product_count=models.Count(
+            "products", filter=models.Q(products__is_deleted=False), distinct=True
+        ),
+        all_product_count=models.Count("products", distinct=True),
+        child_count=models.Count("children", distinct=True),
+    )
+
+
+def _admin_category_tree_response():
+    categories = list(_admin_categories().order_by("name"))
+    children = {}
+    for category in categories:
+        if category.parent_id is not None:
+            children.setdefault(category.parent_id, []).append(category)
+    top_level = [c for c in categories if c.parent_id is None]
+    return Response(
+        AdminCategorySerializer(top_level, many=True, context={"children": children}).data
+    )
+
+
+def _admin_category_response(category_id, response_status=status.HTTP_200_OK):
+    category = _admin_categories().get(pk=category_id)
+    return Response(AdminCategorySerializer(category).data, status=response_status)
+
+
+class AdminCategoryListCreateView(APIView):
+    permission_classes = [IsAdministrator]
+
+    def get(self, request):
+        return _admin_category_tree_response()
+
+    def post(self, request):
+        serializer = AdminCategoryWriteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        category = serializer.save()
+        return _admin_category_response(category.pk, status.HTTP_201_CREATED)
+
+
+class AdminCategoryDetailView(APIView):
+    permission_classes = [IsAdministrator]
+
+    def patch(self, request, category_id):
+        category = get_object_or_404(Category, pk=category_id)
+        serializer = AdminCategoryWriteSerializer(category, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return _admin_category_response(category.pk)
+
+    def delete(self, request, category_id):
+        category = get_object_or_404(Category, pk=category_id)
+        if category.children.exists():
+            raise CategoryConflict(
+                f"{category.name} still has subcategories. Delete or move them first."
+            )
+        # Soft-deleted products still reference the category, so count them too.
+        if Product.all_objects.filter(category=category).exists():
+            raise CategoryConflict(
+                f"Products are listed under {category.name}. Move them to another category "
+                "first."
+            )
+        category.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class CatalogProductListView(ListAPIView):
@@ -63,7 +138,10 @@ class CatalogProductListView(ListAPIView):
             queryset = queryset.filter(shop_id=shop)
         category = params.get("category")
         if category:
-            queryset = queryset.filter(category__slug=category)
+            # A top-level category also matches products in its subcategories.
+            queryset = queryset.filter(
+                models.Q(category__slug=category) | models.Q(category__parent__slug=category)
+            )
         min_price = params.get("min_price")
         if min_price:
             queryset = queryset.filter(price__gte=min_price)

@@ -3,15 +3,15 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { hasRole, useAuth } from "@/lib/auth-context";
-import { apiFetch, ApiError } from "@/lib/api-client";
+import { apiFetch, ApiError, listCategories, type Category } from "@/lib/api-client";
 import { PageShell } from "@/components/ui/page-shell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FormField, inputClassName } from "@/components/ui/form-field";
 import { ErrorText, LoadingText } from "@/components/ui/status-text";
 import { ImagePicker } from "@/components/vendor/image-picker";
+import { CategoryOptions, firstPickableCategory } from "@/components/category-options";
 
-type Category = { name: string; slug: string };
 type VendorShop = { id: number; name: string; status: string };
 
 export default function NewVendorProductPage() {
@@ -41,9 +41,9 @@ export default function NewVendorProductPage() {
   useEffect(() => {
     async function loadCategories() {
       try {
-        const result = await apiFetch<Category[]>("/api/catalog/categories");
+        const result = await listCategories();
         setCategories(result);
-        if (result.length > 0) setCategory((prev) => prev || result[0].slug);
+        setCategory((prev) => prev || firstPickableCategory(result));
       } catch {
         // non-fatal — the form still works without a preselected category
       }
@@ -164,11 +164,7 @@ export default function NewVendorProductPage() {
               className={inputClassName}
             >
               <option value="">—</option>
-              {categories.map((cat) => (
-                <option key={cat.slug} value={cat.slug}>
-                  {cat.name}
-                </option>
-              ))}
+              <CategoryOptions categories={categories} />
             </select>
           </FormField>
           <ImagePicker files={images} onFilesChange={setImages} />

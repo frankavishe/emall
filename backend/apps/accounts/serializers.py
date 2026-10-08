@@ -126,3 +126,32 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
     def validate_new_password(self, value):
         validate_password(value)
         return value
+
+
+class AdminCustomerSerializer(serializers.ModelSerializer):
+    """Administrator view of a shopper account. `order_count`, `total_spent` and `shop_count`
+    come from annotations on the admin customer queryset (accounts.views._customers)."""
+
+    order_count = serializers.IntegerField(read_only=True)
+    total_spent = serializers.DecimalField(max_digits=12, decimal_places=2, read_only=True)
+    shop_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "name",
+            "email",
+            "is_vendor",
+            "is_email_verified",
+            "is_active",
+            "date_joined",
+            "order_count",
+            "total_spent",
+            "shop_count",
+        ]
+        read_only_fields = fields
+
+
+class AdminCustomerUpdateSerializer(serializers.Serializer):
+    is_active = serializers.BooleanField()

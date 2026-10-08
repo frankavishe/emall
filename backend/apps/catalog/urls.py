@@ -31,3 +31,12 @@ vendor_urlpatterns = [
         name="vendor-product-unpublish",
     ),
 ]
+
+admin_urlpatterns = [
+    path("categories", views.AdminCategoryListCreateView.as_view(), name="admin-categories"),
+    path(
+        "categories/<int:category_id>",
+        views.AdminCategoryDetailView.as_view(),
+        name="admin-category",
+    ),
+]

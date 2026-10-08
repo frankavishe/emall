@@ -139,8 +139,8 @@ def test_deactivated_rider_cannot_log_in_and_is_logged_out(api_client):
 
     # Their existing session's refresh token no longer works...
     assert rider_client.post("/api/auth/refresh").status_code == 401
-    # ...and they can't log in again.
-    assert _login(type(api_client)(), rider.email).status_code == 401
+    # ...and they can't log in again (told why, since they know the password).
+    assert _login(type(api_client)(), rider.email).status_code == 403
 
     # Reactivating lets them back in.
     api_client.patch(f"/api/admin/riders/{rider.id}", {"is_active": True}, format="json")

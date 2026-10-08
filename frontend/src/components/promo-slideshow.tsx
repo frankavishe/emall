@@ -50,14 +50,22 @@ function byRating(a: CatalogProduct, b: CatalogProduct): number {
   return ratingDiff !== 0 ? ratingDiff : b.review_count - a.review_count;
 }
 
-/** One slide per category that has products in the sample, busiest categories first. */
+/** One slide per top-level category that has products in the sample (subcategory products
+ * count toward their parent), busiest categories first. */
 export function buildSlides(categories: Category[], products: CatalogProduct[]): CategorySlide[] {
+  const topLevelSlug = new Map<string, string>();
+  for (const category of categories) {
+    topLevelSlug.set(category.slug, category.slug);
+    for (const child of category.children ?? []) topLevelSlug.set(child.slug, category.slug);
+  }
+
   const bySlug = new Map<string, CatalogProduct[]>();
   for (const product of products) {
-    if (!product.category) continue;
-    const group = bySlug.get(product.category) ?? [];
+    const slug = product.category && topLevelSlug.get(product.category);
+    if (!slug) continue;
+    const group = bySlug.get(slug) ?? [];
     group.push(product);
-    bySlug.set(product.category, group);
+    bySlug.set(slug, group);
   }
 
   return categories
