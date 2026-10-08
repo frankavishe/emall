@@ -54,6 +54,19 @@ describe("buildSlides", () => {
     expect(beauty.products.map((p) => p.id)).toEqual([3, 2]);
   });
 
+  it("counts subcategory products toward their top-level category", () => {
+    const categories: Category[] = [
+      { name: "Electronics", slug: "electronics", children: [{ name: "Phones", slug: "phones" }] },
+    ];
+    const products = [
+      product({ id: 1, category: "phones" }),
+      product({ id: 2, category: "electronics" }),
+    ];
+    const [slide] = buildSlides(categories, products);
+    expect(slide.category.slug).toBe("electronics");
+    expect(slide.productCount).toBe(2);
+  });
+
   it("caps the number of slides at 5", () => {
     const categories = Array.from({ length: 7 }, (_, i) => ({ name: `C${i}`, slug: `c${i}` }));
     const products = categories.map((c, i) => product({ id: i, category: c.slug }));

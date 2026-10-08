@@ -9,20 +9,29 @@ tokens are set *exclusively* as an httpOnly/Secure/SameSite cookie, never in a J
 from django.conf import settings
 from django.contrib.auth import authenticate
 from django.db import transaction
+from django.db.models import Count, DecimalField, F, OuterRef, Q, Subquery, Sum, Value
+from django.db.models.functions import Coalesce
+from django.shortcuts import get_object_or_404
 from rest_framework import status
+from rest_framework.generics import ListAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
-from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from apps.core.pagination import LimitedPageNumberPagination
+from apps.core.permissions import IsAdministrator
+from apps.orders.models import Order, OrderItem
+from apps.vendors.models import Shop
 from apps.vendors.serializers import ShopBriefSerializer
 
 from .models import EmailVerificationToken, PasswordResetToken, User
 from .serializers import (
+    AdminCustomerSerializer,
+    AdminCustomerUpdateSerializer,
     LoginSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
@@ -31,7 +40,15 @@ from .serializers import (
     UserProfileSerializer,
     VerifyEmailConfirmSerializer,
 )
-from .services import check_otp, issue_password_reset_token, issue_verification_token
+from .services import (
+    blacklist_all_tokens,
+    check_otp,
+    issue_password_reset_token,
+    issue_verification_token,
+)
+
+
+BLOCKED_ACCOUNT_DETAIL = "This account has been blocked. Contact support."
 
 
 class TokenResponseMixin:
@@ -132,6 +149,13 @@ class LoginView(TokenResponseMixin, APIView):
 
         user = authenticate(request, username=email, password=password)
         if user is None:
+            # ModelBackend refuses inactive accounts. Only someone who knows the password learns
+            # the account is blocked; everyone else gets the same generic message.
+            blocked = User.objects.filter(email=email, is_active=False).first()
+            if blocked is not None and blocked.check_password(password):
+                return Response(
+                    {"detail": BLOCKED_ACCOUNT_DETAIL}, status=status.HTTP_403_FORBIDDEN
+                )
             return Response(
                 {"detail": "Invalid email or password."}, status=status.HTTP_401_UNAUTHORIZED
             )
@@ -272,9 +296,104 @@ class PasswordResetConfirmView(APIView):
             user.set_password(new_password)
             user.save(update_fields=["password"])
 
-            for outstanding in OutstandingToken.objects.filter(user=user):
-                BlacklistedToken.objects.get_or_create(token=outstanding)
+            blacklist_all_tokens(user)
 
         return Response(
             {"detail": "Password updated. Please log in again."}, status=status.HTTP_200_OK
         )
+
+
+def _customers():
+    """Shopper accounts (vendors included — they're customers with `is_vendor`); never
+    administrators or riders. Totals use subqueries so the order and shop joins can't multiply
+    each other's rows."""
+    money = DecimalField(max_digits=12, decimal_places=2)
+    spent = (
+        OrderItem.objects.filter(order__customer=OuterRef("pk"))
+        .values("order__customer")
+        .annotate(total=Sum(F("unit_price") * F("quantity"), output_field=money))
+        .values("total")
+    )
+    shops = (
+        Shop.objects.filter(owner=OuterRef("pk"))
+        .values("owner")
+        .annotate(count=Count("id"))
+        .values("count")
+    )
+    return User.objects.filter(role=User.Role.CUSTOMER).annotate(
+        order_count=Count("orders", distinct=True),
+        total_spent=Coalesce(Subquery(spent, output_field=money), Value(0, output_field=money)),
+        shop_count=Coalesce(Subquery(shops), Value(0)),
+    )
+
+
+def _recent_orders(user, limit=5):
+    orders = (
+        Order.objects.filter(customer=user)
+        .annotate(
+            item_count=Count("items"),
+            order_total=Sum(
+                F("items__unit_price") * F("items__quantity"),
+                output_field=DecimalField(max_digits=12, decimal_places=2),
+            ),
+        )
+        .order_by("-placed_at")[:limit]
+    )
+    return [
+        {
+            "id": order.id,
+            "placed_at": order.placed_at,
+            "item_count": order.item_count,
+            "total": f"{order.order_total or 0:.2f}",
+        }
+        for order in orders
+    ]
+
+
+class AdminCustomerListView(ListAPIView):
+    permission_classes = [IsAdministrator]
+    serializer_class = AdminCustomerSerializer
+    pagination_class = LimitedPageNumberPagination
+
+    def get_queryset(self):
+        queryset = _customers().order_by("-date_joined", "-id")
+        params = self.request.query_params
+        q = params.get("q", "").strip()
+        if q:
+            queryset = queryset.filter(Q(name__icontains=q) | Q(email__icontains=q))
+        is_active = params.get("is_active")
+        if is_active in ("true", "false"):
+            queryset = queryset.filter(is_active=is_active == "true")
+        return queryset
+
+
+class AdminCustomerDetailView(APIView):
+    """Scoped to customer accounts, so an administrator or rider ID 404s here — riders are
+    deactivated from the riders screen, and admins can't block each other."""
+
+    permission_classes = [IsAdministrator]
+
+    def _response(self, customer_id):
+        customer = get_object_or_404(_customers(), pk=customer_id)
+        data = AdminCustomerSerializer(customer).data
+        data["recent_orders"] = _recent_orders(customer)
+        return Response(data)
+
+    def get(self, request, customer_id):
+        return self._response(customer_id)
+
+    def patch(self, request, customer_id):
+        customer = get_object_or_404(User, pk=customer_id, role=User.Role.CUSTOMER)
+        serializer = AdminCustomerUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        is_active = serializer.validated_data["is_active"]
+
+        with transaction.atomic():
+            if customer.is_active != is_active:
+                customer.is_active = is_active
+                customer.save(update_fields=["is_active"])
+            # Blocking logs the customer out of every device.
+            if not is_active:
+                blacklist_all_tokens(customer)
+
+        return self._response(customer_id)

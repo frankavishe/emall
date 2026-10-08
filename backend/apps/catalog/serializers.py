@@ -1,6 +1,7 @@
 from django.db.models import Avg, Count, Max
-from rest_framework import serializers
-from rest_framework.exceptions import PermissionDenied
+from django.utils.text import slugify
+from rest_framework import serializers, status
+from rest_framework.exceptions import APIException, PermissionDenied
 
 from apps.catalog.models import Category, Product, ProductImage
 from apps.feedback.serializers import ReviewDisplaySerializer
@@ -20,10 +21,123 @@ class ReviewAggregateMixin:
 
 
 class CategorySerializer(serializers.ModelSerializer):
+    parent = serializers.SlugRelatedField(slug_field="slug", read_only=True)
+
     class Meta:
         model = Category
-        fields = ["name", "slug"]
+        fields = ["name", "slug", "parent"]
         read_only_fields = fields
+
+
+class CategoryTreeSerializer(serializers.ModelSerializer):
+    """Public category list: top-level categories, each with its subcategories."""
+
+    children = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Category
+        fields = ["name", "slug", "children"]
+        read_only_fields = fields
+
+    def get_children(self, obj):
+        return [{"name": c.name, "slug": c.slug} for c in obj.children.all()]
+
+
+class CategoryConflict(APIException):
+    status_code = status.HTTP_409_CONFLICT
+    default_detail = "This change conflicts with existing categories or products."
+    default_code = "conflict"
+
+
+class AdminCategorySerializer(serializers.ModelSerializer):
+    """`product_count` counts live products; `can_delete` also accounts for soft-deleted ones,
+    which still reference the category (Product.category is PROTECT). Both come from
+    annotations on catalog.views._admin_categories()."""
+
+    parent = serializers.PrimaryKeyRelatedField(read_only=True)
+    product_count = serializers.IntegerField(read_only=True)
+    can_delete = serializers.SerializerMethodField()
+    children = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Category
+        fields = ["id", "name", "slug", "parent", "product_count", "can_delete", "children"]
+        read_only_fields = fields
+
+    def get_can_delete(self, obj):
+        return obj.all_product_count == 0 and obj.child_count == 0
+
+    def get_children(self, obj):
+        children = self.context.get("children", {}).get(obj.id, [])
+        return AdminCategorySerializer(children, many=True, context=self.context).data
+
+
+def unique_category_slug(name, parent):
+    base = slugify(name) or "category"
+    if Category.objects.filter(slug=base).exists() and parent is not None:
+        base = f"{parent.slug}-{base}"
+    slug, n = base, 2
+    while Category.objects.filter(slug=slug).exists():
+        slug = f"{base}-{n}"
+        n += 1
+    return slug
+
+
+class AdminCategoryWriteSerializer(serializers.ModelSerializer):
+    """Create/rename/move. The slug is generated once on create and kept on rename, so existing
+    catalog links keep working."""
+
+    name = serializers.CharField(max_length=100)
+    parent = serializers.PrimaryKeyRelatedField(
+        queryset=Category.objects.all(), allow_null=True, required=False
+    )
+
+    class Meta:
+        model = Category
+        fields = ["name", "parent"]
+
+    def validate_name(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError("Enter a category name.")
+        return value
+
+    def validate(self, attrs):
+        instance = self.instance
+        name = attrs.get("name", getattr(instance, "name", None))
+        parent = attrs["parent"] if "parent" in attrs else getattr(instance, "parent", None)
+
+        if parent is not None:
+            if instance is not None and parent.pk == instance.pk:
+                raise serializers.ValidationError({"parent": "A category can't be its own parent."})
+            if parent.parent_id is not None:
+                raise serializers.ValidationError(
+                    {"parent": "Subcategories can't have subcategories of their own."}
+                )
+            if instance is not None and instance.children.exists():
+                raise serializers.ValidationError(
+                    {"parent": f"{instance.name} has subcategories, so it must stay top-level."}
+                )
+            gains_child = instance is None or instance.parent_id != parent.pk
+            if gains_child and Product.all_objects.filter(category=parent).exists():
+                raise CategoryConflict(
+                    f"Products are listed directly under {parent.name}. Move them to another "
+                    "category before adding subcategories to it."
+                )
+
+        siblings = Category.objects.filter(parent=parent, name__iexact=name)
+        if instance is not None:
+            siblings = siblings.exclude(pk=instance.pk)
+        if siblings.exists():
+            where = f"under {parent.name}" if parent else "at the top level"
+            raise serializers.ValidationError({"name": f"A category named {name} already exists {where}."})
+        return attrs
+
+    def create(self, validated_data):
+        validated_data["slug"] = unique_category_slug(
+            validated_data["name"], validated_data.get("parent")
+        )
+        return super().create(validated_data)
 
 
 class ProductImageReadSerializer(serializers.ModelSerializer):
@@ -84,6 +198,11 @@ class VendorProductWriteSerializer(serializers.ModelSerializer):
             "price": {"required": False, "allow_null": True},
             "stock_quantity": {"required": False, "allow_null": True},
         }
+
+    def validate_category(self, value):
+        if value is not None and value.children.exists():
+            raise serializers.ValidationError(f"Choose a subcategory of {value.name}.")
+        return value
 
     def validate_price(self, value):
         if value is not None and value < 0:

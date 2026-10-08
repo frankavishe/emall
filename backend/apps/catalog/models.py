@@ -4,17 +4,37 @@ from apps.core.uploads import UniqueUploadTo
 
 
 class Category(models.Model):
-    """Global, Administrator-owned classification list (spec.md Assumptions). This feature only
-    reads/seeds it — no CRUD endpoint exists here.
+    """Global, Administrator-owned classification list, two levels deep: top-level categories
+    (`parent` is null) and their subcategories. Managed through `/api/admin/categories`.
+    Vendors list a product under a subcategory, or directly under a top-level category only
+    while it has no subcategories (VendorProductWriteSerializer.validate_category).
     """
 
-    name = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=100)
+    # Globally unique (not per parent): public catalog filters address a category by slug alone.
     slug = models.SlugField(unique=True)
+    parent = models.ForeignKey(
+        "self", on_delete=models.PROTECT, related_name="children", null=True, blank=True
+    )
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
 
     class Meta:
         verbose_name_plural = "categories"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["parent", "name"], name="unique_category_name_per_parent"
+            ),
+            # NULLs are distinct in the constraint above, so top-level names need their own.
+            models.UniqueConstraint(
+                fields=["name"],
+                condition=models.Q(parent__isnull=True),
+                name="unique_top_level_category_name",
+            ),
+        ]
 
     def __str__(self):
+        if self.parent_id:
+            return f"{self.parent.name} › {self.name}"
         return self.name
 
 

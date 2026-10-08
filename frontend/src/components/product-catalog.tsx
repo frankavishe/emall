@@ -9,6 +9,7 @@ import {
   type Category,
 } from "@/lib/api-client";
 import { ProductCard } from "@/components/product-card";
+import { CategoryOptions } from "@/components/category-options";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FormField, inputClassName } from "@/components/ui/form-field";
@@ -99,11 +100,7 @@ export function ProductCatalog({ initialCategory = "" }: { initialCategory?: str
             className={inputClassName}
           >
             <option value="">All categories</option>
-            {categories.map((c) => (
-              <option key={c.slug} value={c.slug}>
-                {c.name}
-              </option>
-            ))}
+            <CategoryOptions categories={categories} selectableParents />
           </select>
         </FormField>
         <FormField label="Min price">

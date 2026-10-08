@@ -30,3 +30,12 @@ urlpatterns = [
         name="password-reset-confirm",
     ),
 ]
+
+admin_urlpatterns = [
+    path("customers", views.AdminCustomerListView.as_view(), name="admin-customers"),
+    path(
+        "customers/<int:customer_id>",
+        views.AdminCustomerDetailView.as_view(),
+        name="admin-customer",
+    ),
+]

@@ -12,6 +12,7 @@ import secrets
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 
 from apps.core.email import get_email_service
 
@@ -78,3 +79,9 @@ def check_otp(token_model, user, code):
             token.used_at = timezone.now()
         token.save(update_fields=["attempts", "used_at"])
         return matched
+
+
+def blacklist_all_tokens(user):
+    """Logs the user out everywhere: their refresh tokens stop working immediately."""
+    for outstanding in OutstandingToken.objects.filter(user=user):
+        BlacklistedToken.objects.get_or_create(token=outstanding)
