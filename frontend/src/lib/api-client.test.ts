@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, beforeEach, vi } from "vitest";
-import { ApiError, getAccessToken, refreshAccessToken, setAccessToken } from "./api-client";
+import {
+  ApiError,
+  apiFetch,
+  getAccessToken,
+  refreshAccessToken,
+  setAccessToken,
+} from "./api-client";
 
 describe("ApiError", () => {
   it("extracts the detail message from a DRF-style error body", () => {
@@ -70,5 +76,57 @@ describe("refreshAccessToken", () => {
 
     await expect(refreshAccessToken()).resolves.toBeNull();
     expect(getAccessToken()).toBeNull();
+  });
+
+  it("does not clear a token set while a failing refresh was in flight", async () => {
+    setAccessToken("stale");
+    let settle!: (response: Response) => void;
+    fetchMock.mockReturnValue(new Promise<Response>((resolve) => (settle = resolve)));
+
+    const pending = refreshAccessToken();
+    setAccessToken("from-login");
+    settle(new Response(null, { status: 401 }));
+
+    await expect(pending).resolves.toBeNull();
+    expect(getAccessToken()).toBe("from-login");
+  });
+});
+
+describe("concurrent 401s", () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    vi.stubGlobal("fetch", fetchMock);
+  });
+
+  afterEach(() => {
+    fetchMock.mockReset();
+    vi.unstubAllGlobals();
+    setAccessToken(null);
+  });
+
+  it("share a single refresh and both retry with the new token", async () => {
+    setAccessToken("expired");
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url.endsWith("/api/auth/refresh")) {
+        // A second refresh with the now-rotated cookie would be rejected by the backend.
+        const refreshes = fetchMock.mock.calls.filter(([u]) => String(u).endsWith("/refresh"));
+        return refreshes.length === 1
+          ? new Response(JSON.stringify({ access: "fresh" }), { status: 200 })
+          : new Response(null, { status: 401 });
+      }
+      const auth = new Headers(init?.headers).get("Authorization");
+      return auth === "Bearer fresh"
+        ? new Response(JSON.stringify({ ok: url }), { status: 200 })
+        : new Response(null, { status: 401 });
+    });
+
+    const [a, b] = await Promise.all([apiFetch("/api/a"), apiFetch("/api/b")]);
+
+    expect(a).toEqual({ ok: expect.stringContaining("/api/a") });
+    expect(b).toEqual({ ok: expect.stringContaining("/api/b") });
+    expect(getAccessToken()).toBe("fresh");
+    const refreshCalls = fetchMock.mock.calls.filter(([u]) => String(u).endsWith("/refresh"));
+    expect(refreshCalls).toHaveLength(1);
   });
 });

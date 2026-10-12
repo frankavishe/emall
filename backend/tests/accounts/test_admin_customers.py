@@ -142,6 +142,20 @@ def test_block_logs_customer_out_and_unblock_restores_login(api_client, admin):
     assert _login(type(api_client)(), customer.email).status_code == 200
 
 
+def test_block_kills_a_session_that_has_already_rotated(api_client, admin):
+    customer = UserFactory()
+    customer_client = type(api_client)()
+    assert _login(customer_client, customer.email).status_code == 200
+    assert customer_client.post("/api/auth/refresh").status_code == 200
+
+    response = api_client.patch(
+        f"/api/admin/customers/{customer.id}", {"is_active": False}, format="json"
+    )
+    assert response.status_code == 200
+
+    assert customer_client.post("/api/auth/refresh").status_code == 401
+
+
 def test_cannot_block_riders_or_admins_here(api_client, admin):
     rider = RiderFactory()
     other_admin = UserFactory(role=User.Role.ADMINISTRATOR)

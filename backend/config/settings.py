@@ -172,7 +172,19 @@ REST_FRAMEWORK = {
         "password_reset": "5/min",
         "verify_email": "5/min",
         "otp_confirm": "10/min",
+        # Vendor registration checks an existing customer's password, so it is a login too.
+        "register": "5/min",
     },
+}
+
+# Throttle counters live here. A database cache is shared by every gunicorn worker and survives
+# restarts; the per-process default would multiply each limit by the worker count. The table is
+# created by `manage.py createcachetable` (docker-compose command; the test runner does it itself).
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "django_cache",
+    }
 }
 
 # --- Payouts to shop owners ----------------------------------------------

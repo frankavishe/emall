@@ -82,6 +82,8 @@ class TokenResponseMixin:
 
 class RegisterCustomerView(TokenResponseMixin, APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "register"
 
     def post(self, request):
         serializer = RegisterCustomerSerializer(data=request.data)
@@ -105,6 +107,8 @@ class RegisterCustomerView(TokenResponseMixin, APIView):
 
 class RegisterVendorView(TokenResponseMixin, APIView):
     permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "register"
 
     def post(self, request):
         serializer = RegisterVendorSerializer(data=request.data, context={"request": request})
@@ -169,7 +173,8 @@ class LoginView(TokenResponseMixin, APIView):
 
 
 class LogoutView(TokenResponseMixin, APIView):
-    permission_classes = [IsAuthenticated]
+    # Acts only on the refresh cookie, so it works even after the access token is gone.
+    permission_classes = [AllowAny]
 
     def post(self, request):
         raw_refresh = self.get_refresh_token_from_cookie(request)

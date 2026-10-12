@@ -63,6 +63,20 @@ def test_password_reset_confirm_valid_code_sets_new_password_and_blacklists_sess
     assert new_password_login.status_code == 200
 
 
+def test_password_reset_confirm_kills_a_session_that_has_already_rotated(api_client):
+    """The frontend refreshes on every page load, so a live session almost never holds the
+    login-issued refresh token. A rotated one must die on reset too."""
+    user = UserFactory(email="ama@example.com", password="a-strong-password-1")
+    assert _login(api_client, user).status_code == 200
+    assert api_client.post("/api/auth/refresh").status_code == 200
+
+    _make_code(user)
+    assert _confirm(type(api_client)(), user.email).status_code == 200
+
+    # api_client now holds the rotated refresh cookie.
+    assert api_client.post("/api/auth/refresh").status_code == 401
+
+
 def test_password_reset_confirm_code_cannot_be_reused(api_client):
     user = UserFactory(email="ama@example.com", password="a-strong-password-1")
     _make_code(user)

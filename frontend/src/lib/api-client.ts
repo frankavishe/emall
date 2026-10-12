@@ -75,13 +75,26 @@ function buildRequestInit(options: RequestInit): RequestInit {
   return { ...options, headers, credentials: "include" };
 }
 
+// The refresh in flight, shared by every caller. The backend rotates the refresh cookie and
+// blacklists the old one, so a second concurrent refresh sending that same cookie would be
+// rejected and wipe the token the first one just obtained.
+let refreshInFlight: Promise<string | null> | null = null;
+
 /**
  * Calls `/api/auth/refresh`; on success updates the in-memory access token and returns it.
- * Returns null without throwing when the API is unreachable, so an outage reads as "no session"
- * instead of an unhandled rejection. The current token is kept in that case — only an actual
- * non-OK response from the API clears it.
+ * Concurrent calls share one request. Returns null without throwing when the API is
+ * unreachable, so an outage reads as "no session" instead of an unhandled rejection. The
+ * current token is kept in that case — only an actual non-OK response from the API clears it.
  */
-export async function refreshAccessToken(): Promise<string | null> {
+export function refreshAccessToken(): Promise<string | null> {
+  refreshInFlight ??= doRefresh().finally(() => {
+    refreshInFlight = null;
+  });
+  return refreshInFlight;
+}
+
+async function doRefresh(): Promise<string | null> {
+  const tokenBefore = accessToken;
   let response: Response;
   try {
     response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
@@ -92,7 +105,8 @@ export async function refreshAccessToken(): Promise<string | null> {
     return null;
   }
   if (!response.ok) {
-    setAccessToken(null);
+    // Leave a token set meanwhile (e.g. by a login) alone; only the one that failed goes.
+    if (accessToken === tokenBefore) setAccessToken(null);
     return null;
   }
   const body = (await parseBody(response)) as { access?: string } | null;
