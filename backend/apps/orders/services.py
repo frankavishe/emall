@@ -12,8 +12,9 @@ from apps.accounts.models import User
 from apps.cart.models import CartItem
 from apps.catalog.models import Product
 from apps.core.email import get_email_service
+from apps.delivery.pricing import DeliveryError, quote_delivery
 from apps.finance.services import split_line
-from apps.orders.models import Order, OrderItem, OrderItemStatusEvent
+from apps.orders.models import Order, OrderDelivery, OrderItem, OrderItemStatusEvent
 from apps.payments.models import PaymentRecord
 from apps.payments.services import get_payment_service
 
@@ -121,6 +122,36 @@ def assign_rider(*, order_item, rider):
     return order_item
 
 
+def _delivery_legs(cart_items, latitude, longitude):
+    try:
+        return quote_delivery([item.product.shop for item in cart_items], latitude, longitude)
+    except DeliveryError as error:
+        raise CheckoutError(error.code, error.detail) from error
+
+
+def quote_cart_delivery(*, customer, latitude, longitude):
+    """The delivery quote shown at checkout (007-delivery-fee). Advisory only: `place_order()`
+    recomputes it from current data when the order is actually placed."""
+
+    cart_items = list(
+        CartItem.objects.select_related("product__shop")
+        .filter(cart__customer=customer)
+        .order_by("product_id")
+    )
+    if not cart_items:
+        raise CheckoutError("empty_cart", "Your cart is empty.")
+
+    legs = _delivery_legs(cart_items, latitude, longitude)
+    items_subtotal = sum((item.subtotal for item in cart_items), Decimal("0.00"))
+    delivery_fee = sum((leg.fee for leg in legs), Decimal("0.00"))
+    return {
+        "legs": legs,
+        "items_subtotal": items_subtotal,
+        "delivery_fee": delivery_fee,
+        "total": items_subtotal + delivery_fee,
+    }
+
+
 def place_order(*, customer, shipping_data, payment_method):
     with transaction.atomic():
         cart_items = list(
@@ -156,13 +187,25 @@ def place_order(*, customer, shipping_data, payment_method):
                 lines=unavailable,
             )
 
-        total = sum((item.subtotal for item in cart_items), Decimal("0.00"))
+        # Delivery is mandatory and always priced here from current shop locations and
+        # settings, never from a client-sent fee (007-delivery-fee FR-010).
+        legs = _delivery_legs(cart_items, shipping_data["latitude"], shipping_data["longitude"])
+        delivery_fee = sum((leg.fee for leg in legs), Decimal("0.00"))
+        items_subtotal = sum((item.subtotal for item in cart_items), Decimal("0.00"))
+        total = items_subtotal + delivery_fee
         payment_result = get_payment_service().charge(amount=total, method=payment_method)
         if not payment_result.success:
             raise CheckoutError("payment_failed", "Payment was declined.")
 
         order = Order.objects.create(
-            customer=customer, status=Order.Status.PLACED, **shipping_data
+            customer=customer,
+            status=Order.Status.PLACED,
+            delivery_fee=delivery_fee,
+            **shipping_data,
+        )
+        OrderDelivery.objects.bulk_create(
+            OrderDelivery(order=order, shop=leg.shop, distance_km=leg.distance_km, fee=leg.fee)
+            for leg in legs
         )
         # The customer pays the mall; each line freezes the mall's commission and what the mall
         # owes the shop, at the shop's commission rate as of now.

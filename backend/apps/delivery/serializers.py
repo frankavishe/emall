@@ -135,7 +135,13 @@ class RiderDeliverySerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_pickup(self, obj):
-        return {"shop_name": obj.product.shop.name}
+        shop = obj.product.shop
+        return {
+            "shop_name": shop.name,
+            "address": shop.location_address,
+            "latitude": None if shop.latitude is None else str(shop.latitude),
+            "longitude": None if shop.longitude is None else str(shop.longitude),
+        }
 
     def get_dropoff(self, obj):
         return VendorOrderItemShippingSerializer(obj.order).data

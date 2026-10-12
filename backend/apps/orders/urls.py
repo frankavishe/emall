@@ -4,6 +4,11 @@ from . import views
 
 checkout_urlpatterns = [
     path("checkout", views.CheckoutView.as_view(), name="checkout"),
+    path(
+        "checkout/delivery-quote",
+        views.DeliveryQuoteView.as_view(),
+        name="checkout-delivery-quote",
+    ),
 ]
 
 urlpatterns = [

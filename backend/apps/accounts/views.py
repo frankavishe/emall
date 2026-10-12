@@ -26,7 +26,7 @@ from apps.core.pagination import LimitedPageNumberPagination
 from apps.core.permissions import IsAdministrator
 from apps.orders.models import Order, OrderItem
 from apps.vendors.models import Shop
-from apps.vendors.serializers import ShopBriefSerializer
+from apps.vendors.serializers import OwnShopBriefSerializer
 
 from .models import EmailVerificationToken, PasswordResetToken, User
 from .serializers import (
@@ -125,7 +125,7 @@ class RegisterVendorView(TokenResponseMixin, APIView):
             {
                 "access": access,
                 "user": UserProfileSerializer(user).data,
-                "shops": ShopBriefSerializer(
+                "shops": OwnShopBriefSerializer(
                     user.shops.all(), many=True, context={"request": request}
                 ).data,
             },
@@ -212,7 +212,7 @@ class MeView(APIView):
     def get(self, request):
         data = UserProfileSerializer(request.user).data
         if request.user.has_role(User.Role.VENDOR):
-            data["shops"] = ShopBriefSerializer(
+            data["shops"] = OwnShopBriefSerializer(
                 request.user.shops.all(), many=True, context={"request": request}
             ).data
         return Response(data)
@@ -313,6 +313,12 @@ def _customers():
         .annotate(total=Sum(F("unit_price") * F("quantity"), output_field=money))
         .values("total")
     )
+    delivery = (
+        Order.objects.filter(customer=OuterRef("pk"))
+        .values("customer")
+        .annotate(total=Sum("delivery_fee", output_field=money))
+        .values("total")
+    )
     shops = (
         Shop.objects.filter(owner=OuterRef("pk"))
         .values("owner")
@@ -321,7 +327,8 @@ def _customers():
     )
     return User.objects.filter(role=User.Role.CUSTOMER).annotate(
         order_count=Count("orders", distinct=True),
-        total_spent=Coalesce(Subquery(spent, output_field=money), Value(0, output_field=money)),
+        total_spent=Coalesce(Subquery(spent, output_field=money), Value(0, output_field=money))
+        + Coalesce(Subquery(delivery, output_field=money), Value(0, output_field=money)),
         shop_count=Coalesce(Subquery(shops), Value(0)),
     )
 
@@ -343,7 +350,7 @@ def _recent_orders(user, limit=5):
             "id": order.id,
             "placed_at": order.placed_at,
             "item_count": order.item_count,
-            "total": f"{order.order_total or 0:.2f}",
+            "total": f"{(order.order_total or 0) + order.delivery_fee:.2f}",
         }
         for order in orders
     ]

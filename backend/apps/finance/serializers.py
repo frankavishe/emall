@@ -5,6 +5,7 @@ from rest_framework import serializers
 from apps.catalog.models import Product
 from apps.finance.models import Payout, PlatformSettings
 from apps.orders.models import Order, OrderItem
+from apps.orders.serializers import OrderDeliverySerializer, OrderTotalsMixin
 from apps.payments.models import PaymentRecord
 from apps.vendors.models import Shop
 from apps.vendors.serializers import ShopLogoUrlMixin
@@ -27,6 +28,7 @@ class PlatformSummarySerializer(BalanceFiguresSerializer):
     order_count = serializers.IntegerField(read_only=True)
     line_count = serializers.IntegerField(read_only=True)
     default_commission_rate = serializers.DecimalField(**_RATE, read_only=True)
+    delivery_revenue = serializers.DecimalField(**_MONEY)
 
 
 class DateRangeSerializer(serializers.Serializer):
@@ -35,14 +37,36 @@ class DateRangeSerializer(serializers.Serializer):
     date_to = serializers.DateField(required=False)
 
 
+_FEE = {"max_digits": 10, "decimal_places": 2, "min_value": Decimal("0")}
+
+
 class PlatformSettingsSerializer(serializers.ModelSerializer):
+    """Mall-wide settings. PATCH accepts any subset of the editable fields."""
+
     default_commission_rate = serializers.DecimalField(
         **_RATE, min_value=Decimal("0"), max_value=Decimal("100")
+    )
+    delivery_base_fee = serializers.DecimalField(**_FEE)
+    delivery_per_km_fee = serializers.DecimalField(**_FEE)
+    delivery_min_fee = serializers.DecimalField(**_FEE)
+    delivery_max_distance_km = serializers.DecimalField(
+        max_digits=7, decimal_places=2, min_value=Decimal("0.01")
+    )
+    delivery_road_factor = serializers.DecimalField(
+        max_digits=4, decimal_places=2, min_value=Decimal("1")
     )
 
     class Meta:
         model = PlatformSettings
-        fields = ["default_commission_rate", "updated_at"]
+        fields = [
+            "default_commission_rate",
+            "delivery_base_fee",
+            "delivery_per_km_fee",
+            "delivery_min_fee",
+            "delivery_max_distance_km",
+            "delivery_road_factor",
+            "updated_at",
+        ]
         read_only_fields = ["updated_at"]
 
 
@@ -108,6 +132,9 @@ class AdminShopDetailSerializer(ShopLogoUrlMixin, serializers.ModelSerializer):
             "payout_network",
             "payout_phone",
             "payout_account_name",
+            "latitude",
+            "longitude",
+            "location_address",
             "product_count",
             "published_product_count",
             "balance",
@@ -228,11 +255,11 @@ class AdminOrderLineSerializer(PayoutLineSerializer):
         return {"id": obj.payout.id, "status": obj.payout.status}
 
 
-class AdminOrderDetailSerializer(serializers.ModelSerializer):
+class AdminOrderDetailSerializer(OrderTotalsMixin, serializers.ModelSerializer):
     customer = serializers.SerializerMethodField()
     payment = serializers.SerializerMethodField()
     items = AdminOrderLineSerializer(many=True, read_only=True)
-    total = serializers.SerializerMethodField()
+    deliveries = OrderDeliverySerializer(many=True, read_only=True)
     commission_total = serializers.SerializerMethodField()
 
     class Meta:
@@ -249,10 +276,15 @@ class AdminOrderDetailSerializer(serializers.ModelSerializer):
             "postal_code",
             "country",
             "phone",
+            "latitude",
+            "longitude",
+            "items_subtotal",
+            "delivery_fee",
             "total",
             "commission_total",
             "payment",
             "items",
+            "deliveries",
         ]
         read_only_fields = fields
 
@@ -270,9 +302,6 @@ class AdminOrderDetailSerializer(serializers.ModelSerializer):
             "transaction_reference": payment.transaction_reference,
             "created_at": payment.created_at,
         }
-
-    def get_total(self, obj):
-        return str(sum((item.subtotal for item in obj.items.all()), Decimal("0.00")))
 
     def get_commission_total(self, obj):
         return str(sum((item.commission_amount for item in obj.items.all()), Decimal("0.00")))

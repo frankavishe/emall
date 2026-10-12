@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 import factory
 from factory.django import DjangoModelFactory
 
@@ -52,6 +54,10 @@ class ShopFactory(DjangoModelFactory):
     owner = factory.SubFactory(UserFactory, role=User.Role.VENDOR)
     name = factory.Sequence(lambda n: f"Shop {n}")
     status = Shop.Status.PENDING
+    # Dar es Salaam city centre — the same point as tests' default delivery pin, so the default
+    # delivery fee is the minimum fee.
+    latitude = Decimal("-6.792400")
+    longitude = Decimal("39.208300")
 
 
 class CategoryFactory(DjangoModelFactory):

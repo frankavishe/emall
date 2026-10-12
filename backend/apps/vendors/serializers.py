@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from rest_framework import serializers
 
 from apps.vendors.models import Shop
@@ -27,6 +29,14 @@ class ShopBriefSerializer(ShopLogoUrlMixin, serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class OwnShopBriefSerializer(ShopBriefSerializer):
+    """`ShopBriefSerializer` plus what only the shop's owner sees: its pickup location."""
+
+    class Meta(ShopBriefSerializer.Meta):
+        fields = [*ShopBriefSerializer.Meta.fields, "latitude", "longitude", "location_address"]
+        read_only_fields = fields
+
+
 class ShopSerializer(ShopLogoUrlMixin, serializers.ModelSerializer):
     logo_url = serializers.SerializerMethodField()
 
@@ -41,6 +51,9 @@ class ShopSerializer(ShopLogoUrlMixin, serializers.ModelSerializer):
             "logo_url",
             "primary_color",
             "accent_color",
+            "latitude",
+            "longitude",
+            "location_address",
         ]
         read_only_fields = [
             "id",
@@ -49,6 +62,9 @@ class ShopSerializer(ShopLogoUrlMixin, serializers.ModelSerializer):
             "created_at",
             "primary_color",
             "accent_color",
+            "latitude",
+            "longitude",
+            "location_address",
         ]
 
     def validate_name(self, value):
@@ -83,6 +99,24 @@ class ShopThemeSerializer(serializers.ModelSerializer):
 
     def validate_accent_color(self, value):
         return value.lower()
+
+
+class ShopLocationSerializer(serializers.ModelSerializer):
+    """A shop's pickup location (007-delivery-fee): a map pin plus a typed address. Delivery fees
+    are measured from the pin. Coordinates of any precision are rounded to 6 places."""
+
+    latitude = serializers.FloatField(min_value=-90, max_value=90)
+    longitude = serializers.FloatField(min_value=-180, max_value=180)
+    location_address = serializers.CharField(max_length=255)
+
+    class Meta:
+        model = Shop
+        fields = ["latitude", "longitude", "location_address"]
+
+    def validate(self, attrs):
+        for key in ("latitude", "longitude"):
+            attrs[key] = Decimal(str(attrs[key])).quantize(Decimal("0.000001"))
+        return attrs
 
 
 class AdminShopListSerializer(ShopLogoUrlMixin, serializers.ModelSerializer):

@@ -179,9 +179,14 @@ export default function CartPage() {
 
           <Card className="flex flex-col items-end gap-2">
             <div className="flex w-full items-center justify-between">
-              <p className="text-lg font-semibold text-text-primary">
-                Total: {formatCurrency(cart.total)}
-              </p>
+              <div>
+                <p className="text-lg font-semibold text-text-primary">
+                  Items: {formatCurrency(cart.total)}
+                </p>
+                <p className="text-sm text-text-muted">
+                  Delivery is added at checkout, based on your location.
+                </p>
+              </div>
               {hasUnavailableItem ? (
                 <Button disabled>Checkout</Button>
               ) : (

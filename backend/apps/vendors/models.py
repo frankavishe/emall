@@ -59,12 +59,34 @@ class Shop(models.Model):
     payout_phone = models.CharField(max_length=20, blank=True, default="")
     payout_account_name = models.CharField(max_length=255, blank=True, default="")
 
+    # Pickup location for deliveries, set by the shop owner (or an Administrator). Delivery fees
+    # are measured from here, so a shop without a location can't be checked out (007).
+    latitude = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("-90")), MaxValueValidator(Decimal("90"))],
+    )
+    longitude = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("-180")), MaxValueValidator(Decimal("180"))],
+    )
+    location_address = models.CharField(max_length=255, blank=True, default="")
+
     def __str__(self):
         return self.name
 
     @property
     def has_payout_details(self):
         return bool(self.payout_network and self.payout_phone and self.payout_account_name)
+
+    @property
+    def has_location(self):
+        return self.latitude is not None and self.longitude is not None
 
     def effective_commission_rate(self):
         if self.commission_rate is not None:

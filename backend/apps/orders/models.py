@@ -26,14 +26,42 @@ class Order(models.Model):
     postal_code = models.CharField(max_length=32)
     country = models.CharField(max_length=255)
     phone = models.CharField(max_length=32)
+    # Delivery pin and fee (007-delivery-fee). Null/zero only on orders placed before delivery
+    # pricing existed; `place_order()` always sets them.
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    delivery_fee = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     placed_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"Order({self.pk}, {self.customer_id})"
 
     @property
-    def total(self):
+    def items_subtotal(self):
         return sum((item.subtotal for item in self.items.all()), Decimal("0.00"))
+
+    @property
+    def total(self):
+        return self.items_subtotal + self.delivery_fee
+
+
+class OrderDelivery(models.Model):
+    """One delivery leg of an `Order`: the fee charged to bring one shop's items to the customer,
+    frozen at checkout by `place_order()` so later pricing or shop-location edits don't rewrite
+    it. The order's `delivery_fee` is the sum of its legs."""
+
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="deliveries")
+    shop = models.ForeignKey("vendors.Shop", on_delete=models.PROTECT, related_name="+")
+    distance_km = models.DecimalField(max_digits=7, decimal_places=2)
+    fee = models.DecimalField(max_digits=12, decimal_places=2)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["order", "shop"], name="unique_order_delivery_shop"),
+        ]
+
+    def __str__(self):
+        return f"OrderDelivery(order={self.order_id}, shop={self.shop_id}, {self.fee})"
 
 
 class OrderItem(models.Model):

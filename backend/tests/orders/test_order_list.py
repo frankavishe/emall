@@ -13,6 +13,8 @@ SHIPPING = {
     "postal_code": "GA-184-9021",
     "country": "Ghana",
     "phone": "+233201234567",
+    "latitude": -6.7924,
+    "longitude": 39.2083,
 }
 
 
@@ -65,7 +67,9 @@ def test_order_list_summary_shape(api_client):
     summary = response.data["results"][0]
     assert summary["id"] == order["id"]
     assert summary["status"] == "PLACED"
-    assert summary["total"] == "19.98"
+    assert summary["items_subtotal"] == "19.98"
+    assert summary["delivery_fee"] == "2000.00"
+    assert summary["total"] == "2019.98"
     assert "placed_at" in summary
     assert "items" not in summary
     assert "shipping" not in summary

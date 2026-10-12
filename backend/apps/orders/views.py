@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404
 from rest_framework import status
@@ -14,6 +16,7 @@ from apps.orders.serializers import (
     AdminOrderItemSerializer,
     AssignRiderSerializer,
     CheckoutSerializer,
+    DeliveryPinSerializer,
     OrderDetailSerializer,
     OrderItemStatusUpdateSerializer,
     OrderSerializer,
@@ -26,6 +29,7 @@ from apps.orders.services import (
     advance_order_item_status,
     assign_rider,
     place_order,
+    quote_cart_delivery,
 )
 from apps.vendors.models import Shop
 
@@ -49,11 +53,54 @@ class CheckoutView(APIView):
             )
         except CheckoutError as error:
             body = {"detail": error.detail, **error.extra}
-            if error.code == "payment_failed":
+            if error.code in CODED_CHECKOUT_ERRORS:
                 body["code"] = error.code
             return Response(body, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(OrderDetailSerializer(order).data, status=status.HTTP_201_CREATED)
+
+
+# Checkout failures whose `code` is returned so the client can react to them specifically.
+CODED_CHECKOUT_ERRORS = {"payment_failed", "shop_without_location", "out_of_range"}
+
+
+def _money(value):
+    return str(value.quantize(Decimal("0.01")))
+
+
+class DeliveryQuoteView(APIView):
+    """`POST /api/checkout/delivery-quote`: prices delivery of the requester's cart to a pin
+    (007-delivery-fee). Advisory only; checkout recomputes it."""
+
+    permission_classes = [IsCustomer]
+
+    def post(self, request):
+        serializer = DeliveryPinSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            quote = quote_cart_delivery(customer=request.user, **serializer.validated_data)
+        except CheckoutError as error:
+            return Response(
+                {"detail": error.detail, "code": error.code},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(
+            {
+                "legs": [
+                    {
+                        "shop_id": leg.shop.id,
+                        "shop_name": leg.shop.name,
+                        "distance_km": _money(leg.distance_km),
+                        "fee": _money(leg.fee),
+                    }
+                    for leg in quote["legs"]
+                ],
+                "items_subtotal": _money(quote["items_subtotal"]),
+                "delivery_fee": _money(quote["delivery_fee"]),
+                "total": _money(quote["total"]),
+            }
+        )
 
 
 class OrderListView(ListAPIView):

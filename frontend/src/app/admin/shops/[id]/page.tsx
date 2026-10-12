@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { getAdminShop, listAdminPayouts } from "@/lib/api-client";
+import { getAdminShop, listAdminPayouts, updateAdminShopLocation } from "@/lib/api-client";
 import { formatCurrency } from "@/lib/currency";
 import { PAYOUT_NETWORK_LABELS, formatRate, payoutStatusTone } from "@/lib/finance";
 import { useApi, useRequireRole } from "@/lib/use-api";
@@ -14,6 +14,7 @@ import { Pill, statusToTone } from "@/components/ui/pill";
 import { StatCard } from "@/components/ui/stat-card";
 import { ErrorText, LoadingText } from "@/components/ui/status-text";
 import { ShopLogo } from "@/components/shop-logo";
+import { ShopLocationEditor } from "@/components/vendor/shop-location-editor";
 
 export default function AdminShopDetailPage() {
   const params = useParams<{ id: string }>();
@@ -103,6 +104,25 @@ export default function AdminShopDetailPage() {
           )}
         </Card>
       </div>
+
+      <Card padding="sm" className="flex flex-col gap-2 text-sm">
+        <h2 className="font-semibold text-text-primary">Pickup location</h2>
+        {!data.latitude && (
+          <p className="text-status-cancelled">
+            Not set: customers can&apos;t check out this shop&apos;s products until it is.
+          </p>
+        )}
+        <ShopLocationEditor
+          key={`${data.latitude},${data.longitude},${data.location_address}`}
+          latitude={data.latitude}
+          longitude={data.longitude}
+          address={data.location_address}
+          onSave={async (location) => {
+            await updateAdminShopLocation(data.id, location);
+            shop.reload();
+          }}
+        />
+      </Card>
 
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold text-text-primary">Recent payouts</h2>

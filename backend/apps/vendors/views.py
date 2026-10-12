@@ -12,6 +12,7 @@ from apps.core.permissions import IsAdministrator, IsCustomer, require_verified_
 from apps.vendors.models import Shop
 from apps.vendors.serializers import (
     AdminShopListSerializer,
+    ShopLocationSerializer,
     ShopLogoSerializer,
     ShopSerializer,
     ShopThemeSerializer,
@@ -77,6 +78,34 @@ class VendorShopThemeView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(ShopSerializer(shop, context={"request": request}).data)
+
+
+def _save_shop_location(request, shop):
+    serializer = ShopLocationSerializer(shop, data=request.data)
+    serializer.is_valid(raise_exception=True)
+    serializer.save()
+    return Response(ShopSerializer(shop, context={"request": request}).data)
+
+
+class VendorShopLocationView(APIView):
+    """Set (PUT) a shop's pickup location (007-delivery-fee). Ownership only, any approval
+    status, no re-approval."""
+
+    permission_classes = [IsCustomer]
+
+    def put(self, request, shop_id):
+        shop = get_object_or_404(Shop, pk=shop_id, owner=request.user)
+        return _save_shop_location(request, shop)
+
+
+class AdminShopLocationView(APIView):
+    """An Administrator sets or corrects any shop's pickup location."""
+
+    permission_classes = [IsAdministrator]
+
+    def put(self, request, shop_id):
+        shop = get_object_or_404(Shop, pk=shop_id)
+        return _save_shop_location(request, shop)
 
 
 class AdminShopListView(ListAPIView):

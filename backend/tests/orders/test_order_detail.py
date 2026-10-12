@@ -14,6 +14,8 @@ SHIPPING = {
     "postal_code": "GA-184-9021",
     "country": "Ghana",
     "phone": "+233201234567",
+    "latitude": -6.7924,
+    "longitude": 39.2083,
 }
 
 
@@ -39,7 +41,17 @@ def test_order_detail_returns_full_shape(api_client):
     assert response.status_code == 200
     assert response.data["id"] == placed["id"]
     assert response.data["status"] == "PLACED"
-    assert response.data["total"] == "19.98"
+    assert response.data["items_subtotal"] == "19.98"
+    assert response.data["delivery_fee"] == "2000.00"
+    assert response.data["total"] == "2019.98"
+    assert response.data["deliveries"] == [
+        {
+            "shop_id": shop.id,
+            "shop_name": "Kofi's Electronics",
+            "distance_km": "0.00",
+            "fee": "2000.00",
+        }
+    ]
     assert response.data["shipping"]["recipient_name"] == "Ama Owusu"
     assert response.data["shipping"]["postal_code"] == "GA-184-9021"
     assert len(response.data["items"]) == 1

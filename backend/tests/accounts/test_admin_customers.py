@@ -45,10 +45,14 @@ def test_list_includes_customers_and_vendors_only(api_client, admin):
 
 def test_list_reports_order_totals_and_shop_count(api_client, admin):
     customer = UserFactory()
-    order = OrderFactory(customer=customer)
+    order = OrderFactory(customer=customer, delivery_fee="2000.00")
     OrderItemFactory(order=order, quantity=2, unit_price="10.00")
     OrderItemFactory(order=order, quantity=1, unit_price="5.50")
-    OrderItemFactory(order=OrderFactory(customer=customer), quantity=1, unit_price="4.50")
+    OrderItemFactory(
+        order=OrderFactory(customer=customer, delivery_fee="3500.00"),
+        quantity=1,
+        unit_price="4.50",
+    )
     ShopFactory(owner=customer)
     ShopFactory(owner=customer)
 
@@ -56,7 +60,8 @@ def test_list_reports_order_totals_and_shop_count(api_client, admin):
     row = next(r for r in rows if r["id"] == customer.id)
 
     assert row["order_count"] == 2
-    assert row["total_spent"] == "30.00"
+    # Items 30.00 plus both orders' delivery fees.
+    assert row["total_spent"] == "5530.00"
     assert row["shop_count"] == 2
 
 
@@ -78,7 +83,7 @@ def test_search_and_active_filter(api_client, admin):
 
 def test_detail_includes_recent_orders(api_client, admin):
     customer = UserFactory()
-    order = OrderFactory(customer=customer)
+    order = OrderFactory(customer=customer, delivery_fee="2000.00")
     OrderItemFactory(order=order, quantity=3, unit_price="2.00")
 
     response = api_client.get(f"/api/admin/customers/{customer.id}")
@@ -86,7 +91,7 @@ def test_detail_includes_recent_orders(api_client, admin):
     assert response.status_code == 200
     assert response.data["email"] == customer.email
     assert response.data["recent_orders"] == [
-        {"id": order.id, "placed_at": order.placed_at, "item_count": 1, "total": "6.00"}
+        {"id": order.id, "placed_at": order.placed_at, "item_count": 1, "total": "2006.00"}
     ]
 
 

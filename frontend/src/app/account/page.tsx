@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { hasRole, useAuth } from "@/lib/auth-context";
-import { errorMessage } from "@/lib/api-client";
+import { errorMessage, updateShopLocation } from "@/lib/api-client";
 import { PageShell } from "@/components/ui/page-shell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,10 +13,11 @@ import { Pill, statusToTone } from "@/components/ui/pill";
 import { ErrorText, LoadingText, EmptyText } from "@/components/ui/status-text";
 import { ShopLogoPicker } from "@/components/vendor/shop-logo-picker";
 import { ShopThemePicker } from "@/components/vendor/shop-theme-picker";
+import { ShopLocationEditor } from "@/components/vendor/shop-location-editor";
 
 export default function AccountPage() {
   const router = useRouter();
-  const { user, isLoading, logout, requestShop } = useAuth();
+  const { user, isLoading, logout, requestShop, refreshUser } = useAuth();
   const [newShopName, setNewShopName] = useState("");
   const [shopError, setShopError] = useState<string | null>(null);
   const [isRequestingShop, setIsRequestingShop] = useState(false);
@@ -134,6 +135,16 @@ export default function AccountPage() {
                   </div>
                   <ShopLogoPicker shop={shop} />
                   <ShopThemePicker shop={shop} />
+                  <ShopLocationEditor
+                    ownerView
+                    latitude={shop.latitude}
+                    longitude={shop.longitude}
+                    address={shop.location_address}
+                    onSave={async (location) => {
+                      await updateShopLocation(shop.id, location);
+                      await refreshUser();
+                    }}
+                  />
                   {shop.status === "APPROVED" && (
                     <Link
                       href={`/shops/${shop.id}`}
