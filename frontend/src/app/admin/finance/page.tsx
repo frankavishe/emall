@@ -10,6 +10,8 @@ import {
   listShopBalances,
   setShopCommissionRate,
   updateDefaultCommissionRate,
+  updateDeliveryPricing,
+  type DeliveryPricing,
   type ShopBalance,
 } from "@/lib/api-client";
 import { formatCurrency } from "@/lib/currency";
@@ -96,9 +98,14 @@ export default function AdminFinancePage() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <StatCard
             variant="hero"
-            label="Customer payments (gross sales)"
+            label="Item sales (gross)"
             value={formatCurrency(figures.gross_sales)}
             trend={{ text: `${figures.order_count} orders` }}
+          />
+          <StatCard
+            label="Delivery fees collected"
+            value={formatCurrency(figures.delivery_revenue)}
+            trend={{ text: "mall revenue, not shop earnings", tone: "positive" }}
           />
           <StatCard
             label="Mall commission earned"
@@ -133,6 +140,7 @@ export default function AdminFinancePage() {
       )}
 
       <DefaultRateCard onSaved={refresh} />
+      <DeliveryPricingCard />
 
       <section className="flex flex-col gap-4">
         <h2 className="text-lg font-semibold text-text-primary">Shop balances</h2>
@@ -226,6 +234,74 @@ function DefaultRateCard({ onSaved }: { onSaved: () => void }) {
         <span className="text-sm text-text-muted">%</span>
         <Button size="sm" disabled={isSaving || draft === null} onClick={save}>
           Save
+        </Button>
+      </div>
+      {(error || settings.error) && <ErrorText>{error ?? settings.error}</ErrorText>}
+    </Card>
+  );
+}
+
+const DELIVERY_FIELDS: { key: keyof DeliveryPricing; label: string; unit: string }[] = [
+  { key: "delivery_base_fee", label: "Base fee", unit: "TZS" },
+  { key: "delivery_per_km_fee", label: "Per km", unit: "TZS" },
+  { key: "delivery_min_fee", label: "Minimum fee", unit: "TZS" },
+  { key: "delivery_max_distance_km", label: "Max distance", unit: "km" },
+  { key: "delivery_road_factor", label: "Road factor", unit: "×" },
+];
+
+/** Delivery pricing: each shop in an order costs
+ * max(minimum, base + per km × distance × road factor), rounded up to TZS 100. */
+function DeliveryPricingCard() {
+  const settings = useApi(getFinanceSettings, "delivery-settings", true);
+  const [draft, setDraft] = useState<Partial<DeliveryPricing>>({});
+  const [error, setError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  function shown(key: keyof DeliveryPricing): string {
+    if (draft[key] !== undefined) return draft[key];
+    const saved = settings.data?.[key];
+    return saved ? String(Number(saved)) : "";
+  }
+
+  async function save() {
+    setIsSaving(true);
+    setError(null);
+    try {
+      await updateDeliveryPricing(draft);
+      setDraft({});
+      settings.reload();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <Card padding="sm" className="flex flex-col gap-3">
+      <div>
+        <h2 className="font-semibold text-text-primary">Delivery pricing</h2>
+        <p className="text-sm text-text-muted">
+          Each shop in an order is one delivery: the larger of the minimum fee and base fee + per km
+          &times; distance &times; road factor, rounded up to TZS 100. The road factor turns
+          straight-line distance into road distance. Applies to the next quote.
+        </p>
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+        {DELIVERY_FIELDS.map((field) => (
+          <FormField key={field.key} label={`${field.label} (${field.unit})`}>
+            <input
+              inputMode="decimal"
+              value={shown(field.key)}
+              onChange={(e) => setDraft((prev) => ({ ...prev, [field.key]: e.target.value }))}
+              className={inputClassName}
+            />
+          </FormField>
+        ))}
+      </div>
+      <div>
+        <Button size="sm" disabled={isSaving || Object.keys(draft).length === 0} onClick={save}>
+          Save delivery pricing
         </Button>
       </div>
       {(error || settings.error) && <ErrorText>{error ?? settings.error}</ErrorText>}

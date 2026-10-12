@@ -118,7 +118,12 @@ def test_rider_lists_only_own_active_deliveries():
     assert active.status_code == 200
     assert [d["id"] for d in active.data["results"]] == [mine.id]
     delivery = active.data["results"][0]
-    assert delivery["pickup"] == {"shop_name": mine.product.shop.name}
+    assert delivery["pickup"] == {
+        "shop_name": mine.product.shop.name,
+        "address": "",
+        "latitude": "-6.792400",
+        "longitude": "39.208300",
+    }
     assert delivery["dropoff"]["address_line"] == "12 Ring Road"
     assert delivery["dropoff"]["phone"] == "+233201234567"
 

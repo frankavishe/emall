@@ -10,6 +10,7 @@ import {
   type PaginatedResponse,
   type RiderDelivery,
 } from "@/lib/api-client";
+import { MapLink } from "@/components/map-link";
 import { PageShell } from "@/components/ui/page-shell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -56,6 +57,12 @@ function DeliveryCard({
           <div className="text-sm">
             <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">Pick up</p>
             <p className="text-text-primary">{delivery.pickup.shop_name}</p>
+            {delivery.pickup.address && (
+              <p className="text-text-muted">{delivery.pickup.address}</p>
+            )}
+            <MapLink latitude={delivery.pickup.latitude} longitude={delivery.pickup.longitude}>
+              Open pickup in maps
+            </MapLink>
           </div>
 
           <div className="text-sm">
@@ -69,6 +76,11 @@ function DeliveryCard({
             <a href={`tel:${dropoff.phone}`} className="font-medium text-brand-text underline">
               {dropoff.phone}
             </a>
+            <div>
+              <MapLink latitude={dropoff.latitude} longitude={dropoff.longitude}>
+                Open drop-off in maps
+              </MapLink>
+            </div>
           </div>
         </div>
 

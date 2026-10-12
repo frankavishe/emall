@@ -10,6 +10,8 @@ import { Card } from "@/components/ui/card";
 import { Pill, statusToTone } from "@/components/ui/pill";
 import { ErrorText, LoadingText } from "@/components/ui/status-text";
 import { formatCurrency } from "@/lib/currency";
+import { DeliverySummary } from "@/components/delivery-summary";
+import { MapLink } from "@/components/map-link";
 
 export default function OrderDetailPage() {
   const params = useParams<{ id: string }>();
@@ -100,7 +102,7 @@ export default function OrderDetailPage() {
 
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
           <div>
-            <h2 className="text-sm font-semibold text-text-muted">Shipping</h2>
+            <h2 className="text-sm font-semibold text-text-muted">Delivery address</h2>
             <p className="mt-2 text-sm text-text-primary">{order.shipping.recipient_name}</p>
             <p className="text-sm text-text-primary">{order.shipping.address_line}</p>
             <p className="text-sm text-text-primary">
@@ -108,6 +110,13 @@ export default function OrderDetailPage() {
             </p>
             <p className="text-sm text-text-primary">{order.shipping.country}</p>
             <p className="text-sm text-text-primary">{order.shipping.phone}</p>
+            <MapLink
+              latitude={order.shipping.latitude}
+              longitude={order.shipping.longitude}
+              className="mt-1 inline-block"
+            >
+              View delivery pin
+            </MapLink>
           </div>
 
           <div>
@@ -149,9 +158,9 @@ export default function OrderDetailPage() {
         </div>
 
         <div className="flex justify-end border-t border-border pt-6">
-          <p className="text-lg font-semibold text-text-primary">
-            Total: {formatCurrency(order.total)}
-          </p>
+          <div className="w-full max-w-sm">
+            <DeliverySummary totals={order} legs={order.deliveries} />
+          </div>
         </div>
       </Card>
     </PageShell>

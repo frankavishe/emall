@@ -19,6 +19,8 @@ SHIPPING = {
     "postal_code": "11101",
     "country": "Tanzania",
     "phone": "+255712345678",
+    "latitude": -6.7924,
+    "longitude": 39.2083,
 }
 
 
@@ -67,7 +69,9 @@ def test_checkout_freezes_default_and_override_rates_and_records_amount(api_clie
     )
 
     assert response.status_code == 201
-    assert response.data["payment"]["amount"] == "400.00"
+    # Items 400.00 + two shops' minimum delivery fee; the delivery fee is the mall's and leaves
+    # every line's commission split untouched.
+    assert response.data["payment"]["amount"] == "4400.00"
     default_line = OrderItem.objects.get(product=default_product)
     assert default_line.commission_rate == Decimal("10.00")
     assert default_line.commission_amount == Decimal("20.00")
@@ -76,7 +80,7 @@ def test_checkout_freezes_default_and_override_rates_and_records_amount(api_clie
     assert override_line.commission_rate == Decimal("5.00")
     assert override_line.commission_amount == Decimal("10.00")
     assert override_line.vendor_earning == Decimal("190.00")
-    assert PaymentRecord.objects.get().amount == Decimal("400.00")
+    assert PaymentRecord.objects.get().amount == Decimal("4400.00")
 
 
 def test_changing_rate_later_does_not_touch_existing_lines(api_client):

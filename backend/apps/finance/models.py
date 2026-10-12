@@ -6,6 +6,8 @@ from django.db import models
 
 DEFAULT_COMMISSION_RATE = Decimal("10.00")
 
+_non_negative = [MinValueValidator(Decimal("0"))]
+
 
 class PlatformSettings(models.Model):
     """Single row (pk=1) of mall-wide money settings, edited only by Administrators."""
@@ -15,6 +17,29 @@ class PlatformSettings(models.Model):
         decimal_places=2,
         default=DEFAULT_COMMISSION_RATE,
         validators=[MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("100"))],
+    )
+    # Delivery pricing (007-delivery-fee). Each shop leg of an order costs
+    # max(min_fee, base_fee + per_km_fee * straight-line km * road_factor), rounded up to TZS 100.
+    delivery_base_fee = models.DecimalField(
+        max_digits=10, decimal_places=2, default=Decimal("2000.00"), validators=_non_negative
+    )
+    delivery_per_km_fee = models.DecimalField(
+        max_digits=10, decimal_places=2, default=Decimal("500.00"), validators=_non_negative
+    )
+    delivery_min_fee = models.DecimalField(
+        max_digits=10, decimal_places=2, default=Decimal("2000.00"), validators=_non_negative
+    )
+    delivery_max_distance_km = models.DecimalField(
+        max_digits=7,
+        decimal_places=2,
+        default=Decimal("50.00"),
+        validators=[MinValueValidator(Decimal("0.01"))],
+    )
+    delivery_road_factor = models.DecimalField(
+        max_digits=4,
+        decimal_places=2,
+        default=Decimal("1.30"),
+        validators=[MinValueValidator(Decimal("1"))],
     )
     updated_at = models.DateTimeField(auto_now=True)
     updated_by = models.ForeignKey(

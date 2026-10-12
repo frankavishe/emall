@@ -15,6 +15,8 @@ SHIPPING = {
     "postal_code": "GA-184-9021",
     "country": "Ghana",
     "phone": "+233201234567",
+    "latitude": -6.7924,
+    "longitude": 39.2083,
 }
 
 
@@ -39,7 +41,12 @@ def test_checkout_creates_order_decrements_stock_and_empties_cart(api_client):
 
     assert response.status_code == 201
     assert response.data["status"] == "PLACED"
-    assert response.data["total"] == "19.98"
+    # One shop at the delivery pin itself: the minimum delivery fee applies.
+    assert response.data["items_subtotal"] == "19.98"
+    assert response.data["delivery_fee"] == "2000.00"
+    assert response.data["total"] == "2019.98"
+    assert response.data["payment"]["amount"] == "2019.98"
+    assert response.data["shipping"]["latitude"] == "-6.792400"
     assert len(response.data["items"]) == 1
     item = response.data["items"][0]
     assert item["quantity"] == 2

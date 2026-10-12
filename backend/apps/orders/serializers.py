@@ -3,12 +3,28 @@ from decimal import Decimal
 from rest_framework import serializers
 
 from apps.catalog.models import Product
-from apps.orders.models import Order, OrderItem, OrderItemStatusEvent
+from apps.orders.models import Order, OrderDelivery, OrderItem, OrderItemStatusEvent
 from apps.payments.models import PaymentRecord
 from apps.vendors.models import Shop
 
+COORDINATE_PLACES = Decimal("0.000001")
 
-class ShippingSerializer(serializers.Serializer):
+
+class DeliveryPinSerializer(serializers.Serializer):
+    """The customer's delivery pin (007-delivery-fee). Accepts any float precision a device's GPS
+    reports and rounds to the 6 decimal places (~0.1 m) the database stores."""
+
+    latitude = serializers.FloatField(min_value=-90, max_value=90)
+    longitude = serializers.FloatField(min_value=-180, max_value=180)
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        for key in ("latitude", "longitude"):
+            attrs[key] = Decimal(str(attrs[key])).quantize(COORDINATE_PLACES)
+        return attrs
+
+
+class ShippingSerializer(DeliveryPinSerializer):
     recipient_name = serializers.CharField()
     address_line = serializers.CharField()
     city = serializers.CharField()
@@ -81,6 +97,8 @@ class VendorOrderItemShippingSerializer(serializers.Serializer):
     postal_code = serializers.CharField()
     country = serializers.CharField()
     phone = serializers.CharField()
+    latitude = serializers.DecimalField(max_digits=9, decimal_places=6, allow_null=True)
+    longitude = serializers.DecimalField(max_digits=9, decimal_places=6, allow_null=True)
 
 
 class VendorOrderItemSerializer(RiderBriefMixin, serializers.ModelSerializer):
@@ -194,42 +212,76 @@ class OrderShippingSerializer(serializers.ModelSerializer):
             "postal_code",
             "country",
             "phone",
+            "latitude",
+            "longitude",
         ]
         read_only_fields = fields
 
 
-class OrderSerializer(serializers.ModelSerializer):
-    """List shape (`GET /api/orders/`) — summary only, no line items or shipping (User Story 4)."""
+def money(value):
+    return str(Decimal(value).quantize(Decimal("0.01")))
 
+
+class OrderTotalsMixin(serializers.Serializer):
+    """`items_subtotal`, `delivery_fee` and `total` (= items + delivery) for an `Order`."""
+
+    items_subtotal = serializers.SerializerMethodField()
+    delivery_fee = serializers.SerializerMethodField()
     total = serializers.SerializerMethodField()
+
+    def get_items_subtotal(self, obj):
+        return money(obj.items_subtotal)
+
+    def get_delivery_fee(self, obj):
+        return money(obj.delivery_fee)
+
+    def get_total(self, obj):
+        return money(obj.total)
+
+
+class OrderDeliverySerializer(serializers.ModelSerializer):
+    shop_id = serializers.IntegerField(source="shop.id", read_only=True)
+    shop_name = serializers.CharField(source="shop.name", read_only=True)
+
+    class Meta:
+        model = OrderDelivery
+        fields = ["shop_id", "shop_name", "distance_km", "fee"]
+        read_only_fields = fields
+
+
+class OrderSerializer(OrderTotalsMixin, serializers.ModelSerializer):
+    """List shape (`GET /api/orders/`) — summary only, no line items or shipping (User Story 4)."""
 
     class Meta:
         model = Order
-        fields = ["id", "placed_at", "status", "total"]
+        fields = ["id", "placed_at", "status", "items_subtotal", "delivery_fee", "total"]
         read_only_fields = fields
 
-    def get_total(self, obj):
-        total = sum((item.subtotal for item in obj.items.all()), Decimal("0.00"))
-        return str(total.quantize(Decimal("0.01")))
 
-
-class OrderDetailSerializer(serializers.ModelSerializer):
+class OrderDetailSerializer(OrderTotalsMixin, serializers.ModelSerializer):
     """Detail shape shared by `POST /api/checkout/`'s `201` response and
     `GET /api/orders/{id}/` (contracts/cart-checkout-api.md)."""
 
-    total = serializers.SerializerMethodField()
     shipping = serializers.SerializerMethodField()
     items = OrderItemSerializer(many=True, read_only=True)
+    deliveries = OrderDeliverySerializer(many=True, read_only=True)
     payment = PaymentRecordSerializer(read_only=True)
 
     class Meta:
         model = Order
-        fields = ["id", "placed_at", "status", "total", "shipping", "items", "payment"]
+        fields = [
+            "id",
+            "placed_at",
+            "status",
+            "items_subtotal",
+            "delivery_fee",
+            "total",
+            "shipping",
+            "items",
+            "deliveries",
+            "payment",
+        ]
         read_only_fields = fields
-
-    def get_total(self, obj):
-        total = sum((item.subtotal for item in obj.items.all()), Decimal("0.00"))
-        return str(total.quantize(Decimal("0.01")))
 
     def get_shipping(self, obj):
         return OrderShippingSerializer(obj).data

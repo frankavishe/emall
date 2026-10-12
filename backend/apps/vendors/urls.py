@@ -14,6 +14,11 @@ urlpatterns = [
         views.VendorShopThemeView.as_view(),
         name="vendor-shop-theme",
     ),
+    path(
+        "shops/<int:shop_id>/location",
+        views.VendorShopLocationView.as_view(),
+        name="vendor-shop-location",
+    ),
 ]
 
 admin_urlpatterns = [
@@ -27,5 +32,10 @@ admin_urlpatterns = [
         "shops/<int:shop_id>/reject",
         views.AdminShopRejectView.as_view(),
         name="admin-shop-reject",
+    ),
+    path(
+        "shops/<int:shop_id>/location",
+        views.AdminShopLocationView.as_view(),
+        name="admin-shop-location",
     ),
 ]

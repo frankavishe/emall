@@ -150,3 +150,22 @@ def test_register_vendor_with_administrator_email_rejected(api_client):
 
     assert response.status_code == 400
     assert not Shop.objects.filter(name="Admin Shop").exists()
+
+
+def test_register_vendor_password_guessing_is_throttled(api_client):
+    """The upgrade path checks an existing customer's password, so it must not be a way around
+    the login rate limit."""
+    UserFactory(email="ama@example.com", password="a-strong-password-1")
+    payload = {
+        "name": "Ama",
+        "email": "ama@example.com",
+        "password": "a-wrong-guess-123",
+        "shop_name": "Ama's Shop",
+    }
+
+    for _ in range(5):
+        response = api_client.post("/api/auth/register/vendor", payload, format="json")
+        assert response.status_code == 400
+
+    response = api_client.post("/api/auth/register/vendor", payload, format="json")
+    assert response.status_code == 429

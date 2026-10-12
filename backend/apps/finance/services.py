@@ -1,8 +1,10 @@
 """Mall money logic: the commission split frozen at checkout, payouts to shop owners, and the
 balance/summary figures shown to Administrators and Vendors.
 
-Money flow: the customer pays the mall the line `subtotal`; the mall keeps `commission_amount`
-and owes the shop `vendor_earning`. An earning is
+Money flow: the customer pays the mall the line `subtotal` plus the order's `delivery_fee`
+(007-delivery-fee). The delivery fee is the mall's own revenue and never enters a shop's
+balance. Of each line, the mall keeps `commission_amount` and owes the shop `vendor_earning`.
+An earning is
 - pending   while the line is PENDING / PROCESSING / SHIPPED,
 - available once the line is DELIVERED and not yet in a payout,
 - in payout while its payout is PENDING / PROCESSING,
@@ -20,7 +22,7 @@ from django.utils import timezone
 
 from apps.finance import disbursement
 from apps.finance.models import Payout, PlatformSettings
-from apps.orders.models import OrderItem
+from apps.orders.models import Order, OrderItem
 from apps.vendors.models import Shop
 
 logger = logging.getLogger(__name__)
@@ -51,11 +53,17 @@ def _validate_rate(rate):
     return rate.quantize(CENT)
 
 
-def set_default_commission_rate(*, rate, admin):
+def update_platform_settings(*, admin, **fields):
+    """Saves any subset of `PlatformSettings`' editable fields (already validated by
+    `PlatformSettingsSerializer`)."""
+
     platform = PlatformSettings.get_solo()
-    platform.default_commission_rate = _validate_rate(rate)
+    if "default_commission_rate" in fields:
+        fields["default_commission_rate"] = _validate_rate(fields["default_commission_rate"])
+    for name, value in fields.items():
+        setattr(platform, name, value)
     platform.updated_by = admin
-    platform.save(update_fields=["default_commission_rate", "updated_by", "updated_at"])
+    platform.save(update_fields=[*fields, "updated_by", "updated_at"])
     return platform
 
 
@@ -229,6 +237,13 @@ def platform_summary(*, date_from=None, date_to=None):
         line_count=Count("id"),
     )
     figures["default_commission_rate"] = PlatformSettings.get_solo().default_commission_rate
+
+    orders = Order.objects.all()
+    if date_from:
+        orders = orders.filter(placed_at__date__gte=date_from)
+    if date_to:
+        orders = orders.filter(placed_at__date__lte=date_to)
+    figures["delivery_revenue"] = orders.aggregate(total=_sum("delivery_fee"))["total"]
     return figures
 
 

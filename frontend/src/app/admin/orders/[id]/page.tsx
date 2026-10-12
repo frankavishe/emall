@@ -11,6 +11,7 @@ import { PageShell } from "@/components/ui/page-shell";
 import { Card } from "@/components/ui/card";
 import { Pill, statusToTone } from "@/components/ui/pill";
 import { ErrorText, LoadingText } from "@/components/ui/status-text";
+import { MapLink } from "@/components/map-link";
 
 export default function AdminOrderDetailPage() {
   const params = useParams<{ id: string }>();
@@ -55,6 +56,9 @@ export default function AdminOrderDetailPage() {
           </p>
           <p className="text-text-muted">{data.country}</p>
           <p className="text-text-muted">{data.phone}</p>
+          <MapLink latitude={data.latitude} longitude={data.longitude}>
+            View delivery pin
+          </MapLink>
         </Card>
 
         <Card padding="sm" className="flex flex-col gap-2 text-sm">
@@ -71,6 +75,18 @@ export default function AdminOrderDetailPage() {
           ) : (
             <p className="text-text-muted">No payment record.</p>
           )}
+          <hr className="border-border" />
+          <Row label="Items">{formatCurrency(data.items_subtotal)}</Row>
+          {data.deliveries.map((leg) => (
+            <Row
+              key={leg.shop_id}
+              label={`Delivery from ${leg.shop_name} (${Number(leg.distance_km).toFixed(1)} km)`}
+            >
+              {formatCurrency(leg.fee)}
+            </Row>
+          ))}
+          <Row label="Delivery fee (mall revenue)">{formatCurrency(data.delivery_fee)}</Row>
+          <Row label="Order total">{formatCurrency(data.total)}</Row>
           <hr className="border-border" />
           <Row label="Mall commission">{formatCurrency(data.commission_total)}</Row>
           <Row label="Owed to shops">{formatCurrency(vendorTotal)}</Row>

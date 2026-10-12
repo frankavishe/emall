@@ -75,13 +75,26 @@ function buildRequestInit(options: RequestInit): RequestInit {
   return { ...options, headers, credentials: "include" };
 }
 
+// The refresh in flight, shared by every caller. The backend rotates the refresh cookie and
+// blacklists the old one, so a second concurrent refresh sending that same cookie would be
+// rejected and wipe the token the first one just obtained.
+let refreshInFlight: Promise<string | null> | null = null;
+
 /**
  * Calls `/api/auth/refresh`; on success updates the in-memory access token and returns it.
- * Returns null without throwing when the API is unreachable, so an outage reads as "no session"
- * instead of an unhandled rejection. The current token is kept in that case — only an actual
- * non-OK response from the API clears it.
+ * Concurrent calls share one request. Returns null without throwing when the API is
+ * unreachable, so an outage reads as "no session" instead of an unhandled rejection. The
+ * current token is kept in that case — only an actual non-OK response from the API clears it.
  */
-export async function refreshAccessToken(): Promise<string | null> {
+export function refreshAccessToken(): Promise<string | null> {
+  refreshInFlight ??= doRefresh().finally(() => {
+    refreshInFlight = null;
+  });
+  return refreshInFlight;
+}
+
+async function doRefresh(): Promise<string | null> {
+  const tokenBefore = accessToken;
   let response: Response;
   try {
     response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
@@ -92,7 +105,8 @@ export async function refreshAccessToken(): Promise<string | null> {
     return null;
   }
   if (!response.ok) {
-    setAccessToken(null);
+    // Leave a token set meanwhile (e.g. by a login) alone; only the one that failed goes.
+    if (accessToken === tokenBefore) setAccessToken(null);
     return null;
   }
   const body = (await parseBody(response)) as { access?: string } | null;
@@ -122,7 +136,8 @@ export async function apiFetch<T = unknown>(
   return body as T;
 }
 
-export type ShippingDetails = {
+/** The typed delivery address a customer enters at checkout. */
+export type ShippingAddress = {
   recipient_name: string;
   address_line: string;
   city: string;
@@ -131,6 +146,33 @@ export type ShippingDetails = {
   country: string;
   phone: string;
 };
+
+/** A map pin, in decimal degrees. */
+export type LatLng = { latitude: number; longitude: number };
+
+/** An order's delivery address as returned by the API. The pin is null only on orders placed
+ * before delivery pricing existed (007-delivery-fee). */
+export type ShippingDetails = ShippingAddress & {
+  latitude: string | null;
+  longitude: string | null;
+};
+
+/** One shop's delivery leg: the distance from the shop to the pin and the fee for it. */
+export type DeliveryLeg = {
+  shop_id: number;
+  shop_name: string;
+  distance_km: string;
+  fee: string;
+};
+
+/** Item subtotal, delivery fee and their sum (`total`), as decimal strings in TZS. */
+export type OrderTotals = {
+  items_subtotal: string;
+  delivery_fee: string;
+  total: string;
+};
+
+export type DeliveryQuote = OrderTotals & { legs: DeliveryLeg[] };
 
 /** The rider assigned to deliver an order line. */
 export type RiderBrief = { id: number; name: string; phone: string };
@@ -146,21 +188,20 @@ export type OrderItem = {
   rider: RiderBrief | null;
 };
 
-export type OrderDetail = {
+export type OrderDetail = OrderTotals & {
   id: number;
   placed_at: string;
   status: string;
-  total: string;
   shipping: ShippingDetails;
   items: OrderItem[];
+  deliveries: DeliveryLeg[];
   payment: { method: string; status: string };
 };
 
-export type OrderSummary = {
+export type OrderSummary = OrderTotals & {
   id: number;
   placed_at: string;
   status: string;
-  total: string;
 };
 
 export type PaginatedResponse<T> = {
@@ -239,9 +280,19 @@ export async function listCategories(): Promise<Category[]> {
   return apiFetch<Category[]>("/api/catalog/categories");
 }
 
-/** `POST /api/checkout` (task T038, contracts/cart-checkout-api.md). */
+/** `POST /api/checkout/delivery-quote`: what delivering the current cart to `pin` costs.
+ * Advisory only; checkout recomputes it. */
+export async function getDeliveryQuote(pin: LatLng): Promise<DeliveryQuote> {
+  return apiFetch<DeliveryQuote>("/api/checkout/delivery-quote", {
+    method: "POST",
+    body: JSON.stringify(pin),
+  });
+}
+
+/** `POST /api/checkout` (task T038, contracts/cart-checkout-api.md). The delivery pin is
+ * mandatory; the server prices delivery itself. */
 export async function checkout(
-  shippingData: ShippingDetails,
+  shippingData: ShippingAddress & LatLng,
   paymentMethod: string,
 ): Promise<OrderDetail> {
   return apiFetch<OrderDetail>("/api/checkout", {
@@ -398,6 +449,28 @@ export async function uploadShopLogo(shopId: string, file: File): Promise<void> 
 /** `DELETE /api/vendor/shops/:id/logo` */
 export async function removeShopLogo(shopId: string): Promise<void> {
   await apiFetch(`/api/vendor/shops/${shopId}/logo`, { method: "DELETE" });
+}
+
+export type ShopLocation = LatLng & { location_address: string };
+
+/** `PUT /api/vendor/shops/:id/location`: the shop's pickup pin and address, which delivery
+ * fees are measured from. */
+export async function updateShopLocation(shopId: string, location: ShopLocation): Promise<void> {
+  await apiFetch(`/api/vendor/shops/${shopId}/location`, {
+    method: "PUT",
+    body: JSON.stringify(location),
+  });
+}
+
+/** `PUT /api/admin/shops/:id/location`: an Administrator sets any shop's pickup location. */
+export async function updateAdminShopLocation(
+  shopId: number | string,
+  location: ShopLocation,
+): Promise<void> {
+  await apiFetch(`/api/admin/shops/${shopId}/location`, {
+    method: "PUT",
+    body: JSON.stringify(location),
+  });
 }
 
 /** `PATCH /api/vendor/shops/:id/theme` — each color is `#rrggbb`, or `""` to reset it to the
@@ -598,7 +671,12 @@ export type RiderDelivery = {
   product: { id: number; name: string };
   quantity: number;
   status: string;
-  pickup: { shop_name: string };
+  pickup: {
+    shop_name: string;
+    address: string;
+    latitude: string | null;
+    longitude: string | null;
+  };
   dropoff: ShippingDetails;
   rider_assigned_at: string | null;
 };
@@ -642,6 +720,8 @@ export type PlatformSummary = BalanceFigures & {
   order_count: number;
   line_count: number;
   default_commission_rate: string;
+  /** Delivery fees collected: the mall's own revenue, outside every shop balance. */
+  delivery_revenue: string;
 };
 
 export type DateRange = { from?: string; to?: string };
@@ -662,7 +742,18 @@ export async function getFinanceSummary(range?: DateRange): Promise<PlatformSumm
   return apiFetch<PlatformSummary>(withQuery("/api/admin/finance/summary", dateRangeQuery(range)));
 }
 
-export type PlatformSettings = { default_commission_rate: string; updated_at: string };
+export type DeliveryPricing = {
+  delivery_base_fee: string;
+  delivery_per_km_fee: string;
+  delivery_min_fee: string;
+  delivery_max_distance_km: string;
+  delivery_road_factor: string;
+};
+
+export type PlatformSettings = DeliveryPricing & {
+  default_commission_rate: string;
+  updated_at: string;
+};
 
 export async function getFinanceSettings(): Promise<PlatformSettings> {
   return apiFetch<PlatformSettings>("/api/admin/finance/settings");
@@ -672,6 +763,16 @@ export async function updateDefaultCommissionRate(rate: string): Promise<Platfor
   return apiFetch<PlatformSettings>("/api/admin/finance/settings", {
     method: "PATCH",
     body: JSON.stringify({ default_commission_rate: rate }),
+  });
+}
+
+/** `PATCH /api/admin/finance/settings` with any subset of the delivery pricing fields. */
+export async function updateDeliveryPricing(
+  pricing: Partial<DeliveryPricing>,
+): Promise<PlatformSettings> {
+  return apiFetch<PlatformSettings>("/api/admin/finance/settings", {
+    method: "PATCH",
+    body: JSON.stringify(pricing),
   });
 }
 
@@ -716,6 +817,9 @@ export type AdminShopDetail = {
   payout_network: string;
   payout_phone: string;
   payout_account_name: string;
+  latitude: string | null;
+  longitude: string | null;
+  location_address: string;
   product_count: number;
   published_product_count: number;
   balance: BalanceFigures & { commission_rate: string; commission_rate_is_override: boolean };
@@ -809,22 +913,23 @@ export type AdminOrderLine = PayoutLine & {
   payout: { id: number; status: PayoutStatus } | null;
 };
 
-export type AdminOrderDetail = ShippingDetails & {
-  id: number;
-  placed_at: string;
-  status: string;
-  customer: { id: number; name: string; email: string };
-  total: string;
-  commission_total: string;
-  payment: {
-    method: string;
+export type AdminOrderDetail = ShippingDetails &
+  OrderTotals & {
+    id: number;
+    placed_at: string;
     status: string;
-    amount: string;
-    transaction_reference: string;
-    created_at: string;
-  } | null;
-  items: AdminOrderLine[];
-};
+    customer: { id: number; name: string; email: string };
+    commission_total: string;
+    payment: {
+      method: string;
+      status: string;
+      amount: string;
+      transaction_reference: string;
+      created_at: string;
+    } | null;
+    items: AdminOrderLine[];
+    deliveries: DeliveryLeg[];
+  };
 
 export async function getAdminOrder(orderId: number | string): Promise<AdminOrderDetail> {
   return apiFetch<AdminOrderDetail>(`/api/admin/orders/${orderId}`);

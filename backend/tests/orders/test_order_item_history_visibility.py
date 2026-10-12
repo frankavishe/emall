@@ -16,6 +16,8 @@ SHIPPING = {
     "postal_code": "GA-184-9021",
     "country": "Ghana",
     "phone": "+233201234567",
+    "latitude": -6.7924,
+    "longitude": 39.2083,
 }
 
 

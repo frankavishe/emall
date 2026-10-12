@@ -31,10 +31,10 @@ from apps.finance.services import (
     create_payout,
     platform_summary,
     retry_payout,
-    set_default_commission_rate,
     set_shop_commission_rate,
     shop_balance,
     shops_with_balances,
+    update_platform_settings,
 )
 from apps.orders.models import Order, OrderItem
 from apps.payments.models import PaymentRecord
@@ -78,11 +78,9 @@ class AdminFinanceSettingsView(APIView):
         return Response(PlatformSettingsSerializer(PlatformSettings.get_solo()).data)
 
     def patch(self, request):
-        serializer = PlatformSettingsSerializer(data=request.data)
+        serializer = PlatformSettingsSerializer(data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
-        platform = set_default_commission_rate(
-            rate=serializer.validated_data["default_commission_rate"], admin=request.user
-        )
+        platform = update_platform_settings(admin=request.user, **serializer.validated_data)
         return Response(PlatformSettingsSerializer(platform).data)
 
 
