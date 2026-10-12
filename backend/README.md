@@ -32,6 +32,7 @@ copy .env.example .env
 # then edit .env: set SECRET_KEY and ADMIN_SEED_PASSWORD to real values for your machine
 
 python manage.py migrate
+python manage.py createcachetable  # DB-backed cache used by the auth throttles; not created by migrate
 python manage.py seed_admin
 python manage.py runserver
 ```
