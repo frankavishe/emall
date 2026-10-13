@@ -12,7 +12,7 @@ const ABOUT_LINKS: FooterLink[] = [
 ];
 
 const CARE_LINKS: FooterLink[] = [
-  { label: "Help Center & FAQ", href: "#" },
+  { label: "Help Center & FAQ", href: "/help" },
   { label: "Track Your Order", href: "#" },
   { label: "Returns & Refunds", href: "#" },
   { label: "Delivery Rates", href: "#" },
@@ -29,7 +29,6 @@ const PAYMENT_BADGES = [
   { label: "M-Pesa", className: "text-amber-400" },
   { label: "Tigo Pesa", className: "text-blue-400" },
   { label: "Airtel Money", className: "text-red-400" },
-  { label: "Visa / Mastercard", className: "text-slate-200" },
 ];
 
 /** 24x24 viewBox paths; filled with currentColor. */
