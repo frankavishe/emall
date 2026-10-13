@@ -27,7 +27,7 @@ const FAQ_SECTIONS: FaqSection[] = [
         a: "Sign in and open My Orders. Each item shows its current status: Pending (received by the shop), Processing (being prepared), Shipped (picked up by a rider and on the way), Delivered, or Cancelled. We also email you whenever an item's status changes.",
       },
       {
-        q: "What do \"Awaiting payment\" and \"Payment failed\" mean?",
+        q: 'What do "Awaiting payment" and "Payment failed" mean?',
         a: "Awaiting payment means we've sent a payment prompt to your phone and are waiting for you to approve it. Payment failed means the payment didn't go through — the order isn't lost, and you can try paying again from the order page.",
       },
       {
@@ -104,7 +104,7 @@ const FAQ_SECTIONS: FaqSection[] = [
       },
       {
         q: "I forgot my password.",
-        a: "On the sign-in page, click \"Forgot password\" and enter your email. We'll send you a link to set a new password.",
+        a: 'On the sign-in page, click "Forgot password" and enter your email. We\'ll send you a link to set a new password.',
       },
       {
         q: "How do I update my details?",
