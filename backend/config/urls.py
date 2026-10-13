@@ -33,6 +33,7 @@ from apps.orders.urls import admin_urlpatterns as orders_admin_urlpatterns
 from apps.orders.urls import checkout_urlpatterns
 from apps.orders.urls import urlpatterns as order_urlpatterns
 from apps.orders.urls import vendor_urlpatterns as orders_vendor_urlpatterns
+from apps.payments.urls import simulator_urlpatterns as payments_simulator_urlpatterns
 from apps.vendors.urls import admin_urlpatterns as vendor_admin_urlpatterns
 
 urlpatterns = [
@@ -56,6 +57,9 @@ urlpatterns = [
     path("api/", include(checkout_urlpatterns)),
     path("api/", include(order_urlpatterns)),
     path("api/", include(feedback_urlpatterns)),
+    path("api/payments/", include("apps.payments.urls")),
+    # 404s unless PAYMENT_BACKEND=azampay_simulator.
+    path("api/dev/azampay-sim/", include(payments_simulator_urlpatterns)),
 ]
 
 if settings.DEBUG:

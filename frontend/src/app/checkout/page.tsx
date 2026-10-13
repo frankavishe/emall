@@ -7,8 +7,10 @@ import {
   ApiError,
   checkout,
   getDeliveryQuote,
+  MOBILE_MONEY_PROVIDERS,
   type DeliveryQuote,
   type LatLng,
+  type MobileMoneyProvider,
   type ShippingAddress,
 } from "@/lib/api-client";
 import { formatCurrency } from "@/lib/currency";
@@ -44,6 +46,14 @@ const FIELD_LABELS: Record<keyof ShippingAddress, string> = {
 
 const QUOTE_DEBOUNCE_MS = 400;
 
+// Tanzanian mobile number: 07XXXXXXXX / 06XXXXXXXX, optionally as +255 / 255. The server
+// normalises and re-validates it.
+const TZ_MOBILE = /^(?:\+?255|0)?[67]\d{8}$/;
+
+function isValidMobile(value: string): boolean {
+  return TZ_MOBILE.test(value.replace(/[\s-]/g, ""));
+}
+
 export default function CheckoutPage() {
   const router = useRouter();
   const { user, isLoading } = useAuth();
@@ -53,6 +63,9 @@ export default function CheckoutPage() {
   const [quoteError, setQuoteError] = useState<string | null>(null);
   const [isQuoting, setIsQuoting] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("card");
+  const [provider, setProvider] = useState<MobileMoneyProvider>("Mpesa");
+  const [msisdn, setMsisdn] = useState("");
+  const [msisdnError, setMsisdnError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -107,20 +120,42 @@ export default function CheckoutPage() {
       setError("Set your delivery location on the map before placing the order.");
       return;
     }
+    const isMobileMoney = paymentMethod === "mobile_money";
+    if (isMobileMoney && !isValidMobile(msisdn)) {
+      setMsisdnError("Enter the mobile money number to charge, e.g. 0712345678.");
+      return;
+    }
     setError(null);
+    setMsisdnError(null);
     setFieldErrors({});
     setIsSubmitting(true);
     try {
-      const order = await checkout({ ...shipping, ...pin }, paymentMethod);
-      router.push(`/orders/${order.id}`);
+      const order = await checkout(
+        { ...shipping, ...pin },
+        paymentMethod,
+        isMobileMoney ? { msisdn, provider } : undefined,
+      );
+      router.push(
+        order.status === "AWAITING_PAYMENT" ? `/orders/${order.id}/pay` : `/orders/${order.id}`,
+      );
     } catch (err) {
       if (err instanceof ApiError) {
         const body = err.body as {
           detail?: string;
+          code?: string;
+          order_id?: number;
           shipping?: Record<string, string[]>;
           lines?: { reason: string }[];
+          msisdn?: string[];
+          provider?: string[];
         } | null;
-        if (body?.shipping) {
+        if (body?.code === "payment_pending" && body.order_id) {
+          router.push(`/orders/${body.order_id}/pay`);
+          return;
+        }
+        if (body?.msisdn || body?.provider) {
+          setMsisdnError(body.msisdn?.[0] ?? body.provider?.[0] ?? null);
+        } else if (body?.shipping) {
           const nextFieldErrors: FieldErrors = {};
           let pinInvalid = false;
           for (const [field, messages] of Object.entries(body.shipping)) {
@@ -209,9 +244,53 @@ export default function CheckoutPage() {
               className={inputClassName}
             >
               <option value="card">Card</option>
-              <option value="mobile_money">Mobile money</option>
+              <option value="mobile_money">Mobile money (AzamPay)</option>
             </select>
           </FormField>
+
+          {paymentMethod === "mobile_money" && (
+            <div className="flex flex-col gap-4 rounded-control border border-border bg-card-muted p-4">
+              <p className="text-sm text-text-muted">
+                We&apos;ll send a payment prompt to this phone. Enter your mobile money PIN there to
+                confirm the order.
+              </p>
+              <FormField label="Network">
+                <select
+                  value={provider}
+                  onChange={(e) => setProvider(e.target.value as MobileMoneyProvider)}
+                  className={inputClassName}
+                >
+                  {MOBILE_MONEY_PROVIDERS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </FormField>
+              <FormField label="Mobile money number">
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  placeholder="0712 345 678"
+                  value={msisdn}
+                  onChange={(e) => {
+                    setMsisdn(e.target.value);
+                    setMsisdnError(null);
+                  }}
+                  onBlur={() => {
+                    if (msisdn && !isValidMobile(msisdn)) {
+                      setMsisdnError("That doesn't look like a Tanzanian mobile number.");
+                    }
+                  }}
+                  className={inputClassName}
+                />
+                {msisdnError && (
+                  <span className="text-xs text-status-cancelled">{msisdnError}</span>
+                )}
+              </FormField>
+            </div>
+          )}
 
           {error && <ErrorText>{error}</ErrorText>}
 

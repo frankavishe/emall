@@ -195,7 +195,29 @@ export type OrderDetail = OrderTotals & {
   shipping: ShippingDetails;
   items: OrderItem[];
   deliveries: DeliveryLeg[];
-  payment: { method: string; status: string };
+  payment: OrderPayment;
+};
+
+/** AzamPay MNO provider names, sent to the API as-is. */
+export type MobileMoneyProvider = "Mpesa" | "Tigo" | "Airtel" | "Halopesa" | "Azampesa";
+
+export const MOBILE_MONEY_PROVIDERS: { value: MobileMoneyProvider; label: string }[] = [
+  { value: "Mpesa", label: "M-Pesa (Vodacom)" },
+  { value: "Tigo", label: "Mixx by Yas (Tigo Pesa)" },
+  { value: "Airtel", label: "Airtel Money" },
+  { value: "Halopesa", label: "HaloPesa" },
+  { value: "Azampesa", label: "AzamPesa" },
+];
+
+export type OrderPayment = {
+  method: string;
+  /** PENDING (mobile money awaiting the customer's PIN), SUCCEEDED or FAILED. */
+  status: string;
+  amount: string;
+  provider: MobileMoneyProvider | "";
+  /** Masked, e.g. `25571****678`. */
+  msisdn: string;
+  failure_reason: string;
 };
 
 export type OrderSummary = OrderTotals & {
@@ -300,15 +322,67 @@ export async function getDeliveryQuote(pin: LatLng): Promise<DeliveryQuote> {
   });
 }
 
+export type MobileMoneyDetails = { msisdn: string; provider: MobileMoneyProvider };
+
 /** `POST /api/checkout` (task T038, contracts/cart-checkout-api.md). The delivery pin is
- * mandatory; the server prices delivery itself. */
+ * mandatory; the server prices delivery itself. With `mobile_money` the order comes back
+ * `AWAITING_PAYMENT` (HTTP 202) until the customer approves the push on their phone; a `409`
+ * with `code: "payment_pending"` carries the `order_id` already waiting for payment. */
 export async function checkout(
   shippingData: ShippingAddress & LatLng,
   paymentMethod: string,
+  mobileMoney?: MobileMoneyDetails,
 ): Promise<OrderDetail> {
   return apiFetch<OrderDetail>("/api/checkout", {
     method: "POST",
-    body: JSON.stringify({ shipping: shippingData, payment_method: paymentMethod }),
+    body: JSON.stringify({
+      shipping: shippingData,
+      payment_method: paymentMethod,
+      ...(mobileMoney ?? {}),
+    }),
+  });
+}
+
+export type PaymentStatus = {
+  order_id: number;
+  order_status: string;
+  payment_status: string | null;
+  failure_reason: string;
+};
+
+/** `GET /api/orders/{id}/payment-status` — polled while a mobile-money payment is pending. */
+export async function getPaymentStatus(orderId: number | string): Promise<PaymentStatus> {
+  return apiFetch<PaymentStatus>(`/api/orders/${orderId}/payment-status`);
+}
+
+/** A USSD push waiting on the simulated phone (dev-only AzamPay sandbox simulator). */
+export type SimulatedPush = {
+  reference: string;
+  order_id: number;
+  msisdn: string;
+  provider: MobileMoneyProvider;
+  amount: string;
+  created_at: string;
+};
+
+/** True when the local AzamPay simulator UI should be offered (never in production builds). */
+export const PAYMENT_SIMULATOR_ENABLED = process.env.NEXT_PUBLIC_PAYMENT_SIMULATOR === "true";
+
+/** `GET /api/dev/azampay-sim/pushes` — 404s unless the backend runs the simulator. */
+export async function listSimulatedPushes(): Promise<SimulatedPush[]> {
+  return apiFetch<SimulatedPush[]>("/api/dev/azampay-sim/pushes");
+}
+
+/** Approve (with the PIN) or reject a simulated push; the backend then runs the same callback
+ * handler AzamPay's real callback goes through. */
+export async function decideSimulatedPush(
+  reference: string,
+  decision: "approve" | "reject",
+  pin?: string,
+): Promise<{ outcome: string }> {
+  return apiFetch<{ outcome: string }>(`/api/dev/azampay-sim/pushes/${reference}/${decision}`, {
+    method: "POST",
+    body: JSON.stringify(pin ? { pin } : {}),
   });
 }
 

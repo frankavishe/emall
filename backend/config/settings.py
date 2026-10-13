@@ -192,6 +192,26 @@ CACHES = {
 # mobile-money provider is integrated).
 DISBURSEMENT_BACKEND = env("DISBURSEMENT_BACKEND", default="mock")
 
+# --- Customer payments (AzamPay mobile money) -------------------------------
+# Which `apps.payments` mobile-money gateway takes customer payments at checkout:
+#   "mock"              - synchronous MockPaymentService only (tests, default)
+#   "azampay_simulator" - local stand-in for the AzamPay sandbox: pushes are approved/rejected
+#                         from the dev phone page (/dev/azampay-sandbox), no credentials needed
+#   "azampay"           - the real AzamPay API (sandbox or live, chosen by the URLs below)
+PAYMENT_BACKEND = env("PAYMENT_BACKEND", default="mock")
+AZAMPAY_APP_NAME = env("AZAMPAY_APP_NAME", default="")
+AZAMPAY_CLIENT_ID = env("AZAMPAY_CLIENT_ID", default="")
+AZAMPAY_CLIENT_SECRET = env("AZAMPAY_CLIENT_SECRET", default="")
+AZAMPAY_API_KEY = env("AZAMPAY_API_KEY", default="")
+AZAMPAY_AUTH_URL = env("AZAMPAY_AUTH_URL", default="https://authenticator-sandbox.azampay.co.tz")
+AZAMPAY_API_URL = env("AZAMPAY_API_URL", default="https://sandbox.azampay.co.tz")
+# AzamPay doesn't sign callbacks, so the callback URL carries this secret instead:
+# {BACKEND_PUBLIC_URL}/api/payments/azampay/callback/<AZAMPAY_CALLBACK_TOKEN>
+AZAMPAY_CALLBACK_TOKEN = env("AZAMPAY_CALLBACK_TOKEN", default="dev-callback-token")
+BACKEND_PUBLIC_URL = env("BACKEND_PUBLIC_URL", default="http://localhost:8000")
+# A push the customer never answers is failed (and its stock released) after this long.
+PAYMENT_PENDING_TIMEOUT_MINUTES = env.int("PAYMENT_PENDING_TIMEOUT_MINUTES", default=15)
+
 # --- simplejwt (task T013) -----------------------------------------------
 # Access token stays short-lived and is returned to the frontend in the response body only
 # (held in memory there); refresh token is longer-lived and is set exclusively as an

@@ -17,3 +17,10 @@ def clear_throttle_cache():
     cache.clear()
     yield
     cache.clear()
+
+
+@pytest.fixture(autouse=True)
+def mock_payment_backend(settings):
+    """Tests never depend on the developer's backend/.env PAYMENT_BACKEND (which is usually the
+    AzamPay simulator locally); payment tests opt in to another backend explicitly."""
+    settings.PAYMENT_BACKEND = "mock"

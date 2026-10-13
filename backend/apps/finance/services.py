@@ -205,13 +205,16 @@ def balance_aggregates(prefix=""):
     def q(**lookups):
         return Q(**{f"{prefix}{key}": value for key, value in lookups.items()})
 
-    not_cancelled = ~q(status=OrderItem.Status.CANCELLED)
+    # Lines of an order still awaiting (or that failed) payment are money nobody has received.
+    paid = q(order__status=Order.Status.PLACED)
+    not_cancelled = ~q(status=OrderItem.Status.CANCELLED) & paid
     delivered = q(status=OrderItem.Status.DELIVERED)
+    in_progress = q(status__in=_IN_PROGRESS) & paid
     return {
         "gross_sales": _sum(f("unit_price") * f("quantity"), not_cancelled),
         "commission_earned": _sum(f("commission_amount"), delivered),
-        "commission_pending": _sum(f("commission_amount"), q(status__in=_IN_PROGRESS)),
-        "pending_earnings": _sum(f("vendor_earning"), q(status__in=_IN_PROGRESS)),
+        "commission_pending": _sum(f("commission_amount"), in_progress),
+        "pending_earnings": _sum(f("vendor_earning"), in_progress),
         "available_balance": _sum(f("vendor_earning"), delivered & q(payout__isnull=True)),
         "in_payout": _sum(f("vendor_earning"), delivered & q(payout__status__in=_PAYOUT_OPEN)),
         "paid_out": _sum(f("vendor_earning"), q(payout__status=Payout.Status.SUCCEEDED)),
@@ -219,7 +222,7 @@ def balance_aggregates(prefix=""):
 
 
 def _date_filtered_lines(date_from=None, date_to=None):
-    lines = OrderItem.objects.all()
+    lines = OrderItem.objects.filter(order__status=Order.Status.PLACED)
     if date_from:
         lines = lines.filter(order__placed_at__date__gte=date_from)
     if date_to:
@@ -238,7 +241,7 @@ def platform_summary(*, date_from=None, date_to=None):
     )
     figures["default_commission_rate"] = PlatformSettings.get_solo().default_commission_rate
 
-    orders = Order.objects.all()
+    orders = Order.objects.filter(status=Order.Status.PLACED)
     if date_from:
         orders = orders.filter(placed_at__date__gte=date_from)
     if date_to:
