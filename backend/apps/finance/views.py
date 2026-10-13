@@ -252,6 +252,8 @@ class AdminTransactionListView(ListAPIView):
                 Q(transaction_reference__icontains=search)
                 | Q(order__customer__email__icontains=search)
                 | Q(order__customer__name__icontains=search)
+                | Q(order__guest_email__icontains=search)
+                | Q(order__customer__isnull=True, order__recipient_name__icontains=search)
             )
             if search.isdigit():
                 condition |= Q(order_id=int(search))

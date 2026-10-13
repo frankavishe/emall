@@ -35,11 +35,14 @@ export default function CartPage() {
   const [error, setError] = useState<string | null>(null);
   const [pendingItemId, setPendingItemId] = useState<number | null>(null);
 
+  // Guests can shop too (guest checkout); only a signed-in non-customer account is turned away.
+  const canShop = !user || hasRole(user, "CUSTOMER");
+
   useEffect(() => {
-    if (!isLoading && (!user || !hasRole(user, "CUSTOMER"))) {
+    if (!isLoading && !canShop) {
       router.replace("/login");
     }
-  }, [isLoading, user, router]);
+  }, [isLoading, canShop, router]);
 
   const loadCart = useCallback(async () => {
     setIsLoadingCart(true);
@@ -55,7 +58,7 @@ export default function CartPage() {
   }, []);
 
   useEffect(() => {
-    if (!hasRole(user, "CUSTOMER")) return;
+    if (isLoading || !canShop) return;
     let cancelled = false;
 
     async function run() {
@@ -79,7 +82,7 @@ export default function CartPage() {
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [isLoading, canShop, user]);
 
   async function handleQuantityChange(item: CartItem, quantity: number) {
     if (quantity < 1) return;
@@ -111,7 +114,7 @@ export default function CartPage() {
     }
   }
 
-  if (isLoading || !user || !hasRole(user, "CUSTOMER")) {
+  if (isLoading || !canShop) {
     return (
       <PageShell size="md" className="min-h-screen items-center justify-center">
         <LoadingText />

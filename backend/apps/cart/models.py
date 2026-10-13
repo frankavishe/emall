@@ -7,15 +7,36 @@ from apps.vendors.models import Shop
 class Cart(models.Model):
     """Exactly one active cart per Customer account (spec Key Entities); created lazily via
     `get_or_create` on first access (research.md §1), never at registration time.
+
+    An anonymous guest's cart (guest checkout) has no customer and is instead identified by
+    `guest_token`, carried in an httpOnly cookie. Exactly one of the two is always set.
     """
 
     customer = models.OneToOneField(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="cart"
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="cart",
+        null=True,
+        blank=True,
     )
+    guest_token = models.CharField(max_length=64, unique=True, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(customer__isnull=False, guest_token__isnull=True)
+                    | models.Q(customer__isnull=True, guest_token__isnull=False)
+                ),
+                name="cart_owned_by_customer_xor_guest",
+            )
+        ]
+
     def __str__(self):
+        if self.customer_id is None:
+            return f"Cart(guest {self.pk})"
         return f"Cart({self.customer_id})"
 
 

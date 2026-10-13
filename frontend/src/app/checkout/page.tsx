@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { hasRole, useAuth } from "@/lib/auth-context";
 import {
   ApiError,
   checkout,
   getDeliveryQuote,
   MOBILE_MONEY_PROVIDERS,
+  orderPath,
   type DeliveryQuote,
   type LatLng,
   type MobileMoneyProvider,
@@ -70,11 +72,18 @@ export default function CheckoutPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [guestEmail, setGuestEmail] = useState("");
+  const [guestEmailError, setGuestEmailError] = useState<string | null>(null);
+
+  // Guests can check out too (guest checkout); only a signed-in non-customer is turned away.
+  const isGuest = !user;
+  const canShop = isGuest || hasRole(user, "CUSTOMER");
+
   useEffect(() => {
-    if (!isLoading && (!user || !hasRole(user, "CUSTOMER"))) {
+    if (!isLoading && !canShop) {
       router.replace("/login");
     }
-  }, [isLoading, user, router]);
+  }, [isLoading, canShop, router]);
 
   // Re-price delivery whenever the pin settles. The quote is only a preview: checkout
   // recomputes the fee on the server.
@@ -127,6 +136,7 @@ export default function CheckoutPage() {
     }
     setError(null);
     setMsisdnError(null);
+    setGuestEmailError(null);
     setFieldErrors({});
     setIsSubmitting(true);
     try {
@@ -134,26 +144,30 @@ export default function CheckoutPage() {
         { ...shipping, ...pin },
         paymentMethod,
         isMobileMoney ? { msisdn, provider } : undefined,
+        isGuest ? guestEmail.trim() : undefined,
       );
-      router.push(
-        order.status === "AWAITING_PAYMENT" ? `/orders/${order.id}/pay` : `/orders/${order.id}`,
-      );
+      const path = orderPath(order);
+      router.push(order.status === "AWAITING_PAYMENT" ? `${path}/pay` : path);
     } catch (err) {
       if (err instanceof ApiError) {
         const body = err.body as {
           detail?: string;
           code?: string;
           order_id?: number;
+          access_token?: string;
           shipping?: Record<string, string[]>;
           lines?: { reason: string }[];
           msisdn?: string[];
           provider?: string[];
+          email?: string[];
         } | null;
-        if (body?.code === "payment_pending" && body.order_id) {
-          router.push(`/orders/${body.order_id}/pay`);
+        if (body?.code === "payment_pending" && (body.order_id || body.access_token)) {
+          router.push(`${orderPath({ id: body.order_id, access_token: body.access_token })}/pay`);
           return;
         }
-        if (body?.msisdn || body?.provider) {
+        if (body?.email) {
+          setGuestEmailError(body.email[0]);
+        } else if (body?.msisdn || body?.provider) {
           setMsisdnError(body.msisdn?.[0] ?? body.provider?.[0] ?? null);
         } else if (body?.shipping) {
           const nextFieldErrors: FieldErrors = {};
@@ -183,7 +197,7 @@ export default function CheckoutPage() {
     }
   }
 
-  if (isLoading || !user || !hasRole(user, "CUSTOMER")) {
+  if (isLoading || !canShop) {
     return (
       <PageShell size="md" className="min-h-screen items-center justify-center">
         <LoadingText />
@@ -202,6 +216,37 @@ export default function CheckoutPage() {
           is from your location.
         </p>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          {isGuest && (
+            <div className="flex flex-col gap-2 rounded-control border border-border bg-card-muted p-4">
+              <p className="text-sm text-text-muted">
+                Checking out as a guest.{" "}
+                <Link href="/login" className="font-medium text-brand-text underline">
+                  Log in
+                </Link>{" "}
+                to keep your orders in your account.
+              </p>
+              <FormField label="Email">
+                <input
+                  type="email"
+                  required
+                  autoComplete="email"
+                  value={guestEmail}
+                  onChange={(e) => {
+                    setGuestEmail(e.target.value);
+                    setGuestEmailError(null);
+                  }}
+                  className={inputClassName}
+                />
+                <span className="text-xs text-text-muted">
+                  We&apos;ll email your order confirmation and a private link to track it.
+                </span>
+                {guestEmailError && (
+                  <span className="text-xs text-status-cancelled">{guestEmailError}</span>
+                )}
+              </FormField>
+            </div>
+          )}
+
           {(Object.keys(EMPTY_SHIPPING) as (keyof ShippingAddress)[]).map((field) => (
             <FormField key={field} label={FIELD_LABELS[field]}>
               <input

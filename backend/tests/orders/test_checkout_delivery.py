@@ -198,15 +198,18 @@ def test_quote_errors_carry_codes(api_client):
     assert response.data["code"] == "shop_without_location"
 
 
-def test_quote_requires_valid_pin_and_customer(api_client):
+def test_quote_requires_valid_pin(api_client):
     _customer_with_cart(api_client, ProductFactory(is_published=True))
     response = api_client.post("/api/checkout/delivery-quote", {"latitude": 100}, format="json")
     assert response.status_code == 400
     assert "longitude" in response.data
 
+    # Guest checkout: an anonymous visitor is quoted from their own (here, missing) guest cart,
+    # never the signed-in customer's.
     api_client.force_authenticate(None)
     response = api_client.post("/api/checkout/delivery-quote", PIN, format="json")
-    assert response.status_code == 401
+    assert response.status_code == 400
+    assert response.data["code"] == "empty_cart"
 
 
 def test_legacy_order_without_delivery_still_renders(api_client):

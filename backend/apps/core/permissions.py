@@ -28,3 +28,15 @@ IsCustomer = IsRole("CUSTOMER")
 IsVendor = IsRole("VENDOR")
 IsAdministrator = IsRole("ADMINISTRATOR")
 IsRider = IsRole("RIDER")
+
+
+class IsCustomerOrGuest(BasePermission):
+    """Buying is open to anonymous guests (guest checkout) as well as Customers. A signed-in
+    Vendor/Administrator/Rider is still refused: guests are not a role, only the absence of one,
+    and their data is reached solely through unguessable server-issued tokens."""
+
+    def has_permission(self, request, view):
+        user = request.user
+        if not (user and user.is_authenticated):
+            return True
+        return user.has_role("CUSTOMER")

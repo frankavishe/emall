@@ -200,14 +200,7 @@ export default function ProductDetailPage() {
             </p>
 
             {product.stock_status === "in_stock" &&
-              (!user ? (
-                <p className="mt-6 text-sm text-text-muted">
-                  <Link href="/login" className="font-medium text-text-primary underline">
-                    Log in
-                  </Link>{" "}
-                  as a Customer to add this to your cart.
-                </p>
-              ) : !hasRole(user, "CUSTOMER") ? (
+              (user && !hasRole(user, "CUSTOMER") ? (
                 <p className="mt-6 text-sm text-text-muted">
                   Only Customer accounts can add items to a cart.
                 </p>

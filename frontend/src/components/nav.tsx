@@ -16,6 +16,8 @@ type NavLink = { label: string; href: string };
 const GUEST_LINKS: NavLink[] = [
   { label: "Home", href: "/" },
   { label: "Products", href: "/products" },
+  // Guests can shop and check out without an account (guest checkout).
+  { label: "Cart", href: "/cart" },
 ];
 
 const CUSTOMER_LINKS: NavLink[] = [

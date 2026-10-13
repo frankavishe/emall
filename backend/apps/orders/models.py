@@ -18,9 +18,20 @@ class Order(models.Model):
         AWAITING_PAYMENT = "AWAITING_PAYMENT", "Awaiting payment"
         PAYMENT_FAILED = "PAYMENT_FAILED", "Payment failed"
 
+    # Null for a guest order (guest checkout): the buyer is then reached through `guest_email`,
+    # and the order through its unguessable `access_token` link.
     customer = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="orders"
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="orders",
+        null=True,
+        blank=True,
     )
+    guest_email = models.EmailField(blank=True)
+    access_token = models.CharField(max_length=64, unique=True, null=True, blank=True)
+    # The guest cart this order was placed from, so a pending mobile-money payment can be found
+    # (one at a time per cart) and the cart cleared once the payment succeeds.
+    guest_cart_token = models.CharField(max_length=64, blank=True, db_index=True)
     status = models.CharField(
         max_length=20, choices=Status.choices, default=Status.PLACED
     )
@@ -38,8 +49,28 @@ class Order(models.Model):
     delivery_fee = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     placed_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(customer__isnull=False) | ~models.Q(guest_email=""),
+                name="order_has_customer_or_guest_email",
+            )
+        ]
+
     def __str__(self):
-        return f"Order({self.pk}, {self.customer_id})"
+        return f"Order({self.pk}, {self.customer_id or 'guest'})"
+
+    @property
+    def is_guest(self):
+        return self.customer_id is None
+
+    @property
+    def contact_email(self):
+        return self.guest_email if self.is_guest else self.customer.email
+
+    @property
+    def contact_name(self):
+        return self.recipient_name if self.is_guest else self.customer.name
 
     @property
     def items_subtotal(self):

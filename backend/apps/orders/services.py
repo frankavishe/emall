@@ -3,6 +3,7 @@ created — no view constructs one directly.
 """
 
 import logging
+import secrets
 import uuid
 from decimal import Decimal
 
@@ -137,14 +138,12 @@ def _delivery_legs(cart_items, latitude, longitude):
         raise CheckoutError(error.code, error.detail) from error
 
 
-def quote_cart_delivery(*, customer, latitude, longitude):
+def quote_cart_delivery(*, cart, latitude, longitude):
     """The delivery quote shown at checkout (007-delivery-fee). Advisory only: `place_order()`
     recomputes it from current data when the order is actually placed."""
 
     cart_items = list(
-        CartItem.objects.select_related("product__shop")
-        .filter(cart__customer=customer)
-        .order_by("product_id")
+        CartItem.objects.select_related("product__shop").filter(cart=cart).order_by("product_id")
     )
     if not cart_items:
         raise CheckoutError("empty_cart", "Your cart is empty.")
@@ -160,14 +159,12 @@ def quote_cart_delivery(*, customer, latitude, longitude):
     }
 
 
-def _locked_cart_items(customer):
-    """The customer's cart lines with their products row-locked and re-validated. Caller holds
-    the transaction."""
+def _locked_cart_items(cart):
+    """The cart's lines with their products row-locked and re-validated. Caller holds the
+    transaction."""
 
     cart_items = list(
-        CartItem.objects.select_related("product__shop")
-        .filter(cart__customer=customer)
-        .order_by("product_id")
+        CartItem.objects.select_related("product__shop").filter(cart=cart).order_by("product_id")
     )
     if not cart_items:
         raise CheckoutError("empty_cart", "Your cart is empty.")
@@ -208,12 +205,25 @@ def _price(cart_items, shipping_data):
     return legs, delivery_fee, items_subtotal + delivery_fee
 
 
-def _create_order(*, customer, shipping_data, status, cart_items, legs, delivery_fee):
+def _buyer_fields(cart, guest_email):
+    """Who the order belongs to: the cart's Customer, or - for a guest cart - the guest's email
+    plus an unguessable token that is the guest's only way back to the order."""
+
+    if cart.customer_id is not None:
+        return {"customer_id": cart.customer_id}
+    return {
+        "guest_email": guest_email,
+        "access_token": secrets.token_urlsafe(32),
+        "guest_cart_token": cart.guest_token,
+    }
+
+
+def _create_order(*, cart, guest_email, shipping_data, status, cart_items, legs, delivery_fee):
     """Creates the order, its delivery legs and lines, and takes the lines' stock. Caller holds
     the transaction and the product locks."""
 
     order = Order.objects.create(
-        customer=customer,
+        **_buyer_fields(cart, guest_email),
         status=status,
         delivery_fee=delivery_fee,
         **shipping_data,
@@ -245,25 +255,40 @@ def _create_order(*, customer, shipping_data, status, cart_items, legs, delivery
     return order
 
 
-def place_order(*, customer, shipping_data, payment_method, msisdn=None, provider=None):
-    """Mobile money (when a mobile-money `PAYMENT_BACKEND` is configured) returns an
+def place_order(
+    *, cart, shipping_data, payment_method, guest_email="", msisdn=None, provider=None
+):
+    """Places an order from `cart`: a Customer's cart, or a guest's (guest checkout), in which
+    case `guest_email` is required and the order gets an `access_token`.
+
+    Mobile money (when a mobile-money `PAYMENT_BACKEND` is configured) returns an
     AWAITING_PAYMENT order whose payment the gateway confirms later; every other method is
     charged synchronously and returns a PLACED order."""
 
+    if cart is None:
+        raise CheckoutError("empty_cart", "Your cart is empty.")
+    if cart.customer_id is None and not guest_email:
+        raise CheckoutError("email_required", "An email address is required to check out.")
+
     if payment_method == MOBILE_MONEY_METHOD and mobile_money_enabled():
         return _place_mobile_money_order(
-            customer=customer, shipping_data=shipping_data, msisdn=msisdn, provider=provider
+            cart=cart,
+            guest_email=guest_email,
+            shipping_data=shipping_data,
+            msisdn=msisdn,
+            provider=provider,
         )
 
     with transaction.atomic():
-        cart_items = _locked_cart_items(customer)
+        cart_items = _locked_cart_items(cart)
         legs, delivery_fee, total = _price(cart_items, shipping_data)
         payment_result = get_payment_service().charge(amount=total, method=payment_method)
         if not payment_result.success:
             raise CheckoutError("payment_failed", "Payment was declined.")
 
         order = _create_order(
-            customer=customer,
+            cart=cart,
+            guest_email=guest_email,
             shipping_data=shipping_data,
             status=Order.Status.PLACED,
             cart_items=cart_items,
@@ -278,36 +303,67 @@ def place_order(*, customer, shipping_data, payment_method, msisdn=None, provide
             transaction_reference=payment_result.transaction_reference,
         )
 
-        CartItem.objects.filter(cart__customer=customer).delete()
+        CartItem.objects.filter(cart=cart).delete()
+        if order.is_guest:
+            transaction.on_commit(lambda: send_order_confirmation(order))
 
     return order
 
 
-def _place_mobile_money_order(*, customer, shipping_data, msisdn, provider):
+def send_order_confirmation(order):
+    """Best-effort, like `_notify_order_item_status_change`: the order is already committed."""
+
+    try:
+        get_email_service().send_order_confirmation_email(order)
+    except Exception:
+        logger.exception("Failed to send order confirmation for order_id=%s", order.id)
+
+
+def _orders_of_cart_owner(cart):
+    """The orders placed by this cart's owner: a Customer's orders, or a guest cart's."""
+
+    if cart.customer_id is not None:
+        return Order.objects.filter(customer_id=cart.customer_id)
+    return Order.objects.filter(guest_cart_token=cart.guest_token)
+
+
+def _order_reference(order):
+    """How an error response points back at an order: a guest can only reach it by its token,
+    never by id."""
+
+    if order.is_guest:
+        return {"access_token": order.access_token}
+    return {"order_id": order.id}
+
+
+def _place_mobile_money_order(*, cart, guest_email, shipping_data, msisdn, provider):
     """Reserves the stock under an AWAITING_PAYMENT order, then (after commit, outside the row
     locks) asks the gateway to push a payment prompt to the customer's phone. The cart is kept
     until the payment succeeds, so a failed payment loses nothing."""
 
     # A payment that timed out shouldn't block the customer from trying again.
-    expire_stale_payments(queryset=PaymentRecord.objects.filter(order__customer=customer))
+    expire_stale_payments(
+        queryset=PaymentRecord.objects.filter(order__in=_orders_of_cart_owner(cart))
+    )
 
     with transaction.atomic():
-        # Serialises this customer's checkouts so two can't both pass the pending check.
-        Cart.objects.select_for_update().filter(customer=customer).first()
-        pending = Order.objects.filter(
-            customer=customer, status=Order.Status.AWAITING_PAYMENT
-        ).first()
+        # Serialises this cart's checkouts so two can't both pass the pending check.
+        Cart.objects.select_for_update().filter(pk=cart.pk).first()
+        pending = (
+            _orders_of_cart_owner(cart).filter(status=Order.Status.AWAITING_PAYMENT).first()
+        )
         if pending is not None:
             raise CheckoutError(
                 "payment_pending",
                 "You already have an order waiting for payment.",
-                order_id=pending.id,
+                **_order_reference(pending),
             )
 
-        cart_items = _locked_cart_items(customer)
+        cart_items = _locked_cart_items(cart)
         legs, delivery_fee, total = _price(cart_items, shipping_data)
         order = _create_order(
-            customer=customer,
+            cart=cart,
+            guest_email=guest_email,
             shipping_data=shipping_data,
             status=Order.Status.AWAITING_PAYMENT,
             cart_items=cart_items,
@@ -340,7 +396,7 @@ def _place_mobile_money_order(*, customer, shipping_data, msisdn, provider):
         raise CheckoutError(
             "payment_failed",
             result.message or "The payment request could not be sent.",
-            order_id=order.id,
+            **_order_reference(order),
         )
 
     if result.provider_reference:
