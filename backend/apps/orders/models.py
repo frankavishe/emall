@@ -8,10 +8,15 @@ class Order(models.Model):
     """Created only by `orders.services.place_order()` inside the atomic checkout transaction
     (research.md §4) — never via a generic create endpoint that accepts arbitrary
     `status`/`placed_at`.
+
+    PLACED means paid. A mobile-money order starts AWAITING_PAYMENT (stock reserved, invisible to
+    vendors) until the gateway confirms it; a failed or expired payment ends it PAYMENT_FAILED.
     """
 
     class Status(models.TextChoices):
         PLACED = "PLACED", "Placed"
+        AWAITING_PAYMENT = "AWAITING_PAYMENT", "Awaiting payment"
+        PAYMENT_FAILED = "PAYMENT_FAILED", "Payment failed"
 
     customer = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="orders"

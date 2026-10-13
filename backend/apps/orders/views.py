@@ -31,13 +31,16 @@ from apps.orders.services import (
     place_order,
     quote_cart_delivery,
 )
+from apps.payments.models import PaymentRecord
+from apps.payments.outcomes import expire_stale_payments
 from apps.vendors.models import Shop
 
 
 class CheckoutView(APIView):
     """Re-validates the cart, charges the mock payment service, and — only if both succeed —
     creates the Order atomically (research.md §4). Every failure case is translated to the `400`
-    response shapes in contracts/cart-checkout-api.md."""
+    response shapes in contracts/cart-checkout-api.md. Mobile money instead answers `202` with an
+    AWAITING_PAYMENT order (see `place_order()`), or `409 payment_pending` while one exists."""
 
     permission_classes = [IsCustomer]
 
@@ -46,22 +49,41 @@ class CheckoutView(APIView):
         serializer.is_valid(raise_exception=True)
 
         try:
+            data = serializer.validated_data
             order = place_order(
                 customer=request.user,
-                shipping_data=serializer.validated_data["shipping"],
-                payment_method=serializer.validated_data["payment_method"],
+                shipping_data=data["shipping"],
+                payment_method=data["payment_method"],
+                msisdn=data.get("msisdn"),
+                provider=data.get("provider"),
             )
         except CheckoutError as error:
             body = {"detail": error.detail, **error.extra}
             if error.code in CODED_CHECKOUT_ERRORS:
                 body["code"] = error.code
-            return Response(body, status=status.HTTP_400_BAD_REQUEST)
+            http_status = (
+                status.HTTP_409_CONFLICT
+                if error.code == "payment_pending"
+                else status.HTTP_400_BAD_REQUEST
+            )
+            return Response(body, status=http_status)
 
-        return Response(OrderDetailSerializer(order).data, status=status.HTTP_201_CREATED)
+        # 202: a mobile-money order exists but waits for the customer to approve the push.
+        http_status = (
+            status.HTTP_202_ACCEPTED
+            if order.status == Order.Status.AWAITING_PAYMENT
+            else status.HTTP_201_CREATED
+        )
+        return Response(OrderDetailSerializer(order).data, status=http_status)
 
 
 # Checkout failures whose `code` is returned so the client can react to them specifically.
-CODED_CHECKOUT_ERRORS = {"payment_failed", "shop_without_location", "out_of_range"}
+CODED_CHECKOUT_ERRORS = {
+    "payment_failed",
+    "payment_pending",
+    "shop_without_location",
+    "out_of_range",
+}
 
 
 def _money(value):
@@ -124,6 +146,31 @@ class OrderDetailView(APIView):
         return Response(OrderDetailSerializer(order).data)
 
 
+class OrderPaymentStatusView(APIView):
+    """`GET /api/orders/{id}/payment-status`: what the "check your phone" page polls while a
+    mobile-money payment is pending. Expires the payment on the spot if it has timed out."""
+
+    permission_classes = [IsCustomer]
+
+    def get(self, request, order_id):
+        order = get_object_or_404(
+            Order.objects.select_related("payment"), pk=order_id, customer=request.user
+        )
+        payment = getattr(order, "payment", None)
+        if payment is not None and payment.status == PaymentRecord.Status.PENDING:
+            expire_stale_payments(queryset=PaymentRecord.objects.filter(pk=payment.pk))
+            order.refresh_from_db()
+            payment.refresh_from_db()
+        return Response(
+            {
+                "order_id": order.id,
+                "order_status": order.status,
+                "payment_status": payment.status if payment else None,
+                "failure_reason": payment.failure_reason if payment else "",
+            }
+        )
+
+
 class VendorOrderItemListView(ListAPIView):
     """Lists only order lines whose product belongs to one of the requester's own shops, across
     every Customer's order (FR-001, FR-004)."""
@@ -134,7 +181,9 @@ class VendorOrderItemListView(ListAPIView):
 
     def get_queryset(self):
         return (
-            OrderItem.objects.filter(product__shop__owner=self.request.user)
+            OrderItem.objects.filter(
+                product__shop__owner=self.request.user, order__status=Order.Status.PLACED
+            )
             .select_related("product", "product__shop", "order", "rider__rider_profile")
             .order_by("-order__placed_at")
         )
@@ -152,6 +201,7 @@ class VendorOrderItemStatusUpdateView(APIView):
             OrderItem.objects.select_related("product", "product__shop", "order"),
             pk=item_id,
             product__shop__owner=request.user,
+            order__status=Order.Status.PLACED,
         )
         if order_item.product.shop.status != Shop.Status.APPROVED:
             raise PermissionDenied(
@@ -190,6 +240,7 @@ class AdminOrderItemListView(ListAPIView):
                     queryset=OrderItemStatusEvent.objects.order_by("changed_at"),
                 )
             )
+            .filter(order__status=Order.Status.PLACED)
             .order_by("-order__placed_at")
         )
         shop = self.request.query_params.get("shop", "")

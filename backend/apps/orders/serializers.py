@@ -5,6 +5,7 @@ from rest_framework import serializers
 from apps.catalog.models import Product
 from apps.orders.models import Order, OrderDelivery, OrderItem, OrderItemStatusEvent
 from apps.payments.models import PaymentRecord
+from apps.payments.services import MOBILE_MONEY_METHOD, mobile_money_enabled, normalise_msisdn
 from apps.vendors.models import Shop
 
 COORDINATE_PLACES = Decimal("0.000001")
@@ -40,6 +41,29 @@ class CheckoutSerializer(serializers.Serializer):
 
     shipping = ShippingSerializer()
     payment_method = serializers.CharField()
+    # Mobile money only: the number the payment prompt is pushed to, and its network.
+    msisdn = serializers.CharField(required=False, allow_blank=True)
+    provider = serializers.ChoiceField(
+        choices=PaymentRecord.Provider.choices, required=False, allow_blank=True
+    )
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        if attrs["payment_method"] != MOBILE_MONEY_METHOD or not mobile_money_enabled():
+            attrs.pop("msisdn", None)
+            attrs.pop("provider", None)
+            return attrs
+
+        errors = {}
+        msisdn = normalise_msisdn(attrs.get("msisdn", ""))
+        if msisdn is None:
+            errors["msisdn"] = ["Enter a Tanzanian mobile number, e.g. 0712345678."]
+        if not attrs.get("provider"):
+            errors["provider"] = ["Choose your mobile money network."]
+        if errors:
+            raise serializers.ValidationError(errors)
+        attrs["msisdn"] = msisdn
+        return attrs
 
 
 def rider_brief(rider):
@@ -195,9 +219,11 @@ class AssignRiderSerializer(serializers.Serializer):
 
 
 class PaymentRecordSerializer(serializers.ModelSerializer):
+    msisdn = serializers.CharField(source="masked_msisdn", read_only=True)
+
     class Meta:
         model = PaymentRecord
-        fields = ["method", "status", "amount"]
+        fields = ["method", "status", "amount", "provider", "msisdn", "failure_reason"]
         read_only_fields = fields
 
 

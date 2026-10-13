@@ -4,7 +4,12 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { hasRole, useAuth } from "@/lib/auth-context";
-import { ApiError, getOrder, type OrderDetail } from "@/lib/api-client";
+import {
+  ApiError,
+  getOrder,
+  MOBILE_MONEY_PROVIDERS,
+  type OrderDetail,
+} from "@/lib/api-client";
 import { PageShell } from "@/components/ui/page-shell";
 import { Card } from "@/components/ui/card";
 import { Pill, statusToTone } from "@/components/ui/pill";
@@ -124,7 +129,25 @@ export default function OrderDetailPage() {
             <p className="mt-2 text-sm capitalize text-text-primary">
               {order.payment.method.replace("_", " ")}
             </p>
+            {order.payment.provider && (
+              <p className="text-sm text-text-primary">
+                {MOBILE_MONEY_PROVIDERS.find((p) => p.value === order.payment.provider)?.label ??
+                  order.payment.provider}{" "}
+                &middot; {order.payment.msisdn}
+              </p>
+            )}
             <p className="text-sm text-text-primary">{order.payment.status}</p>
+            {order.payment.failure_reason && (
+              <p className="text-sm text-status-cancelled">{order.payment.failure_reason}</p>
+            )}
+            {order.status === "AWAITING_PAYMENT" && (
+              <Link
+                href={`/orders/${order.id}/pay`}
+                className="text-sm font-medium text-brand-text underline"
+              >
+                Waiting for your payment — view status
+              </Link>
+            )}
           </div>
         </div>
 

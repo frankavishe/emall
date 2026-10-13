@@ -313,13 +313,13 @@ def _customers():
     each other's rows."""
     money = DecimalField(max_digits=12, decimal_places=2)
     spent = (
-        OrderItem.objects.filter(order__customer=OuterRef("pk"))
+        OrderItem.objects.filter(order__customer=OuterRef("pk"), order__status=Order.Status.PLACED)
         .values("order__customer")
         .annotate(total=Sum(F("unit_price") * F("quantity"), output_field=money))
         .values("total")
     )
     delivery = (
-        Order.objects.filter(customer=OuterRef("pk"))
+        Order.objects.filter(customer=OuterRef("pk"), status=Order.Status.PLACED)
         .values("customer")
         .annotate(total=Sum("delivery_fee", output_field=money))
         .values("total")
@@ -331,7 +331,9 @@ def _customers():
         .values("count")
     )
     return User.objects.filter(role=User.Role.CUSTOMER).annotate(
-        order_count=Count("orders", distinct=True),
+        order_count=Count(
+            "orders", filter=Q(orders__status=Order.Status.PLACED), distinct=True
+        ),
         total_spent=Coalesce(Subquery(spent, output_field=money), Value(0, output_field=money))
         + Coalesce(Subquery(delivery, output_field=money), Value(0, output_field=money)),
         shop_count=Coalesce(Subquery(shops), Value(0)),

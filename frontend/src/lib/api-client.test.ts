@@ -2,7 +2,10 @@ import { afterEach, describe, expect, it, beforeEach, vi } from "vitest";
 import {
   ApiError,
   apiFetch,
+  checkout,
+  decideSimulatedPush,
   getAccessToken,
+  getPaymentStatus,
   refreshAccessToken,
   setAccessToken,
 } from "./api-client";
@@ -128,5 +131,72 @@ describe("concurrent 401s", () => {
     expect(getAccessToken()).toBe("fresh");
     const refreshCalls = fetchMock.mock.calls.filter(([u]) => String(u).endsWith("/refresh"));
     expect(refreshCalls).toHaveLength(1);
+  });
+});
+
+describe("mobile money payments", () => {
+  const fetchMock = vi.fn();
+  const shipping = {
+    recipient_name: "Ama",
+    address_line: "12 Ring Road",
+    city: "Dar es Salaam",
+    region: "Dar es Salaam",
+    postal_code: "11101",
+    country: "Tanzania",
+    phone: "0712345678",
+    latitude: -6.79,
+    longitude: 39.2,
+  };
+
+  beforeEach(() => {
+    vi.stubGlobal("fetch", fetchMock);
+    fetchMock.mockImplementation(async () => new Response("{}", { status: 200 }));
+  });
+
+  afterEach(() => {
+    fetchMock.mockReset();
+    vi.unstubAllGlobals();
+  });
+
+  function lastCall(): { url: string; init: RequestInit } {
+    const [url, init] = fetchMock.mock.calls.at(-1) as [string, RequestInit];
+    return { url, init };
+  }
+
+  it("sends the number and network with a mobile money checkout", async () => {
+    await checkout(shipping, "mobile_money", { msisdn: "0712345678", provider: "Mpesa" });
+
+    const { url, init } = lastCall();
+    expect(url).toMatch(/\/api\/checkout$/);
+    expect(JSON.parse(init.body as string)).toEqual({
+      shipping,
+      payment_method: "mobile_money",
+      msisdn: "0712345678",
+      provider: "Mpesa",
+    });
+  });
+
+  it("sends only the method for a card checkout", async () => {
+    await checkout(shipping, "card");
+
+    expect(JSON.parse(lastCall().init.body as string)).toEqual({
+      shipping,
+      payment_method: "card",
+    });
+  });
+
+  it("polls the order's payment status", async () => {
+    await getPaymentStatus(42);
+
+    expect(lastCall().url).toMatch(/\/api\/orders\/42\/payment-status$/);
+  });
+
+  it("approves a simulated push with its PIN", async () => {
+    await decideSimulatedPush("ref123", "approve", "1234");
+
+    const { url, init } = lastCall();
+    expect(url).toMatch(/\/api\/dev\/azampay-sim\/pushes\/ref123\/approve$/);
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({ pin: "1234" });
   });
 });

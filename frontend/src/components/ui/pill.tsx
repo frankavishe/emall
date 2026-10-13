@@ -22,10 +22,16 @@ const TONE_CLASSES: Record<PillTone, string> = {
   neutral: "bg-card-muted text-text-muted",
 };
 
+// Order statuses that share a tone with a fulfilment status.
+const STATUS_ALIASES: Record<string, PillTone> = {
+  awaiting_payment: "pending",
+  payment_failed: "cancelled",
+};
+
 export function statusToTone(status: string): PillTone {
   const normalized = status.toLowerCase();
   if (normalized in TONE_CLASSES) return normalized as PillTone;
-  return "neutral";
+  return STATUS_ALIASES[normalized] ?? "neutral";
 }
 
 export function Pill({ tone = "neutral", children }: { tone?: PillTone; children: ReactNode }) {

@@ -286,7 +286,9 @@ class AdminProductListView(ListAPIView):
     pagination_class = LimitedPageNumberPagination
 
     def get_queryset(self):
-        sold = ~Q(order_items__status=OrderItem.Status.CANCELLED)
+        sold = ~Q(order_items__status=OrderItem.Status.CANCELLED) & Q(
+            order_items__order__status=Order.Status.PLACED
+        )
         queryset = (
             Product.all_objects.select_related("shop", "category")
             .annotate(
