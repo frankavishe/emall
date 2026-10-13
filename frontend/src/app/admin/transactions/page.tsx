@@ -98,6 +98,9 @@ export default function AdminTransactionsPage() {
                   <div>
                     <p className="font-medium text-text-primary">
                       Order #{tx.order_id} &middot; {tx.customer.name}
+                      {tx.customer.is_guest && (
+                        <span className="font-normal text-text-muted"> (guest)</span>
+                      )}
                     </p>
                     <p className="text-sm text-text-muted">
                       {tx.customer.email} &middot; {tx.method} &middot;{" "}

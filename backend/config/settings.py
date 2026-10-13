@@ -174,6 +174,10 @@ REST_FRAMEWORK = {
         "otp_confirm": "10/min",
         # Vendor registration checks an existing customer's password, so it is a login too.
         "register": "5/min",
+        # Guest checkout: anonymous cart/checkout/order-tracking traffic, counted per IP.
+        "guest_cart": "60/min",
+        "guest_checkout": "10/min",
+        "guest_order": "30/min",
     },
 }
 
@@ -239,6 +243,12 @@ REFRESH_TOKEN_COOKIE_PATH = "/api/auth/"
 # Secure=False only makes sense over plain-HTTP local dev; flip to True behind HTTPS.
 REFRESH_TOKEN_COOKIE_SECURE = not DEBUG
 REFRESH_TOKEN_COOKIE_SAMESITE = "Lax"
+
+# httpOnly cookie identifying an anonymous guest's server-side cart (guest checkout). Path covers
+# both /api/cart and /api/checkout, plus /api/auth/login where a guest cart is merged on sign-in.
+GUEST_CART_COOKIE_NAME = env("GUEST_CART_COOKIE_NAME", default="emall_guest_cart")
+GUEST_CART_COOKIE_PATH = "/api/"
+GUEST_CART_COOKIE_MAX_AGE = 60 * 60 * 24 * 30
 
 
 # --- CORS (task T017) -----------------------------------------------------

@@ -3,14 +3,17 @@ from decimal import Decimal
 from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404
 from rest_framework import status
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.generics import ListAPIView
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.models import User
+from apps.cart.services import resolve_cart
 from apps.core.pagination import LimitedPageNumberPagination
-from apps.core.permissions import IsAdministrator, IsCustomer, IsVendor
+from apps.core.permissions import IsAdministrator, IsCustomer, IsCustomerOrGuest, IsVendor
+from apps.core.throttles import GuestScopedRateThrottle
 from apps.orders.models import Order, OrderItem, OrderItemStatusEvent
 from apps.orders.serializers import (
     AdminOrderItemSerializer,
@@ -40,18 +43,27 @@ class CheckoutView(APIView):
     """Re-validates the cart, charges the mock payment service, and — only if both succeed —
     creates the Order atomically (research.md §4). Every failure case is translated to the `400`
     response shapes in contracts/cart-checkout-api.md. Mobile money instead answers `202` with an
-    AWAITING_PAYMENT order (see `place_order()`), or `409 payment_pending` while one exists."""
+    AWAITING_PAYMENT order (see `place_order()`), or `409 payment_pending` while one exists.
 
-    permission_classes = [IsCustomer]
+    Guests (guest checkout) must give an `email`; their response carries the order's
+    `access_token`, the only way back to a guest order."""
+
+    permission_classes = [IsCustomerOrGuest]
+    throttle_classes = [GuestScopedRateThrottle]
+    throttle_scope = "guest_checkout"
 
     def post(self, request):
         serializer = CheckoutSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        is_guest = not request.user.is_authenticated
+        if is_guest and not data.get("email"):
+            raise ValidationError({"email": ["Enter your email address."]})
 
         try:
-            data = serializer.validated_data
             order = place_order(
-                customer=request.user,
+                cart=resolve_cart(request, create=False),
+                guest_email=data.get("email", "") if is_guest else "",
                 shipping_data=data["shipping"],
                 payment_method=data["payment_method"],
                 msisdn=data.get("msisdn"),
@@ -74,7 +86,16 @@ class CheckoutView(APIView):
             if order.status == Order.Status.AWAITING_PAYMENT
             else status.HTTP_201_CREATED
         )
-        return Response(OrderDetailSerializer(order).data, status=http_status)
+        return Response(order_detail_data(order), status=http_status)
+
+
+def order_detail_data(order):
+    """`OrderDetailSerializer` output, plus the private `access_token` for a guest order."""
+
+    data = OrderDetailSerializer(order).data
+    if order.is_guest:
+        data["access_token"] = order.access_token
+    return data
 
 
 # Checkout failures whose `code` is returned so the client can react to them specifically.
@@ -94,13 +115,17 @@ class DeliveryQuoteView(APIView):
     """`POST /api/checkout/delivery-quote`: prices delivery of the requester's cart to a pin
     (007-delivery-fee). Advisory only; checkout recomputes it."""
 
-    permission_classes = [IsCustomer]
+    permission_classes = [IsCustomerOrGuest]
+    throttle_classes = [GuestScopedRateThrottle]
+    throttle_scope = "guest_checkout"
 
     def post(self, request):
         serializer = DeliveryPinSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         try:
-            quote = quote_cart_delivery(customer=request.user, **serializer.validated_data)
+            quote = quote_cart_delivery(
+                cart=resolve_cart(request, create=False), **serializer.validated_data
+            )
         except CheckoutError as error:
             return Response(
                 {"detail": error.detail, "code": error.code},
@@ -156,19 +181,50 @@ class OrderPaymentStatusView(APIView):
         order = get_object_or_404(
             Order.objects.select_related("payment"), pk=order_id, customer=request.user
         )
-        payment = getattr(order, "payment", None)
-        if payment is not None and payment.status == PaymentRecord.Status.PENDING:
-            expire_stale_payments(queryset=PaymentRecord.objects.filter(pk=payment.pk))
-            order.refresh_from_db()
-            payment.refresh_from_db()
-        return Response(
-            {
-                "order_id": order.id,
-                "order_status": order.status,
-                "payment_status": payment.status if payment else None,
-                "failure_reason": payment.failure_reason if payment else "",
-            }
-        )
+        return Response(payment_status_data(order))
+
+
+def payment_status_data(order):
+    """Expires the order's payment on the spot if it has timed out, then reports its state."""
+
+    payment = getattr(order, "payment", None)
+    if payment is not None and payment.status == PaymentRecord.Status.PENDING:
+        expire_stale_payments(queryset=PaymentRecord.objects.filter(pk=payment.pk))
+        order.refresh_from_db()
+        payment.refresh_from_db()
+    return {
+        "order_id": order.id,
+        "order_status": order.status,
+        "payment_status": payment.status if payment else None,
+        "failure_reason": payment.failure_reason if payment else "",
+    }
+
+
+class _GuestOrderView(APIView):
+    """A guest order (guest checkout) is reached only through its unguessable `access_token`,
+    so an unknown token simply 404s. No authentication: the token is the credential."""
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [GuestScopedRateThrottle]
+    throttle_scope = "guest_order"
+
+    def get_order(self, token):
+        return get_object_or_404(Order.objects.select_related("payment"), access_token=token)
+
+
+class GuestOrderDetailView(_GuestOrderView):
+    """`GET /api/orders/track/{token}`."""
+
+    def get(self, request, token):
+        return Response(order_detail_data(self.get_order(token)))
+
+
+class GuestOrderPaymentStatusView(_GuestOrderView):
+    """`GET /api/orders/track/{token}/payment-status`: the guest's "check your phone" poll."""
+
+    def get(self, request, token):
+        return Response(payment_status_data(self.get_order(token)))
 
 
 class VendorOrderItemListView(ListAPIView):

@@ -44,9 +44,18 @@ def complete_payment(*, record_id, success, provider_reference="", message=""):
             record.failure_reason = ""
             order.status = Order.Status.PLACED
             product_ids = order.items.values_list("product_id", flat=True)
-            CartItem.objects.filter(
-                cart__customer_id=order.customer_id, product_id__in=list(product_ids)
-            ).delete()
+            # A guest order's cart is the one it was placed from (guest checkout).
+            cart_owner = (
+                {"cart__guest_token": order.guest_cart_token}
+                if order.is_guest
+                else {"cart__customer_id": order.customer_id}
+            )
+            CartItem.objects.filter(**cart_owner, product_id__in=list(product_ids)).delete()
+            if order.is_guest:
+                # Imported here: orders.services imports this module.
+                from apps.orders.services import send_order_confirmation
+
+                transaction.on_commit(lambda: send_order_confirmation(order))
         else:
             record.status = PaymentRecord.Status.FAILED
             record.failure_reason = (message or "Payment was not completed.")[:255]

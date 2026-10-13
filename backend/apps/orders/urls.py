@@ -19,6 +19,16 @@ urlpatterns = [
         views.OrderPaymentStatusView.as_view(),
         name="order-payment-status",
     ),
+    path(
+        "orders/track/<str:token>",
+        views.GuestOrderDetailView.as_view(),
+        name="guest-order-detail",
+    ),
+    path(
+        "orders/track/<str:token>/payment-status",
+        views.GuestOrderPaymentStatusView.as_view(),
+        name="guest-order-payment-status",
+    ),
 ]
 
 vendor_urlpatterns = [

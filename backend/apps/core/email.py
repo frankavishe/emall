@@ -26,6 +26,16 @@ class EmailService(ABC):
     def send_order_item_status_email(self, order_item):
         ...
 
+    @abstractmethod
+    def send_order_confirmation_email(self, order):
+        ...
+
+
+def guest_order_url(order):
+    """The guest's private link back to their order (guest checkout)."""
+
+    return f"{settings.FRONTEND_BASE_URL.rstrip('/')}/orders/track/{order.access_token}"
+
 
 class DjangoEmailService(EmailService):
     """Sends via `django.core.mail`, transport controlled by `settings.EMAIL_BACKEND`."""
@@ -57,7 +67,7 @@ class DjangoEmailService(EmailService):
         )
 
     def send_order_item_status_email(self, order_item):
-        customer = order_item.order.customer
+        order = order_item.order
         product_name = order_item.product.name
         order_id = order_item.order_id
 
@@ -69,14 +79,37 @@ class DjangoEmailService(EmailService):
         }
         subject, state = subjects_and_states[order_item.status]
 
+        message = (
+            f"Hi {order.contact_name},\n\n"
+            f"Your order #{order_id} item \"{product_name}\" {state}.\n"
+        )
+        if order.is_guest:
+            message += f"\nTrack your order: {guest_order_url(order)}\n"
         send_mail(
             subject=subject,
+            message=message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[order.contact_email],
+        )
+
+    def send_order_confirmation_email(self, order):
+        lines = "\n".join(
+            f"  - {item.product.name} x{item.quantity}"
+            for item in order.items.select_related("product")
+        )
+        send_mail(
+            subject=f"Your eMall order #{order.id} is confirmed",
             message=(
-                f"Hi {customer.name},\n\n"
-                f"Your order #{order_id} item \"{product_name}\" {state}.\n"
+                f"Hi {order.contact_name},\n\n"
+                f"Thanks for your order #{order.id}.\n\n"
+                f"{lines}\n\n"
+                f"Total: TZS {order.total:,.2f}\n\n"
+                "Follow your order at any time with this private link (keep it to yourself: "
+                "anyone with it can see the order):\n"
+                f"{guest_order_url(order)}\n"
             ),
             from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[customer.email],
+            recipient_list=[order.contact_email],
         )
 
 

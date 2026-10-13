@@ -196,6 +196,8 @@ export type OrderDetail = OrderTotals & {
   items: OrderItem[];
   deliveries: DeliveryLeg[];
   payment: OrderPayment;
+  /** Guest orders only (guest checkout): the private token behind `/orders/track/{token}`. */
+  access_token?: string;
 };
 
 /** AzamPay MNO provider names, sent to the API as-is. */
@@ -327,11 +329,13 @@ export type MobileMoneyDetails = { msisdn: string; provider: MobileMoneyProvider
 /** `POST /api/checkout` (task T038, contracts/cart-checkout-api.md). The delivery pin is
  * mandatory; the server prices delivery itself. With `mobile_money` the order comes back
  * `AWAITING_PAYMENT` (HTTP 202) until the customer approves the push on their phone; a `409`
- * with `code: "payment_pending"` carries the `order_id` already waiting for payment. */
+ * with `code: "payment_pending"` carries the `order_id` already waiting for payment (a guest's
+ * carries its `access_token` instead). A guest (no session) must pass `guestEmail`. */
 export async function checkout(
   shippingData: ShippingAddress & LatLng,
   paymentMethod: string,
   mobileMoney?: MobileMoneyDetails,
+  guestEmail?: string,
 ): Promise<OrderDetail> {
   return apiFetch<OrderDetail>("/api/checkout", {
     method: "POST",
@@ -339,8 +343,14 @@ export async function checkout(
       shipping: shippingData,
       payment_method: paymentMethod,
       ...(mobileMoney ?? {}),
+      ...(guestEmail ? { email: guestEmail } : {}),
     }),
   });
+}
+
+/** Where an order lives in the app: a guest order only by its private token, never its id. */
+export function orderPath(order: { id?: number; access_token?: string }): string {
+  return order.access_token ? `/orders/track/${order.access_token}` : `/orders/${order.id}`;
 }
 
 export type PaymentStatus = {
@@ -353,6 +363,11 @@ export type PaymentStatus = {
 /** `GET /api/orders/{id}/payment-status` — polled while a mobile-money payment is pending. */
 export async function getPaymentStatus(orderId: number | string): Promise<PaymentStatus> {
   return apiFetch<PaymentStatus>(`/api/orders/${orderId}/payment-status`);
+}
+
+/** `GET /api/orders/track/{token}/payment-status`: a guest order's payment poll. */
+export async function getGuestPaymentStatus(token: string): Promise<PaymentStatus> {
+  return apiFetch<PaymentStatus>(`/api/orders/track/${encodeURIComponent(token)}/payment-status`);
 }
 
 /** A USSD push waiting on the simulated phone (dev-only AzamPay sandbox simulator). */
@@ -394,6 +409,11 @@ export async function listOrders(page = 1): Promise<PaginatedResponse<OrderSumma
 /** `GET /api/orders/{id}` (task T052, contracts/cart-checkout-api.md). */
 export async function getOrder(orderId: number | string): Promise<OrderDetail> {
   return apiFetch<OrderDetail>(`/api/orders/${orderId}`);
+}
+
+/** `GET /api/orders/track/{token}`: a guest order, reached only through its private token. */
+export async function getGuestOrder(token: string): Promise<OrderDetail> {
+  return apiFetch<OrderDetail>(`/api/orders/track/${encodeURIComponent(token)}`);
 }
 
 export type VendorOrderItem = {
@@ -981,10 +1001,13 @@ export async function retryPayout(payoutId: number | string): Promise<Payout> {
   return apiFetch<Payout>(`/api/admin/payouts/${payoutId}/retry`, { method: "POST" });
 }
 
+/** Who bought an order: a customer account, or a guest (guest checkout, `id` null). */
+export type OrderBuyer = { id: number | null; name: string; email: string; is_guest: boolean };
+
 export type AdminTransaction = {
   id: number;
   order_id: number;
-  customer: { id: number; name: string; email: string };
+  customer: OrderBuyer;
   amount: string;
   method: string;
   status: string;
@@ -1015,7 +1038,7 @@ export type AdminOrderDetail = ShippingDetails &
     id: number;
     placed_at: string;
     status: string;
-    customer: { id: number; name: string; email: string };
+    customer: OrderBuyer;
     commission_total: string;
     payment: {
       method: string;

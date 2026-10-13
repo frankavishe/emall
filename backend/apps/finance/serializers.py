@@ -212,6 +212,17 @@ class PayoutDetailSerializer(PayoutSerializer):
         read_only_fields = fields
 
 
+def order_buyer(order):
+    """Who bought the order: a Customer account, or a guest (guest checkout, `id` None)."""
+
+    return {
+        "id": order.customer_id,
+        "name": order.contact_name,
+        "email": order.contact_email,
+        "is_guest": order.is_guest,
+    }
+
+
 class AdminTransactionSerializer(serializers.ModelSerializer):
     order_id = serializers.IntegerField(read_only=True)
     customer = serializers.SerializerMethodField()
@@ -235,8 +246,7 @@ class AdminTransactionSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_customer(self, obj):
-        customer = obj.order.customer
-        return {"id": customer.id, "name": customer.name, "email": customer.email}
+        return order_buyer(obj.order)
 
 
 class AdminOrderLineSerializer(PayoutLineSerializer):
@@ -290,7 +300,7 @@ class AdminOrderDetailSerializer(OrderTotalsMixin, serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_customer(self, obj):
-        return {"id": obj.customer.id, "name": obj.customer.name, "email": obj.customer.email}
+        return order_buyer(obj)
 
     def get_payment(self, obj):
         payment = getattr(obj, "payment", None)

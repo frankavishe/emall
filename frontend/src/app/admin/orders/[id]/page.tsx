@@ -46,7 +46,10 @@ export default function AdminOrderDetailPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Card padding="sm" className="flex flex-col gap-1 text-sm">
           <h2 className="font-semibold text-text-primary">Customer</h2>
-          <p className="text-text-primary">{data.customer.name}</p>
+          <p className="text-text-primary">
+            {data.customer.name}
+            {data.customer.is_guest && <span className="text-text-muted"> (guest)</span>}
+          </p>
           <p className="text-text-muted">{data.customer.email}</p>
           <h3 className="mt-2 font-medium text-text-primary">Ship to</h3>
           <p className="text-text-muted">{data.recipient_name}</p>

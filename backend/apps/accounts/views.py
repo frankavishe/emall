@@ -22,6 +22,7 @@ from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from apps.cart.services import merge_guest_cart
 from apps.core.pagination import LimitedPageNumberPagination
 from apps.core.permissions import IsAdministrator
 from apps.orders.models import Order, OrderItem
@@ -102,7 +103,8 @@ class RegisterCustomerView(TokenResponseMixin, APIView):
             status=status.HTTP_201_CREATED,
         )
         self.set_refresh_cookie(response, refresh)
-        return response
+        # A guest who signs up mid-shopping keeps what they put in their cart.
+        return merge_guest_cart(request, user, response)
 
 
 class RegisterVendorView(TokenResponseMixin, APIView):
@@ -169,7 +171,8 @@ class LoginView(TokenResponseMixin, APIView):
             status=status.HTTP_200_OK,
         )
         self.set_refresh_cookie(response, refresh)
-        return response
+        # A guest who signs in mid-shopping keeps what they put in their cart.
+        return merge_guest_cart(request, user, response)
 
 
 class LogoutView(TokenResponseMixin, APIView):

@@ -41,6 +41,9 @@ class CheckoutSerializer(serializers.Serializer):
 
     shipping = ShippingSerializer()
     payment_method = serializers.CharField()
+    # Guest checkout only (required there, ignored for a signed-in Customer): where the order
+    # confirmation and its private tracking link are sent.
+    email = serializers.EmailField(required=False, allow_blank=True)
     # Mobile money only: the number the payment prompt is pushed to, and its network.
     msisdn = serializers.CharField(required=False, allow_blank=True)
     provider = serializers.ChoiceField(
