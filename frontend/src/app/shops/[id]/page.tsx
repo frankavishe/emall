@@ -120,6 +120,11 @@ export default function ShopPage() {
               </p>
             </div>
           </div>
+          {shop.description && (
+            <p className="relative mt-4 max-w-prose whitespace-pre-line text-sm opacity-90">
+              {shop.description}
+            </p>
+          )}
           <div aria-hidden className="relative mt-4 h-1 w-16 rounded-pill bg-teal-400" />
         </Card>
 

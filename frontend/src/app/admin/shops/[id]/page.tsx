@@ -106,6 +106,15 @@ export default function AdminShopDetailPage() {
       </div>
 
       <Card padding="sm" className="flex flex-col gap-2 text-sm">
+        <h2 className="font-semibold text-text-primary">Storefront description</h2>
+        {data.description ? (
+          <p className="whitespace-pre-line text-text-primary">{data.description}</p>
+        ) : (
+          <p className="text-text-muted">Not written yet.</p>
+        )}
+      </Card>
+
+      <Card padding="sm" className="flex flex-col gap-2 text-sm">
         <h2 className="font-semibold text-text-primary">Pickup location</h2>
         {!data.latitude && (
           <p className="text-status-cancelled">

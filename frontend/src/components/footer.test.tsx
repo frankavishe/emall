@@ -14,6 +14,11 @@ describe("Footer", () => {
     expect(screen.getByText(/MangiMall Technologies Limited/)).toBeTruthy();
   });
 
+  it("links Our Merchants to the merchants directory", () => {
+    render(<Footer />);
+    expect(screen.getByRole("link", { name: "Our Merchants" }).getAttribute("href")).toBe("/shops");
+  });
+
   it("labels every social link", () => {
     render(<Footer />);
     for (const name of ["Instagram", "X (Twitter)", "Facebook", "LinkedIn", "WhatsApp"]) {

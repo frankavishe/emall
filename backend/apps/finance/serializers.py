@@ -127,6 +127,7 @@ class AdminShopDetailSerializer(ShopLogoUrlMixin, serializers.ModelSerializer):
             "created_at",
             "status_changed_at",
             "logo_url",
+            "description",
             "owner",
             "commission_rate",
             "payout_network",

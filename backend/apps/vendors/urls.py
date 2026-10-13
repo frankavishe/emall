@@ -15,6 +15,11 @@ urlpatterns = [
         name="vendor-shop-theme",
     ),
     path(
+        "shops/<int:shop_id>/description",
+        views.VendorShopDescriptionView.as_view(),
+        name="vendor-shop-description",
+    ),
+    path(
         "shops/<int:shop_id>/location",
         views.VendorShopLocationView.as_view(),
         name="vendor-shop-location",

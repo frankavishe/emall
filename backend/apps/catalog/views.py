@@ -15,7 +15,8 @@ from apps.catalog.serializers import (
     AdminCategoryWriteSerializer,
     CatalogProductDetailSerializer,
     CatalogProductListSerializer,
-    CatalogShopSerializer,
+    CatalogShopListSerializer,
+    CatalogShopProfileSerializer,
     CategoryConflict,
     CategoryTreeSerializer,
     VendorProductListSerializer,
@@ -170,15 +171,36 @@ class CatalogProductDetailView(APIView):
         )
 
 
+class CatalogShopListView(ListAPIView):
+    """Public merchants directory: every APPROVED shop, alphabetically, with its count of
+    published products."""
+
+    permission_classes = [AllowAny]
+    serializer_class = CatalogShopListSerializer
+    pagination_class = LimitedPageNumberPagination
+
+    def get_queryset(self):
+        return (
+            Shop.objects.filter(status=Shop.Status.APPROVED)
+            .annotate(
+                product_count=models.Count(
+                    "products",
+                    filter=models.Q(products__is_deleted=False, products__is_published=True),
+                )
+            )
+            .order_by("name")
+        )
+
+
 class CatalogShopDetailView(APIView):
-    """Public shop profile (name, logo, theme colors). Same uniform `404` as product detail for
-    a shop that isn't APPROVED."""
+    """Public shop profile (name, logo, theme colors, description). Same uniform `404` as product
+    detail for a shop that isn't APPROVED."""
 
     permission_classes = [AllowAny]
 
     def get(self, request, shop_id):
         shop = get_object_or_404(Shop, pk=shop_id, status=Shop.Status.APPROVED)
-        return Response(CatalogShopSerializer(shop, context={"request": request}).data)
+        return Response(CatalogShopProfileSerializer(shop, context={"request": request}).data)
 
 
 class VendorProductListCreateView(ListCreateAPIView):

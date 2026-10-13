@@ -13,6 +13,7 @@ import { Pill, statusToTone } from "@/components/ui/pill";
 import { ErrorText, LoadingText, EmptyText } from "@/components/ui/status-text";
 import { ShopLogoPicker } from "@/components/vendor/shop-logo-picker";
 import { ShopThemePicker } from "@/components/vendor/shop-theme-picker";
+import { ShopDescriptionEditor } from "@/components/vendor/shop-description-editor";
 import { ShopLocationEditor } from "@/components/vendor/shop-location-editor";
 
 export default function AccountPage() {
@@ -135,6 +136,7 @@ export default function AccountPage() {
                   </div>
                   <ShopLogoPicker shop={shop} />
                   <ShopThemePicker shop={shop} />
+                  <ShopDescriptionEditor shop={shop} />
                   <ShopLocationEditor
                     ownerView
                     latitude={shop.latitude}
