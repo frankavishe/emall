@@ -301,6 +301,26 @@ class CatalogShopSerializer(ShopLogoUrlMixin, serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class CatalogShopProfileSerializer(CatalogShopSerializer):
+    """The public storefront page: the nested shop shape plus the owner's description (kept off
+    product payloads)."""
+
+    class Meta(CatalogShopSerializer.Meta):
+        fields = [*CatalogShopSerializer.Meta.fields, "description"]
+        read_only_fields = fields
+
+
+class CatalogShopListSerializer(CatalogShopProfileSerializer):
+    """One card on the public merchants directory: the profile plus its published product
+    count (annotated by the view)."""
+
+    product_count = serializers.IntegerField(read_only=True)
+
+    class Meta(CatalogShopProfileSerializer.Meta):
+        fields = [*CatalogShopProfileSerializer.Meta.fields, "product_count"]
+        read_only_fields = fields
+
+
 class CatalogProductListSerializer(ReviewAggregateMixin, serializers.ModelSerializer):
     """Public list shape (contracts/catalog-api.md) — never exposes the raw `stock_quantity`,
     only the derived `in_stock` boolean (FR-011). Carries the aggregate rating (FR-006) but not

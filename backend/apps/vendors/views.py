@@ -12,6 +12,7 @@ from apps.core.permissions import IsAdministrator, IsCustomer, require_verified_
 from apps.vendors.models import Shop
 from apps.vendors.serializers import (
     AdminShopListSerializer,
+    ShopDescriptionSerializer,
     ShopLocationSerializer,
     ShopLogoSerializer,
     ShopSerializer,
@@ -75,6 +76,20 @@ class VendorShopThemeView(APIView):
     def patch(self, request, shop_id):
         shop = get_object_or_404(Shop, pk=shop_id, owner=request.user)
         serializer = ShopThemeSerializer(shop, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(ShopSerializer(shop, context={"request": request}).data)
+
+
+class VendorShopDescriptionView(APIView):
+    """Set or clear (PATCH) a shop's storefront description. Ownership only, any approval status,
+    no re-approval."""
+
+    permission_classes = [IsCustomer]
+
+    def patch(self, request, shop_id):
+        shop = get_object_or_404(Shop, pk=shop_id, owner=request.user)
+        serializer = ShopDescriptionSerializer(shop, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(ShopSerializer(shop, context={"request": request}).data)

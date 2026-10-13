@@ -33,7 +33,13 @@ class OwnShopBriefSerializer(ShopBriefSerializer):
     """`ShopBriefSerializer` plus what only the shop's owner sees: its pickup location."""
 
     class Meta(ShopBriefSerializer.Meta):
-        fields = [*ShopBriefSerializer.Meta.fields, "latitude", "longitude", "location_address"]
+        fields = [
+            *ShopBriefSerializer.Meta.fields,
+            "description",
+            "latitude",
+            "longitude",
+            "location_address",
+        ]
         read_only_fields = fields
 
 
@@ -51,6 +57,7 @@ class ShopSerializer(ShopLogoUrlMixin, serializers.ModelSerializer):
             "logo_url",
             "primary_color",
             "accent_color",
+            "description",
             "latitude",
             "longitude",
             "location_address",
@@ -62,6 +69,7 @@ class ShopSerializer(ShopLogoUrlMixin, serializers.ModelSerializer):
             "created_at",
             "primary_color",
             "accent_color",
+            "description",
             "latitude",
             "longitude",
             "location_address",
@@ -99,6 +107,21 @@ class ShopThemeSerializer(serializers.ModelSerializer):
 
     def validate_accent_color(self, value):
         return value.lower()
+
+
+MAX_SHOP_DESCRIPTION_LENGTH = 1000
+
+
+class ShopDescriptionSerializer(serializers.ModelSerializer):
+    """A shop's storefront blurb: plain text, trimmed, `""` to clear."""
+
+    description = serializers.CharField(
+        max_length=MAX_SHOP_DESCRIPTION_LENGTH, allow_blank=True, trim_whitespace=True
+    )
+
+    class Meta:
+        model = Shop
+        fields = ["description"]
 
 
 class ShopLocationSerializer(serializers.ModelSerializer):

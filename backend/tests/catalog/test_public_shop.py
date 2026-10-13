@@ -18,7 +18,41 @@ def test_approved_shop_is_public_with_theme(api_client):
         "logo_url": None,
         "primary_color": "#aa3300",
         "accent_color": "#ffcc00",
+        "description": "",
     }
+
+
+def test_public_shop_includes_description(api_client):
+    shop = ShopFactory(status=Shop.Status.APPROVED, description="Handwoven baskets.\nVisit us!")
+
+    response = api_client.get(f"/api/catalog/shops/{shop.id}")
+
+    assert response.data["description"] == "Handwoven baskets.\nVisit us!"
+
+
+def test_shop_list_shows_only_approved_shops_alphabetically(api_client):
+    zebra = ShopFactory(status=Shop.Status.APPROVED, name="Zebra Goods", description="Stripes")
+    apple = ShopFactory(status=Shop.Status.APPROVED, name="Apple Corner")
+    ShopFactory(status=Shop.Status.PENDING, name="Hidden Pending")
+    ShopFactory(status=Shop.Status.REJECTED, name="Hidden Rejected")
+
+    response = api_client.get("/api/catalog/shops")
+
+    assert response.status_code == 200
+    assert response.data["count"] == 2
+    assert [shop["id"] for shop in response.data["results"]] == [apple.id, zebra.id]
+    assert response.data["results"][1]["description"] == "Stripes"
+
+
+def test_shop_list_counts_only_published_live_products(api_client):
+    shop = ShopFactory(status=Shop.Status.APPROVED)
+    ProductFactory(shop=shop, is_published=True)
+    ProductFactory(shop=shop, is_published=True, is_deleted=True)
+    ProductFactory(shop=shop, is_published=False)
+
+    response = api_client.get("/api/catalog/shops")
+
+    assert response.data["results"][0]["product_count"] == 1
 
 
 @pytest.mark.parametrize("status", [Shop.Status.PENDING, Shop.Status.REJECTED])

@@ -18,6 +18,8 @@ export type Shop = {
   /** `#rrggbb`, or `""` for the MangiMall default. */
   primary_color?: string;
   accent_color?: string;
+  /** Owner-written storefront blurb (plain text); `""` when unset. */
+  description?: string;
   /** Pickup location (owner only); null until the vendor sets it, and checkout of the shop's
    * products is blocked until then. */
   latitude?: string | null;

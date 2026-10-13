@@ -5,7 +5,7 @@ type FooterLink = { label: string; href: string };
 
 const ABOUT_LINKS: FooterLink[] = [
   { label: "About Us", href: "/about" },
-  { label: "Our Merchants", href: "#" },
+  { label: "Our Merchants", href: "/shops" },
   { label: "Careers & Internships", href: "#" },
   { label: "Press & Media", href: "#" },
   { label: "Sustainability Impact", href: "#" },

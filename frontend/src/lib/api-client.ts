@@ -268,7 +268,18 @@ export type CatalogShop = {
   logo_url: string | null;
   primary_color: string;
   accent_color: string;
+  /** Only on `GET /api/catalog/shops/:id`, not on the shop nested in product payloads. */
+  description?: string;
 };
+
+/** One card on the public merchants directory. */
+export type CatalogShopListItem = CatalogShop & { description: string; product_count: number };
+
+/** `GET /api/catalog/shops` — approved shops, alphabetically, paginated. */
+export async function listPublicShops(page = 1): Promise<PaginatedResponse<CatalogShopListItem>> {
+  const query = page > 1 ? `?page=${page}` : "";
+  return apiFetch<PaginatedResponse<CatalogShopListItem>>(`/api/catalog/shops${query}`);
+}
 
 /** `GET /api/catalog/shops/:id` — `404` unless the shop is approved. */
 export async function getPublicShop(shopId: number | string): Promise<CatalogShop> {
@@ -482,6 +493,17 @@ export async function updateShopTheme(
   await apiFetch(`/api/vendor/shops/${shopId}/theme`, {
     method: "PATCH",
     body: JSON.stringify(theme),
+  });
+}
+
+/** Longest storefront description the API accepts. */
+export const MAX_SHOP_DESCRIPTION_LENGTH = 1000;
+
+/** `PATCH /api/vendor/shops/:id/description` — plain text, `""` to clear. */
+export async function updateShopDescription(shopId: string, description: string): Promise<void> {
+  await apiFetch(`/api/vendor/shops/${shopId}/description`, {
+    method: "PATCH",
+    body: JSON.stringify({ description }),
   });
 }
 
@@ -812,6 +834,7 @@ export type AdminShopDetail = {
   created_at: string;
   status_changed_at: string | null;
   logo_url: string | null;
+  description: string;
   owner: { id: number; name: string; email: string };
   commission_rate: string | null;
   payout_network: string;

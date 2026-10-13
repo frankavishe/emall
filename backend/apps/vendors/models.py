@@ -33,6 +33,8 @@ class Shop(models.Model):
     accent_color = models.CharField(
         max_length=7, blank=True, default="", validators=[hex_color_validator]
     )
+    # Owner-written blurb shown on the public storefront. Plain text; line breaks are kept.
+    description = models.TextField(blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
     status_changed_at = models.DateTimeField(null=True, blank=True)
 

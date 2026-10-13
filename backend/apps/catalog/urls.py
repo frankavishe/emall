@@ -10,6 +10,7 @@ urlpatterns = [
         views.CatalogProductDetailView.as_view(),
         name="catalog-product-detail",
     ),
+    path("shops", views.CatalogShopListView.as_view(), name="catalog-shops"),
     path("shops/<int:shop_id>", views.CatalogShopDetailView.as_view(), name="catalog-shop-detail"),
 ]
 
