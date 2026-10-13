@@ -4,11 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { FormField, inputClassName } from "@/components/ui/form-field";
 import { ErrorText } from "@/components/ui/status-text";
-import {
-  errorMessage,
-  MAX_SHOP_DESCRIPTION_LENGTH,
-  updateShopDescription,
-} from "@/lib/api-client";
+import { errorMessage, MAX_SHOP_DESCRIPTION_LENGTH, updateShopDescription } from "@/lib/api-client";
 import { useAuth, type Shop } from "@/lib/auth-context";
 
 const PLACEHOLDER =

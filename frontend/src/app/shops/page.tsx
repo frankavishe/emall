@@ -58,7 +58,9 @@ export default function ShopsPage() {
       <div>
         <h1 className="text-2xl font-semibold text-text-primary">Our merchants</h1>
         <p className="text-sm text-text-muted">
-          {isLoading ? "Meet the shops selling on MangiMall." : `${count} shops selling on MangiMall.`}
+          {isLoading
+            ? "Meet the shops selling on MangiMall."
+            : `${count} shops selling on MangiMall.`}
         </p>
       </div>
 
