@@ -141,9 +141,7 @@ export default function OrderPaymentPage() {
             {order ? (
               <p className="max-w-md text-sm text-text-muted">
                 We sent a {providerLabel} payment prompt for{" "}
-                <span className="font-medium text-text-primary">
-                  {formatCurrency(order.total)}
-                </span>{" "}
+                <span className="font-medium text-text-primary">{formatCurrency(order.total)}</span>{" "}
                 to <span className="font-medium text-text-primary">{order.payment.msisdn}</span>.
                 Enter your PIN on your phone to confirm order #{order.id}.
               </p>

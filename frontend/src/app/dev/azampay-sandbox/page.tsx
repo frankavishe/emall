@@ -69,15 +69,17 @@ export default function AzamPaySandboxPage() {
         <h1 className="text-2xl font-semibold text-text-primary">AzamPay sandbox phone</h1>
         <p className="mt-1 text-sm text-text-muted">
           Development only. Each card is a payment prompt pushed to a customer&apos;s phone. Enter
-          any 4-digit PIN to approve it, or reject it. The backend then processes an
-          AzamPay-shaped callback exactly as it would from AzamPay.
+          any 4-digit PIN to approve it, or reject it. The backend then processes an AzamPay-shaped
+          callback exactly as it would from AzamPay.
         </p>
       </div>
 
       {error && <ErrorText>{error}</ErrorText>}
 
       {pushes.length === 0 && !error ? (
-        <EmptyText>No pending payment prompts. Check out with mobile money to create one.</EmptyText>
+        <EmptyText>
+          No pending payment prompts. Check out with mobile money to create one.
+        </EmptyText>
       ) : (
         <ul className="flex flex-col gap-4">
           {pushes.map((push) => (
@@ -110,8 +112,7 @@ function PushCard({
   const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
   const providerLabel =
-    MOBILE_MONEY_PROVIDERS.find((option) => option.value === push.provider)?.label ??
-    push.provider;
+    MOBILE_MONEY_PROVIDERS.find((option) => option.value === push.provider)?.label ?? push.provider;
 
   async function run(decision: "approve" | "reject") {
     setBusy(true);
