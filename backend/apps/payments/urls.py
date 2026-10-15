@@ -3,6 +3,7 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    path("methods", views.PaymentMethodListView.as_view(), name="payment-methods"),
     path(
         "azampay/callback/<str:token>",
         views.AzamPayCallbackView.as_view(),

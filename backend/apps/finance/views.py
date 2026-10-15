@@ -22,6 +22,7 @@ from apps.finance.serializers import (
     PayoutSerializer,
     PlatformSettingsSerializer,
     PlatformSummarySerializer,
+    SettlePaymentSerializer,
     ShopCommissionSerializer,
     VendorShopEarningsSerializer,
 )
@@ -38,6 +39,7 @@ from apps.finance.services import (
 )
 from apps.orders.models import Order, OrderItem
 from apps.payments.models import PaymentRecord
+from apps.payments.outcomes import SettlementError, settle_manual_payment
 from apps.vendors.models import Shop
 
 _MONEY = DecimalField(max_digits=14, decimal_places=2)
@@ -246,10 +248,16 @@ class AdminTransactionListView(ListAPIView):
             queryset = queryset.filter(created_at__date__gte=dates["date_from"])
         if dates.get("date_to"):
             queryset = queryset.filter(created_at__date__lte=dates["date_to"])
-        search = (self.request.query_params.get("search") or "").strip()
+        params = self.request.query_params
+        if params.get("status") in PaymentRecord.Status.values:
+            queryset = queryset.filter(status=params["status"])
+        if params.get("method"):
+            queryset = queryset.filter(method=params["method"])
+        search = (params.get("search") or "").strip()
         if search:
             condition = (
                 Q(transaction_reference__icontains=search)
+                | Q(provider_reference__icontains=search)
                 | Q(order__customer__email__icontains=search)
                 | Q(order__customer__name__icontains=search)
                 | Q(order__guest_email__icontains=search)
@@ -265,18 +273,43 @@ class AdminOrderDetailView(APIView):
     permission_classes = [IsAdministrator]
 
     def get(self, request, order_id):
-        order = get_object_or_404(
-            Order.objects.select_related("customer", "payment").prefetch_related(
-                Prefetch(
-                    "items",
-                    queryset=OrderItem.objects.select_related("product__shop", "payout").order_by(
-                        "id"
-                    ),
-                )
-            ),
-            pk=order_id,
-        )
-        return Response(AdminOrderDetailSerializer(order).data)
+        return Response(_admin_order_data(order_id))
+
+
+def _admin_order_data(order_id):
+    order = get_object_or_404(
+        Order.objects.select_related("customer", "payment__settled_by").prefetch_related(
+            Prefetch(
+                "items",
+                queryset=OrderItem.objects.select_related("product__shop", "payout").order_by("id"),
+            )
+        ),
+        pk=order_id,
+    )
+    return AdminOrderDetailSerializer(order).data
+
+
+class AdminOrderPaymentSettleView(APIView):
+    """`POST /api/admin/orders/{id}/payment/confirm` (or `/reject`, with an optional `reason`):
+    an administrator settling a cash-on-delivery or Lipa Namba payment by hand."""
+
+    permission_classes = [IsAdministrator]
+    confirm = True
+
+    def post(self, request, order_id):
+        order = get_object_or_404(Order, pk=order_id)
+        serializer = SettlePaymentSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            settle_manual_payment(
+                order=order,
+                admin=request.user,
+                confirm=self.confirm,
+                reason=serializer.validated_data.get("reason", ""),
+            )
+        except SettlementError as error:
+            return _error(error)
+        return Response(_admin_order_data(order_id))
 
 
 class AdminProductListView(ListAPIView):

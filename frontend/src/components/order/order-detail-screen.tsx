@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ApiError, MOBILE_MONEY_PROVIDERS, type OrderDetail } from "@/lib/api-client";
+import {
+  ApiError,
+  MOBILE_MONEY_PROVIDERS,
+  paymentMethodLabel,
+  type OrderDetail,
+} from "@/lib/api-client";
 import { PageShell } from "@/components/ui/page-shell";
 import { Card } from "@/components/ui/card";
 import { Pill, statusToTone } from "@/components/ui/pill";
@@ -129,8 +134,8 @@ export function OrderDetailScreen({
 
           <div>
             <h2 className="text-sm font-semibold text-text-muted">Payment</h2>
-            <p className="mt-2 text-sm capitalize text-text-primary">
-              {order.payment.method.replace("_", " ")}
+            <p className="mt-2 text-sm text-text-primary">
+              {paymentMethodLabel(order.payment.method)}
             </p>
             {order.payment.provider && (
               <p className="text-sm text-text-primary">
@@ -139,7 +144,18 @@ export function OrderDetailScreen({
                 &middot; {order.payment.msisdn}
               </p>
             )}
-            <p className="text-sm text-text-primary">{order.payment.status}</p>
+            {order.payment.payer_reference && (
+              <p className="text-sm text-text-primary">
+                Transaction ID <span className="font-mono">{order.payment.payer_reference}</span>
+              </p>
+            )}
+            <p className="text-sm text-text-primary">
+              {order.payment.method === "cod" && order.payment.status === "PENDING"
+                ? `Pay ${formatCurrency(order.total)} in cash on delivery`
+                : order.payment.method === "lipa_namba" && order.payment.status === "PENDING"
+                  ? "Awaiting payment verification"
+                  : order.payment.status}
+            </p>
             {order.payment.failure_reason && (
               <p className="text-sm text-status-cancelled">{order.payment.failure_reason}</p>
             )}

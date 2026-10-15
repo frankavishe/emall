@@ -5,8 +5,9 @@ Money flow: the customer pays the mall the line `subtotal` plus the order's `del
 (007-delivery-fee). The delivery fee is the mall's own revenue and never enters a shop's
 balance. Of each line, the mall keeps `commission_amount` and owes the shop `vendor_earning`.
 An earning is
-- pending   while the line is PENDING / PROCESSING / SHIPPED,
-- available once the line is DELIVERED and not yet in a payout,
+- pending   while the line is PENDING / PROCESSING / SHIPPED (or DELIVERED with its cash on
+            delivery not yet confirmed received),
+- available once the line is DELIVERED, its payment received, and not yet in a payout,
 - in payout while its payout is PENDING / PROCESSING,
 - paid      once its payout SUCCEEDED.
 Cancelled lines never pay out.
@@ -23,6 +24,7 @@ from django.utils import timezone
 from apps.finance import disbursement
 from apps.finance.models import Payout, PlatformSettings
 from apps.orders.models import Order, OrderItem
+from apps.payments.models import PaymentRecord
 from apps.vendors.models import Shop
 
 logger = logging.getLogger(__name__)
@@ -80,9 +82,10 @@ def set_shop_commission_rate(*, shop, rate):
 
 
 def _available_lines(shop):
+    # A delivered cash-on-delivery line isn't paid out until an admin confirms the cash arrived.
     return OrderItem.objects.filter(
         product__shop=shop, status=OrderItem.Status.DELIVERED, payout__isnull=True
-    )
+    ).exclude(order__payment__status=PaymentRecord.Status.PENDING)
 
 
 def _claim_lines(payout, shop):
@@ -208,14 +211,17 @@ def balance_aggregates(prefix=""):
     # Lines of an order still awaiting (or that failed) payment are money nobody has received.
     paid = q(order__status=Order.Status.PLACED)
     not_cancelled = ~q(status=OrderItem.Status.CANCELLED) & paid
+    # Delivered, but its cash on delivery hasn't been confirmed received yet.
+    cash_due = q(order__payment__status=PaymentRecord.Status.PENDING)
     delivered = q(status=OrderItem.Status.DELIVERED)
-    in_progress = q(status__in=_IN_PROGRESS) & paid
+    in_progress = (q(status__in=_IN_PROGRESS) & paid) | (delivered & cash_due)
+    settled = delivered & ~cash_due
     return {
         "gross_sales": _sum(f("unit_price") * f("quantity"), not_cancelled),
-        "commission_earned": _sum(f("commission_amount"), delivered),
+        "commission_earned": _sum(f("commission_amount"), settled),
         "commission_pending": _sum(f("commission_amount"), in_progress),
         "pending_earnings": _sum(f("vendor_earning"), in_progress),
-        "available_balance": _sum(f("vendor_earning"), delivered & q(payout__isnull=True)),
+        "available_balance": _sum(f("vendor_earning"), settled & q(payout__isnull=True)),
         "in_payout": _sum(f("vendor_earning"), delivered & q(payout__status__in=_PAYOUT_OPEN)),
         "paid_out": _sum(f("vendor_earning"), q(payout__status=Payout.Status.SUCCEEDED)),
     }

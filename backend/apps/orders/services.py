@@ -20,6 +20,8 @@ from apps.orders.models import Order, OrderDelivery, OrderItem, OrderItemStatusE
 from apps.payments.models import PaymentRecord
 from apps.payments.outcomes import complete_payment, expire_stale_payments
 from apps.payments.services import (
+    COD_METHOD,
+    LIPA_NAMBA_METHOD,
     MOBILE_MONEY_METHOD,
     InitiationResult,
     get_mobile_money_gateway,
@@ -256,14 +258,22 @@ def _create_order(*, cart, guest_email, shipping_data, status, cart_items, legs,
 
 
 def place_order(
-    *, cart, shipping_data, payment_method, guest_email="", msisdn=None, provider=None
+    *,
+    cart,
+    shipping_data,
+    payment_method,
+    guest_email="",
+    msisdn=None,
+    provider=None,
+    payer_reference="",
 ):
     """Places an order from `cart`: a Customer's cart, or a guest's (guest checkout), in which
     case `guest_email` is required and the order gets an `access_token`.
 
-    Mobile money (when a mobile-money `PAYMENT_BACKEND` is configured) returns an
-    AWAITING_PAYMENT order whose payment the gateway confirms later; every other method is
-    charged synchronously and returns a PLACED order."""
+    Mobile money (when a mobile-money `PAYMENT_BACKEND` is configured) and Lipa Namba return an
+    AWAITING_PAYMENT order whose payment the gateway (or an administrator) confirms later; cash on
+    delivery returns a PLACED order whose payment stays PENDING until the cash is handed over;
+    every other method is charged synchronously and returns a PLACED order."""
 
     if cart is None:
         raise CheckoutError("empty_cart", "Your cart is empty.")
@@ -277,6 +287,19 @@ def place_order(
             shipping_data=shipping_data,
             msisdn=msisdn,
             provider=provider,
+        )
+    if payment_method == LIPA_NAMBA_METHOD:
+        order, _ = _place_awaiting_payment_order(
+            cart=cart,
+            guest_email=guest_email,
+            shipping_data=shipping_data,
+            method=LIPA_NAMBA_METHOD,
+            provider_reference=payer_reference,
+        )
+        return order
+    if payment_method == COD_METHOD:
+        return _place_cash_on_delivery_order(
+            cart=cart, guest_email=guest_email, shipping_data=shipping_data
         )
 
     with transaction.atomic():
@@ -336,10 +359,38 @@ def _order_reference(order):
     return {"order_id": order.id}
 
 
-def _place_mobile_money_order(*, cart, guest_email, shipping_data, msisdn, provider):
-    """Reserves the stock under an AWAITING_PAYMENT order, then (after commit, outside the row
-    locks) asks the gateway to push a payment prompt to the customer's phone. The cart is kept
-    until the payment succeeds, so a failed payment loses nothing."""
+def _place_cash_on_delivery_order(*, cart, guest_email, shipping_data):
+    """A PLACED order (vendors start fulfilling it) whose payment is collected at the door."""
+
+    with transaction.atomic():
+        cart_items = _locked_cart_items(cart)
+        legs, delivery_fee, total = _price(cart_items, shipping_data)
+        order = _create_order(
+            cart=cart,
+            guest_email=guest_email,
+            shipping_data=shipping_data,
+            status=Order.Status.PLACED,
+            cart_items=cart_items,
+            legs=legs,
+            delivery_fee=delivery_fee,
+        )
+        PaymentRecord.objects.create(
+            order=order,
+            method=COD_METHOD,
+            amount=total,
+            status=PaymentRecord.Status.PENDING,
+            transaction_reference=uuid.uuid4().hex,
+        )
+        CartItem.objects.filter(cart=cart).delete()
+        if order.is_guest:
+            transaction.on_commit(lambda: send_order_confirmation(order))
+    return order
+
+
+def _place_awaiting_payment_order(*, cart, guest_email, shipping_data, method, **payment_fields):
+    """Reserves the stock under an AWAITING_PAYMENT order with a PENDING payment. The cart is
+    kept until the payment succeeds, so a failed payment loses nothing. A cart owner can only
+    have one such order at a time."""
 
     # A payment that timed out shouldn't block the customer from trying again.
     expire_stale_payments(
@@ -372,13 +423,28 @@ def _place_mobile_money_order(*, cart, guest_email, shipping_data, msisdn, provi
         )
         record = PaymentRecord.objects.create(
             order=order,
-            method=MOBILE_MONEY_METHOD,
+            method=method,
             amount=total,
             status=PaymentRecord.Status.PENDING,
             transaction_reference=uuid.uuid4().hex,
-            provider=provider,
-            msisdn=msisdn,
+            **payment_fields,
         )
+    return order, record
+
+
+def _place_mobile_money_order(*, cart, guest_email, shipping_data, msisdn, provider):
+    """Reserves the stock under an AWAITING_PAYMENT order, then (after commit, outside the row
+    locks) asks the gateway to push a payment prompt to the customer's phone."""
+
+    order, record = _place_awaiting_payment_order(
+        cart=cart,
+        guest_email=guest_email,
+        shipping_data=shipping_data,
+        method=MOBILE_MONEY_METHOD,
+        provider=provider,
+        msisdn=msisdn,
+    )
+    total = record.amount
 
     try:
         result = get_mobile_money_gateway().initiate(

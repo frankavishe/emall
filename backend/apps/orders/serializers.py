@@ -5,7 +5,15 @@ from rest_framework import serializers
 from apps.catalog.models import Product
 from apps.orders.models import Order, OrderDelivery, OrderItem, OrderItemStatusEvent
 from apps.payments.models import PaymentRecord
-from apps.payments.services import MOBILE_MONEY_METHOD, mobile_money_enabled, normalise_msisdn
+from apps.payments.services import (
+    LIPA_NAMBA_METHOD,
+    MANUAL_METHODS,
+    MOBILE_MONEY_METHOD,
+    manual_method_enabled,
+    mobile_money_enabled,
+    mock_card_enabled,
+    normalise_msisdn,
+)
 from apps.vendors.models import Shop
 
 COORDINATE_PLACES = Decimal("0.000001")
@@ -49,10 +57,37 @@ class CheckoutSerializer(serializers.Serializer):
     provider = serializers.ChoiceField(
         choices=PaymentRecord.Provider.choices, required=False, allow_blank=True
     )
+    # Lipa Namba only: the transaction ID from the customer's payment confirmation SMS.
+    payer_reference = serializers.CharField(
+        required=False, allow_blank=True, max_length=64, trim_whitespace=True
+    )
+
+    def validate_payment_method(self, value):
+        if value in MANUAL_METHODS:
+            if not manual_method_enabled(value):
+                raise serializers.ValidationError("This payment method isn't available.")
+        elif value == MOBILE_MONEY_METHOD:
+            if not mobile_money_enabled():
+                raise serializers.ValidationError("This payment method isn't available.")
+        elif not mock_card_enabled():
+            # Anything else goes to the mock card, which would "pay" without taking money.
+            raise serializers.ValidationError("This payment method isn't available.")
+        return value
 
     def validate(self, attrs):
         attrs = super().validate(attrs)
-        if attrs["payment_method"] != MOBILE_MONEY_METHOD or not mobile_money_enabled():
+        method = attrs["payment_method"]
+        if method != LIPA_NAMBA_METHOD:
+            attrs.pop("payer_reference", None)
+        if method == LIPA_NAMBA_METHOD:
+            attrs.pop("provider", None)
+            attrs.pop("msisdn", None)
+            if not attrs.get("payer_reference"):
+                raise serializers.ValidationError(
+                    {"payer_reference": ["Enter the transaction ID from your payment SMS."]}
+                )
+            return attrs
+        if method != MOBILE_MONEY_METHOD:
             attrs.pop("msisdn", None)
             attrs.pop("provider", None)
             return attrs
@@ -223,11 +258,25 @@ class AssignRiderSerializer(serializers.Serializer):
 
 class PaymentRecordSerializer(serializers.ModelSerializer):
     msisdn = serializers.CharField(source="masked_msisdn", read_only=True)
+    payer_reference = serializers.SerializerMethodField()
 
     class Meta:
         model = PaymentRecord
-        fields = ["method", "status", "amount", "provider", "msisdn", "failure_reason"]
+        fields = [
+            "method",
+            "status",
+            "amount",
+            "provider",
+            "msisdn",
+            "failure_reason",
+            "payer_reference",
+        ]
         read_only_fields = fields
+
+    def get_payer_reference(self, obj):
+        """The transaction ID the customer gave us for a Lipa Namba payment."""
+
+        return obj.provider_reference if obj.method == LIPA_NAMBA_METHOD else ""
 
 
 class OrderShippingSerializer(serializers.ModelSerializer):

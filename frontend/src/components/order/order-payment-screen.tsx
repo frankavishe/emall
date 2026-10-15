@@ -18,9 +18,11 @@ import { ErrorText, LoadingText } from "@/components/ui/status-text";
 import type { BackLink } from "@/components/order/order-detail-screen";
 
 const POLL_INTERVAL_MS = 3000;
+// Lipa Namba is confirmed by a person, not a phone prompt: no need to ask as often.
+const MANUAL_POLL_INTERVAL_MS = 30000;
 
 /** "Check your phone": shown after a mobile-money checkout until AzamPay confirms or fails the
- * payment. Polls the payment status and moves on to the order page (`orderHref`) once it's paid.
+ * payment (or, for Lipa Namba, "We're checking your payment" until an administrator does). Polls the payment status and moves on to the order page (`orderHref`) once it's paid.
  * Shared by customers and guests (guest checkout); nothing is fetched until `enabled`. */
 export function OrderPaymentScreen({
   enabled,
@@ -62,6 +64,8 @@ export function OrderPaymentScreen({
   }, [enabled, loadOrder]);
 
   const isSettled = status !== null && status.order_status !== "AWAITING_PAYMENT";
+  const isLipaNamba = order?.payment.method === "lipa_namba";
+  const pollInterval = isLipaNamba ? MANUAL_POLL_INTERVAL_MS : POLL_INTERVAL_MS;
 
   useEffect(() => {
     if (!enabled || isSettled) return;
@@ -81,7 +85,7 @@ export function OrderPaymentScreen({
       } catch {
         // A dropped poll is retried on the next tick.
       }
-      if (!cancelled) timer = setTimeout(poll, POLL_INTERVAL_MS);
+      if (!cancelled) timer = setTimeout(poll, pollInterval);
     }
 
     void poll();
@@ -89,7 +93,7 @@ export function OrderPaymentScreen({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [enabled, loadStatus, orderHref, router, isSettled]);
+  }, [enabled, loadStatus, orderHref, router, isSettled, pollInterval]);
 
   if (!enabled) {
     return (
@@ -123,7 +127,9 @@ export function OrderPaymentScreen({
             <h1 className="text-2xl font-semibold text-text-primary">Payment not completed</h1>
             <ErrorText>{status?.failure_reason || "The payment was not completed."}</ErrorText>
             <p className="text-sm text-text-muted">
-              Nothing was charged and your cart is just as you left it.
+              {isLipaNamba
+                ? "If you did pay, contact us with your transaction ID and we'll sort it out. Your cart is just as you left it."
+                : "Nothing was charged and your cart is just as you left it."}
             </p>
             <div className="flex flex-wrap justify-center gap-2">
               <Button asChild>
@@ -133,6 +139,29 @@ export function OrderPaymentScreen({
                 <Link href="/cart">Back to cart</Link>
               </Button>
             </div>
+          </>
+        ) : isLipaNamba && order ? (
+          <>
+            <div
+              aria-hidden
+              className="h-10 w-10 animate-spin rounded-full border-4 border-border border-t-navy-900"
+            />
+            <h1 className="text-2xl font-semibold text-text-primary">
+              We&apos;re checking your payment
+            </h1>
+            <p className="max-w-md text-sm text-text-muted">
+              Thanks! We&apos;re matching your Lipa Namba payment of{" "}
+              <span className="font-medium text-text-primary">{formatCurrency(order.total)}</span>{" "}
+              (transaction ID{" "}
+              <span className="font-mono font-medium text-text-primary">
+                {order.payment.payer_reference}
+              </span>
+              ) to order #{order.id}. This usually takes a few hours; your order ships as soon as
+              it&apos;s confirmed.
+            </p>
+            <p className="text-xs text-text-muted">
+              You can leave this page; it updates by itself while open.
+            </p>
           </>
         ) : (
           <>

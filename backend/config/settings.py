@@ -215,6 +215,17 @@ AZAMPAY_CALLBACK_TOKEN = env("AZAMPAY_CALLBACK_TOKEN", default="dev-callback-tok
 BACKEND_PUBLIC_URL = env("BACKEND_PUBLIC_URL", default="http://localhost:8000")
 # A push the customer never answers is failed (and its stock released) after this long.
 PAYMENT_PENDING_TIMEOUT_MINUTES = env.int("PAYMENT_PENDING_TIMEOUT_MINUTES", default=15)
+# The mock card approves every charge: dev/tests only, never production.
+MOCK_CARD_PAYMENTS_ENABLED = env.bool("MOCK_CARD_PAYMENTS_ENABLED", default=DEBUG)
+
+# --- Manual payments (no gateway; an administrator confirms the money arrived) --------------
+# Any of "cod" (cash on delivery) and "lipa_namba" (customer pays the till below, then enters
+# the transaction ID), comma-separated; empty turns both off.
+MANUAL_PAYMENT_METHODS = env.list("MANUAL_PAYMENT_METHODS", default=["cod", "lipa_namba"])
+LIPA_NAMBA_TILL = env("LIPA_NAMBA_TILL", default="")
+LIPA_NAMBA_NAME = env("LIPA_NAMBA_NAME", default="MangiMall")
+# An unconfirmed Lipa Namba order is failed (and its stock released) after this long.
+MANUAL_PAYMENT_TIMEOUT_HOURS = env.int("MANUAL_PAYMENT_TIMEOUT_HOURS", default=24)
 
 # --- simplejwt (task T013) -----------------------------------------------
 # Access token stays short-lived and is returned to the frontend in the response body only

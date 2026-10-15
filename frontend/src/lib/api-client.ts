@@ -211,15 +211,31 @@ export const MOBILE_MONEY_PROVIDERS: { value: MobileMoneyProvider; label: string
   { value: "Azampesa", label: "AzamPesa" },
 ];
 
+const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  card: "Card",
+  mobile_money: "Mobile money",
+  cod: "Cash on delivery",
+  lipa_namba: "Lipa Namba",
+};
+
+/** A payment method's display name, e.g. `cod` -> "Cash on delivery". */
+export function paymentMethodLabel(method: string): string {
+  return PAYMENT_METHOD_LABELS[method] ?? method.replace(/_/g, " ");
+}
+
 export type OrderPayment = {
+  /** `card`, `mobile_money`, `cod` (cash on delivery) or `lipa_namba`. */
   method: string;
-  /** PENDING (mobile money awaiting the customer's PIN), SUCCEEDED or FAILED. */
+  /** PENDING (mobile money awaiting the customer's PIN, Lipa Namba awaiting verification, cash
+   * on delivery not yet collected), SUCCEEDED or FAILED. */
   status: string;
   amount: string;
   provider: MobileMoneyProvider | "";
   /** Masked, e.g. `25571****678`. */
   msisdn: string;
   failure_reason: string;
+  /** Lipa Namba only: the transaction ID the customer gave. */
+  payer_reference: string;
 };
 
 export type OrderSummary = OrderTotals & {
@@ -325,16 +341,32 @@ export async function getDeliveryQuote(pin: LatLng): Promise<DeliveryQuote> {
 }
 
 export type MobileMoneyDetails = { msisdn: string; provider: MobileMoneyProvider };
+/** Lipa Namba: the transaction ID from the customer's payment confirmation SMS. */
+export type LipaNambaDetails = { payer_reference: string };
+
+/** A way to pay that checkout offers (`GET /api/payments/methods`). */
+export type PaymentMethodOption = {
+  method: string;
+  label: string;
+  /** Lipa Namba only: the mall's till number and the name it shows. */
+  till_number?: string;
+  till_name?: string;
+};
+
+export async function listPaymentMethods(): Promise<PaymentMethodOption[]> {
+  return apiFetch<PaymentMethodOption[]>("/api/payments/methods");
+}
 
 /** `POST /api/checkout` (task T038, contracts/cart-checkout-api.md). The delivery pin is
  * mandatory; the server prices delivery itself. With `mobile_money` the order comes back
- * `AWAITING_PAYMENT` (HTTP 202) until the customer approves the push on their phone; a `409`
+ * `AWAITING_PAYMENT` (HTTP 202) until the customer approves the push on their phone (with
+ * `lipa_namba`, until an administrator confirms the payment arrived); a `409`
  * with `code: "payment_pending"` carries the `order_id` already waiting for payment (a guest's
  * carries its `access_token` instead). A guest (no session) must pass `guestEmail`. */
 export async function checkout(
   shippingData: ShippingAddress & LatLng,
   paymentMethod: string,
-  mobileMoney?: MobileMoneyDetails,
+  paymentDetails?: MobileMoneyDetails | LipaNambaDetails,
   guestEmail?: string,
 ): Promise<OrderDetail> {
   return apiFetch<OrderDetail>("/api/checkout", {
@@ -342,7 +374,7 @@ export async function checkout(
     body: JSON.stringify({
       shipping: shippingData,
       payment_method: paymentMethod,
-      ...(mobileMoney ?? {}),
+      ...(paymentDetails ?? {}),
       ...(guestEmail ? { email: guestEmail } : {}),
     }),
   });
@@ -1012,17 +1044,21 @@ export type AdminTransaction = {
   method: string;
   status: string;
   transaction_reference: string;
+  /** The customer's Lipa Namba transaction ID, or the gateway's reference. */
+  provider_reference: string;
   created_at: string;
   commission_total: string;
   shop_count: number;
 };
 
 export async function listAdminTransactions(
-  options: DateRange & { page?: number; search?: string } = {},
+  options: DateRange & { page?: number; search?: string; status?: string; method?: string } = {},
 ): Promise<PaginatedResponse<AdminTransaction>> {
   const params = dateRangeQuery(options);
   params.set("page", String(options.page ?? 1));
   if (options.search) params.set("search", options.search);
+  if (options.status) params.set("status", options.status);
+  if (options.method) params.set("method", options.method);
   return apiFetch<PaginatedResponse<AdminTransaction>>(
     withQuery("/api/admin/transactions", params),
   );
@@ -1046,6 +1082,12 @@ export type AdminOrderDetail = ShippingDetails &
       amount: string;
       transaction_reference: string;
       created_at: string;
+      provider_reference: string;
+      provider: string;
+      msisdn: string;
+      failure_reason: string;
+      settled_by: string | null;
+      settled_at: string | null;
     } | null;
     items: AdminOrderLine[];
     deliveries: DeliveryLeg[];
@@ -1053,6 +1095,19 @@ export type AdminOrderDetail = ShippingDetails &
 
 export async function getAdminOrder(orderId: number | string): Promise<AdminOrderDetail> {
   return apiFetch<AdminOrderDetail>(`/api/admin/orders/${orderId}`);
+}
+
+/** Settle a cash-on-delivery or Lipa Namba payment by hand: `confirm` once the money is in,
+ * `reject` (with a reason) if it never arrives — rejecting cancels the order. */
+export async function settleOrderPayment(
+  orderId: number | string,
+  action: "confirm" | "reject",
+  reason = "",
+): Promise<AdminOrderDetail> {
+  return apiFetch<AdminOrderDetail>(`/api/admin/orders/${orderId}/payment/${action}`, {
+    method: "POST",
+    body: JSON.stringify(reason ? { reason } : {}),
+  });
 }
 
 export type AdminProduct = {

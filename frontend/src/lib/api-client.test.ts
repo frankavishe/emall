@@ -8,6 +8,7 @@ import {
   getPaymentStatus,
   refreshAccessToken,
   setAccessToken,
+  settleOrderPayment,
 } from "./api-client";
 
 describe("ApiError", () => {
@@ -174,6 +175,24 @@ describe("mobile money payments", () => {
       msisdn: "0712345678",
       provider: "Mpesa",
     });
+  });
+
+  it("sends the transaction ID with a Lipa Namba checkout", async () => {
+    await checkout(shipping, "lipa_namba", { payer_reference: "QJK7H2LM9P" });
+
+    expect(JSON.parse(lastCall().init.body as string)).toEqual({
+      shipping,
+      payment_method: "lipa_namba",
+      payer_reference: "QJK7H2LM9P",
+    });
+  });
+
+  it("confirms a manual payment", async () => {
+    await settleOrderPayment(7, "confirm");
+
+    const { url, init } = lastCall();
+    expect(url).toMatch(/\/api\/admin\/orders\/7\/payment\/confirm$/);
+    expect(init.method).toBe("POST");
   });
 
   it("sends only the method for a card checkout", async () => {

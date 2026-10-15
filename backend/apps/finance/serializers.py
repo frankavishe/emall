@@ -239,6 +239,7 @@ class AdminTransactionSerializer(serializers.ModelSerializer):
             "method",
             "status",
             "transaction_reference",
+            "provider_reference",
             "created_at",
             "commission_total",
             "shop_count",
@@ -247,6 +248,10 @@ class AdminTransactionSerializer(serializers.ModelSerializer):
 
     def get_customer(self, obj):
         return order_buyer(obj.order)
+
+
+class SettlePaymentSerializer(serializers.Serializer):
+    reason = serializers.CharField(required=False, allow_blank=True, max_length=255)
 
 
 class AdminOrderLineSerializer(PayoutLineSerializer):
@@ -312,6 +317,13 @@ class AdminOrderDetailSerializer(OrderTotalsMixin, serializers.ModelSerializer):
             "amount": str(payment.amount),
             "transaction_reference": payment.transaction_reference,
             "created_at": payment.created_at,
+            # The customer's own transaction ID (Lipa Namba) or the gateway's reference.
+            "provider_reference": payment.provider_reference,
+            "provider": payment.provider,
+            "msisdn": payment.msisdn,
+            "failure_reason": payment.failure_reason,
+            "settled_by": payment.settled_by.name if payment.settled_by else None,
+            "settled_at": payment.settled_at,
         }
 
     def get_commission_total(self, obj):

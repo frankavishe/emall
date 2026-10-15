@@ -11,7 +11,12 @@ from rest_framework.views import APIView
 
 from apps.payments.models import PaymentRecord
 from apps.payments.outcomes import handle_azampay_callback
-from apps.payments.services import MOBILE_MONEY_METHOD, azampay_amount, simulator_enabled
+from apps.payments.services import (
+    MOBILE_MONEY_METHOD,
+    available_payment_methods,
+    azampay_amount,
+    simulator_enabled,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +36,15 @@ class AzamPayCallbackView(APIView):
         logger.info("AzamPay callback %s: %s", request.data.get("utilityref"), outcome)
         # Always 200 once authenticated: a non-2xx only makes AzamPay retry the same payload.
         return Response({"success": True})
+
+
+class PaymentMethodListView(APIView):
+    """`GET /api/payments/methods`: what checkout offers (and, for Lipa Namba, the till to pay)."""
+
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        return Response(available_payment_methods())
 
 
 # --- Dev-only AzamPay sandbox simulator (PAYMENT_BACKEND=azampay_simulator) ------------------

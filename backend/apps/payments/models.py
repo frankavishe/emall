@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 
 
@@ -33,11 +34,21 @@ class PaymentRecord(models.Model):
     # Our own reference; for mobile money it is the `externalId` AzamPay echoes back as
     # `utilityref` in its callback.
     transaction_reference = models.CharField(max_length=64, unique=True)
-    # Mobile money only.
+    # Mobile money only (`provider_reference` is also the customer's transaction ID for Lipa
+    # Namba).
     provider = models.CharField(max_length=20, choices=Provider.choices, blank=True)
     msisdn = models.CharField(max_length=15, blank=True)  # normalised 255XXXXXXXXX
     provider_reference = models.CharField(max_length=128, blank=True)
     failure_reason = models.CharField(max_length=255, blank=True)
+    # Manual methods (cash on delivery, Lipa Namba) only: the administrator who settled it.
+    settled_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    settled_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
