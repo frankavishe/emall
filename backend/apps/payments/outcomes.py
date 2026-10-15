@@ -9,22 +9,30 @@ from decimal import Decimal, InvalidOperation
 
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.cart.models import CartItem
 from apps.catalog.models import Product
 from apps.orders.models import Order, OrderItem, OrderItemStatusEvent
 from apps.payments.models import PaymentRecord
-from apps.payments.services import azampay_amount
+from apps.payments.services import (
+    LIPA_NAMBA_METHOD,
+    MANUAL_METHODS,
+    azampay_amount,
+)
 
 logger = logging.getLogger(__name__)
 
 EXPIRED_REASON = "The payment request expired before it was confirmed."
 
 
-def complete_payment(*, record_id, success, provider_reference="", message=""):
+def complete_payment(*, record_id, success, provider_reference="", message="", settled_by=None):
     """Idempotent: a record that is no longer PENDING is returned untouched, so a repeated
-    callback (or a callback racing the expiry sweep) can't settle a payment twice."""
+    callback (or a callback racing the expiry sweep) can't settle a payment twice.
+
+    `settled_by` is the administrator confirming or rejecting a manual payment. A cash-on-delivery
+    order is already PLACED, so confirming it only marks the money received."""
 
     with transaction.atomic():
         record = (
@@ -38,6 +46,9 @@ def complete_payment(*, record_id, success, provider_reference="", message=""):
         order = record.order
         if provider_reference:
             record.provider_reference = provider_reference
+        if settled_by is not None:
+            record.settled_by = settled_by
+            record.settled_at = timezone.now()
 
         if success:
             record.status = PaymentRecord.Status.SUCCEEDED
@@ -64,6 +75,33 @@ def complete_payment(*, record_id, success, provider_reference="", message=""):
 
         record.save()
         order.save(update_fields=["status"])
+    return record
+
+
+class SettlementError(Exception):
+    def __init__(self, detail):
+        super().__init__(detail)
+        self.detail = detail
+
+
+def settle_manual_payment(*, order, admin, confirm, reason=""):
+    """An administrator confirming (or rejecting) that a cash-on-delivery or Lipa Namba payment
+    actually arrived. Rejecting cancels the order's lines and releases their stock."""
+
+    record = PaymentRecord.objects.filter(order=order).first()
+    if record is None or record.method not in MANUAL_METHODS:
+        raise SettlementError("Only cash on delivery and Lipa Namba payments are settled by hand.")
+    if record.status != PaymentRecord.Status.PENDING:
+        raise SettlementError("This payment has already been settled.")
+    record = complete_payment(
+        record_id=record.id,
+        success=confirm,
+        message=reason or "Payment was not received.",
+        settled_by=admin,
+    )
+    if record.settled_by_id != admin.id:
+        # Settled by someone else (or expired) between our check and our lock.
+        raise SettlementError("This payment has already been settled.")
     return record
 
 
@@ -127,12 +165,17 @@ def handle_azampay_callback(payload):
 
 
 def expire_stale_payments(*, queryset=None):
-    """Fails every PENDING payment older than `PAYMENT_PENDING_TIMEOUT_MINUTES`. Returns how many
-    were expired."""
+    """Fails every PENDING mobile-money payment older than `PAYMENT_PENDING_TIMEOUT_MINUTES` and
+    Lipa Namba payment older than `MANUAL_PAYMENT_TIMEOUT_HOURS`. Cash on delivery never expires:
+    its goods are already on their way. Returns how many were expired."""
 
-    cutoff = timezone.now() - timedelta(minutes=settings.PAYMENT_PENDING_TIMEOUT_MINUTES)
+    now = timezone.now()
+    mobile_cutoff = now - timedelta(minutes=settings.PAYMENT_PENDING_TIMEOUT_MINUTES)
+    manual_cutoff = now - timedelta(hours=settings.MANUAL_PAYMENT_TIMEOUT_HOURS)
     stale = (queryset if queryset is not None else PaymentRecord.objects).filter(
-        status=PaymentRecord.Status.PENDING, created_at__lte=cutoff
+        Q(method=LIPA_NAMBA_METHOD, created_at__lte=manual_cutoff)
+        | (~Q(method__in=MANUAL_METHODS) & Q(created_at__lte=mobile_cutoff)),
+        status=PaymentRecord.Status.PENDING,
     )
     expired = 0
     for record_id in stale.values_list("id", flat=True):

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { listAdminTransactions } from "@/lib/api-client";
+import { listAdminTransactions, paymentMethodLabel } from "@/lib/api-client";
 import { formatCurrency } from "@/lib/currency";
 import { useApi, useRequireRole } from "@/lib/use-api";
 import { PageShell } from "@/components/ui/page-shell";
@@ -15,12 +15,12 @@ import { Pager } from "@/components/pager";
 
 export default function AdminTransactionsPage() {
   const allowed = useRequireRole("ADMINISTRATOR");
-  const [filters, setFilters] = useState({ from: "", to: "", search: "" });
+  const [filters, setFilters] = useState({ from: "", to: "", search: "", status: "", method: "" });
   const [searchDraft, setSearchDraft] = useState("");
   const [page, setPage] = useState(1);
   const transactions = useApi(
     () => listAdminTransactions({ ...filters, page }),
-    `${filters.from}|${filters.to}|${filters.search}|${page}`,
+    `${filters.from}|${filters.to}|${filters.search}|${filters.status}|${filters.method}|${page}`,
     allowed,
   );
 
@@ -53,11 +53,37 @@ export default function AdminTransactionsPage() {
         <FormField label="Search">
           <input
             type="search"
-            placeholder="Order #, reference, customer"
+            placeholder="Order #, reference, txn ID, customer"
             value={searchDraft}
             onChange={(e) => setSearchDraft(e.target.value)}
             className={inputClassName}
           />
+        </FormField>
+        <FormField label="Status">
+          <select
+            value={filters.status}
+            onChange={(e) => updateFilters({ status: e.target.value })}
+            className={inputClassName}
+          >
+            <option value="">Any</option>
+            <option value="PENDING">Awaiting confirmation</option>
+            <option value="SUCCEEDED">Received</option>
+            <option value="FAILED">Failed</option>
+          </select>
+        </FormField>
+        <FormField label="Method">
+          <select
+            value={filters.method}
+            onChange={(e) => updateFilters({ method: e.target.value })}
+            className={inputClassName}
+          >
+            <option value="">Any</option>
+            {["cod", "lipa_namba", "mobile_money", "card"].map((method) => (
+              <option key={method} value={method}>
+                {paymentMethodLabel(method)}
+              </option>
+            ))}
+          </select>
         </FormField>
         <FormField label="From">
           <input
@@ -103,12 +129,14 @@ export default function AdminTransactionsPage() {
                       )}
                     </p>
                     <p className="text-sm text-text-muted">
-                      {tx.customer.email} &middot; {tx.method} &middot;{" "}
+                      {tx.customer.email} &middot; {paymentMethodLabel(tx.method)} &middot;{" "}
                       {new Date(tx.created_at).toLocaleString()}
                     </p>
                     <p className="break-all text-xs text-text-muted">
-                      Ref {tx.transaction_reference} &middot; {tx.shop_count}{" "}
-                      {tx.shop_count === 1 ? "shop" : "shops"}
+                      Ref {tx.transaction_reference}
+                      {tx.provider_reference && (
+                        <> &middot; Txn {tx.provider_reference}</>
+                      )} &middot; {tx.shop_count} {tx.shop_count === 1 ? "shop" : "shops"}
                     </p>
                   </div>
                   <div className="text-right">

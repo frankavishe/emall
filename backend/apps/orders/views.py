@@ -43,7 +43,8 @@ class CheckoutView(APIView):
     """Re-validates the cart, charges the mock payment service, and — only if both succeed —
     creates the Order atomically (research.md §4). Every failure case is translated to the `400`
     response shapes in contracts/cart-checkout-api.md. Mobile money instead answers `202` with an
-    AWAITING_PAYMENT order (see `place_order()`), or `409 payment_pending` while one exists.
+    AWAITING_PAYMENT order (see `place_order()`), or `409 payment_pending` while one exists; so
+    does Lipa Namba, whose order waits for an administrator to find the payment.
 
     Guests (guest checkout) must give an `email`; their response carries the order's
     `access_token`, the only way back to a guest order."""
@@ -68,6 +69,7 @@ class CheckoutView(APIView):
                 payment_method=data["payment_method"],
                 msisdn=data.get("msisdn"),
                 provider=data.get("provider"),
+                payer_reference=data.get("payer_reference", ""),
             )
         except CheckoutError as error:
             body = {"detail": error.detail, **error.extra}

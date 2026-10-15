@@ -24,3 +24,6 @@ def mock_payment_backend(settings):
     """Tests never depend on the developer's backend/.env PAYMENT_BACKEND (which is usually the
     AzamPay simulator locally); payment tests opt in to another backend explicitly."""
     settings.PAYMENT_BACKEND = "mock"
+    settings.MOCK_CARD_PAYMENTS_ENABLED = True
+    settings.MANUAL_PAYMENT_METHODS = ["cod", "lipa_namba"]
+    settings.LIPA_NAMBA_TILL = "123456"

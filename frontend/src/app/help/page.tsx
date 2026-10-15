@@ -28,7 +28,7 @@ const FAQ_SECTIONS: FaqSection[] = [
       },
       {
         q: 'What do "Awaiting payment" and "Payment failed" mean?',
-        a: "Awaiting payment means we've sent a payment prompt to your phone and are waiting for you to approve it. Payment failed means the payment didn't go through — the order isn't lost, and you can try paying again from the order page.",
+        a: "Awaiting payment means we're waiting for your payment to be confirmed: either you still need to approve the prompt on your phone, or (for Lipa Namba) our team is checking your transaction ID. Payment failed means the payment didn't go through — the order isn't lost, and you can try paying again from the order page.",
       },
       {
         q: "Can I cancel an order?",
@@ -42,7 +42,15 @@ const FAQ_SECTIONS: FaqSection[] = [
     items: [
       {
         q: "Which payment methods do you accept?",
-        a: "We accept mobile money: M-Pesa, Mixx by Yas (Tigo Pesa), Airtel Money, HaloPesa and AzamPesa. Payments are processed securely through AzamPay. Card payments (Visa / Mastercard) are coming soon.",
+        a: "You can pay cash on delivery, or pay by Lipa Namba from M-Pesa, Mixx by Yas (Tigo Pesa), Airtel Money, HaloPesa or AzamPesa. The options available to you are shown at checkout. Card payments (Visa / Mastercard) are coming soon.",
+      },
+      {
+        q: "How does cash on delivery work?",
+        a: "Choose Cash on delivery at checkout. The shops start preparing your order right away, and you pay the rider the order total in cash when it arrives. Please have the exact amount ready.",
+      },
+      {
+        q: "How do I pay by Lipa Namba?",
+        a: "Choose Lipa Namba at checkout. On your phone, use your network's Lipa Namba / pay-by-till option to pay the till number shown, for exactly the order total. Then enter the transaction ID from the confirmation SMS and place the order. We confirm the payment by hand, usually within a few hours, and your order ships once it's confirmed.",
       },
       {
         q: "How does mobile-money payment work?",

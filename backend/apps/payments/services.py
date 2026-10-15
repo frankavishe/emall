@@ -42,6 +42,55 @@ def get_payment_service() -> PaymentService:
     return MockPaymentService()
 
 
+def mock_card_enabled() -> bool:
+    """The mock card charges everything successfully, so outside dev it would record orders as
+    paid with no money received."""
+
+    return getattr(settings, "MOCK_CARD_PAYMENTS_ENABLED", False)
+
+
+# --- Manual payments (no gateway) --------------------------------------------------------------
+# Settled by an administrator through `apps.payments.outcomes.complete_payment()`:
+# - cash on delivery: the order is PLACED at once (vendors must fulfil it before the cash
+#   arrives); its payment stays PENDING until an admin confirms the rider handed the cash over.
+# - Lipa Namba: the customer pays the mall's till number and gives us the transaction ID; the
+#   order waits AWAITING_PAYMENT (invisible to vendors) until an admin finds it on the statement.
+
+COD_METHOD = "cod"
+LIPA_NAMBA_METHOD = "lipa_namba"
+MANUAL_METHODS = (COD_METHOD, LIPA_NAMBA_METHOD)
+
+
+def manual_method_enabled(method: str) -> bool:
+    enabled = getattr(settings, "MANUAL_PAYMENT_METHODS", [])
+    if method not in MANUAL_METHODS or method not in enabled:
+        return False
+    # Lipa Namba is useless until there is a till to pay.
+    return method != LIPA_NAMBA_METHOD or bool(getattr(settings, "LIPA_NAMBA_TILL", ""))
+
+
+def available_payment_methods() -> list[dict]:
+    """What checkout offers, in display order."""
+
+    methods = []
+    if manual_method_enabled(COD_METHOD):
+        methods.append({"method": COD_METHOD, "label": "Cash on delivery"})
+    if manual_method_enabled(LIPA_NAMBA_METHOD):
+        methods.append(
+            {
+                "method": LIPA_NAMBA_METHOD,
+                "label": "Lipa Namba (M-Pesa, Mixx by Yas, Airtel Money…)",
+                "till_number": settings.LIPA_NAMBA_TILL,
+                "till_name": settings.LIPA_NAMBA_NAME,
+            }
+        )
+    if mobile_money_enabled():
+        methods.append({"method": MOBILE_MONEY_METHOD, "label": "Mobile money (AzamPay)"})
+    if mock_card_enabled():
+        methods.append({"method": "card", "label": "Card (test)"})
+    return methods
+
+
 # --- Mobile money (AzamPay MNO checkout) -------------------------------------------------------
 # Asynchronous: `initiate()` only asks the provider to send a USSD push to the customer's phone.
 # The outcome arrives later through the AzamPay callback (apps.payments.outcomes).

@@ -37,6 +37,15 @@ def guest_order_url(order):
     return f"{settings.FRONTEND_BASE_URL.rstrip('/')}/orders/track/{order.access_token}"
 
 
+def _payment_line(order):
+    """Cash on delivery is the only way a confirmed order can still be unpaid."""
+
+    payment = getattr(order, "payment", None)
+    if payment is not None and payment.method == "cod" and payment.status == "PENDING":
+        return f"Please have TZS {order.total:,.2f} ready to pay in cash on delivery."
+    return "Payment received - thank you."
+
+
 class DjangoEmailService(EmailService):
     """Sends via `django.core.mail`, transport controlled by `settings.EMAIL_BACKEND`."""
 
@@ -103,7 +112,8 @@ class DjangoEmailService(EmailService):
                 f"Hi {order.contact_name},\n\n"
                 f"Thanks for your order #{order.id}.\n\n"
                 f"{lines}\n\n"
-                f"Total: TZS {order.total:,.2f}\n\n"
+                f"Total: TZS {order.total:,.2f}\n"
+                f"{_payment_line(order)}\n\n"
                 "Follow your order at any time with this private link (keep it to yourself: "
                 "anyone with it can see the order):\n"
                 f"{guest_order_url(order)}\n"

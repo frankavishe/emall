@@ -32,6 +32,16 @@ admin_urlpatterns = [
     ),
     path("transactions", views.AdminTransactionListView.as_view(), name="admin-transactions"),
     path("orders/<int:order_id>", views.AdminOrderDetailView.as_view(), name="admin-order-detail"),
+    path(
+        "orders/<int:order_id>/payment/confirm",
+        views.AdminOrderPaymentSettleView.as_view(confirm=True),
+        name="admin-order-payment-confirm",
+    ),
+    path(
+        "orders/<int:order_id>/payment/reject",
+        views.AdminOrderPaymentSettleView.as_view(confirm=False),
+        name="admin-order-payment-reject",
+    ),
     path("products", views.AdminProductListView.as_view(), name="admin-products"),
 ]
 
