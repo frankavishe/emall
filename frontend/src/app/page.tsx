@@ -62,14 +62,9 @@ function GuestHomepage() {
             Products from independent shops, all in one place.
           </p>
         </div>
-        <div className="flex gap-3">
-          <Button variant="secondary" asChild>
-            <Link href="/login">Log in</Link>
-          </Button>
-          <Button variant="primary" className="bg-teal-400 text-navy-900 hover:bg-teal-300" asChild>
-            <Link href="/register">Register</Link>
-          </Button>
-        </div>
+        <Button variant="primary" className="bg-teal-400 text-navy-900 hover:bg-teal-300" asChild>
+          <Link href="/products">Browse products</Link>
+        </Button>
       </Card>
 
       <PromoSlideshow />
