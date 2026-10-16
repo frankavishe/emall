@@ -21,6 +21,8 @@ from apps.payments.services import (
     MANUAL_METHODS,
     azampay_amount,
 )
+from apps.realtime.broadcast import publish_on_commit
+from apps.realtime.groups import ADMINS, buyer_groups, rider_groups, vendor_groups
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +46,7 @@ def complete_payment(*, record_id, success, provider_reference="", message="", s
             return record
 
         order = record.order
+        was_awaiting = order.status == Order.Status.AWAITING_PAYMENT
         if provider_reference:
             record.provider_reference = provider_reference
         if settled_by is not None:
@@ -75,7 +78,25 @@ def complete_payment(*, record_id, success, provider_reference="", message="", s
 
         record.save()
         order.save(update_fields=["status"])
+        _announce_payment(order.id, success=success, was_awaiting=was_awaiting)
     return record
+
+
+def _announce_payment(order_id, *, success, was_awaiting):
+    """The buyer and administrators always hear about a settled payment. Vendors (and riders)
+    hear when the order became theirs to fulfil, or when a rejected cash-on-delivery payment
+    cancelled lines they could already see."""
+
+    publish_on_commit(
+        [*buyer_groups(order_id), ADMINS], {"type": "payment.updated", "order_id": order_id}
+    )
+    if success and was_awaiting:
+        publish_on_commit(vendor_groups(order_id), {"type": "order.created", "order_id": order_id})
+    elif not success and not was_awaiting:
+        publish_on_commit(
+            [*vendor_groups(order_id), *rider_groups(order_id)],
+            {"type": "order.updated", "order_id": order_id},
+        )
 
 
 class SettlementError(Exception):

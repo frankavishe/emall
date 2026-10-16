@@ -1,8 +1,13 @@
 # Deploying to the Contabo VPS (mangimall.com)
 
 Production runs as one Docker Compose stack on the VPS: `docker-compose.prod.yml`
-(Postgres, MinIO, Django/gunicorn, Next.js) behind Caddy, which gets free HTTPS
-certificates from Let's Encrypt automatically.
+(Postgres, MinIO, Redis, Django on gunicorn's uvicorn workers, Next.js) behind Caddy, which gets
+free HTTPS certificates from Let's Encrypt automatically.
+
+Live updates (order status, payments, new orders, rider assignments) use a WebSocket at
+`wss://api.mangimall.com/ws/`. Caddy forwards the upgrade without extra config. Redis only
+passes these messages between the backend's worker processes and stores nothing, so it needs
+no volume or backup.
 
 | Address               | Served by                         |
 |-----------------------|-----------------------------------|
@@ -141,5 +146,8 @@ Also enable snapshots in the Contabo panel, and copy `~/backups` off the server 
   Check `nslookup`, then `docker compose -f docker-compose.prod.yml restart caddy`.
 - **Build killed / out of memory**: make sure swap is on (`free -h`).
 - **502 from api.mangimall.com**: `docker compose -f docker-compose.prod.yml logs backend`.
+- **Pages stop updating live**: in the browser's DevTools → Network → WS, `/ws/` should show
+  `101`. A `403` means the page's origin isn't in `CORS_ALLOWED_ORIGINS`. Otherwise check
+  `docker compose -f docker-compose.prod.yml logs redis backend`. Pages still refresh on reload.
 - **Changed a domain**: update `.env.prod` and rebuild with `--build`; the frontend has the
   API URL baked in at build time.

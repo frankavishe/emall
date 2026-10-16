@@ -28,6 +28,14 @@ from apps.payments.services import (
     get_payment_service,
     mobile_money_enabled,
 )
+from apps.realtime.broadcast import publish_on_commit
+from apps.realtime.groups import (
+    ADMINS,
+    buyer_groups,
+    order_audience,
+    user_group,
+    vendor_groups,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +109,10 @@ def advance_order_item_status(*, order_item, new_status):
         order_item.save(update_fields=["status"])
         OrderItemStatusEvent.objects.create(order_item=order_item, status=new_status)
         transaction.on_commit(lambda: _notify_order_item_status_change(order_item))
+        publish_on_commit(
+            order_audience(order_item.order_id),
+            {"type": "order.updated", "order_id": order_item.order_id},
+        )
 
     return order_item
 
@@ -127,9 +139,21 @@ def assign_rider(*, order_item, rider):
     if rider is not None and (rider.role != User.Role.RIDER or not rider.is_active):
         raise AssignmentError("That rider is not an active rider.")
 
+    previous_rider_id = order_item.rider_id
     order_item.rider = rider
     order_item.rider_assigned_at = timezone.now() if rider is not None else None
     order_item.save(update_fields=["rider", "rider_assigned_at"])
+
+    order_id = order_item.order_id
+    rider_ids = {previous_rider_id, order_item.rider_id} - {None}
+    publish_on_commit(
+        [user_group(rider_id) for rider_id in rider_ids],
+        {"type": "delivery.assigned", "order_id": order_id},
+    )
+    publish_on_commit(
+        [*buyer_groups(order_id), ADMINS, *vendor_groups(order_id)],
+        {"type": "order.updated", "order_id": order_id},
+    )
     return order_item
 
 
@@ -257,7 +281,20 @@ def _create_order(*, cart, guest_email, shipping_data, status, cart_items, legs,
     return order
 
 
-def place_order(
+def place_order(**kwargs):
+    """See `_place_order`. Announces the new order once it exists: vendors only hear about it
+    when it's PLACED (an unpaid order isn't theirs to fulfil yet; `complete_payment` tells them
+    when it's paid), administrators always."""
+
+    order = _place_order(**kwargs)
+    groups = [ADMINS]
+    if order.status == Order.Status.PLACED:
+        groups += vendor_groups(order.id)
+    publish_on_commit(groups, {"type": "order.created", "order_id": order.id})
+    return order
+
+
+def _place_order(
     *,
     cart,
     shipping_data,

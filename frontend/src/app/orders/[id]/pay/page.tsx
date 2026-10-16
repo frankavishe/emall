@@ -29,6 +29,7 @@ export default function OrderPaymentPage() {
       loadOrder={loadOrder}
       loadStatus={loadStatus}
       orderHref={`/orders/${params.id}`}
+      watch={{ orderId: params.id }}
       back={BACK}
     />
   );

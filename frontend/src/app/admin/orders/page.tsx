@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { hasRole, useAuth } from "@/lib/auth-context";
+import { useLiveRefresh } from "@/lib/realtime";
 import {
   ApiError,
   assignOrderItemRider,
@@ -96,18 +97,29 @@ export default function AdminOrdersPage() {
     }
   }, [isLoading, user, router]);
 
+  const { version: liveVersion, takeQuiet } = useLiveRefresh(
+    ["order.created", "order.updated", "payment.updated"],
+    {
+      enabled: hasRole(user, "ADMINISTRATOR"),
+    },
+  );
+
   useEffect(() => {
     if (!hasRole(user, "ADMINISTRATOR")) return;
     let cancelled = false;
+    // A live update refetches in place: no spinner, and a failure keeps what's shown.
+    const quiet = takeQuiet();
 
     async function run() {
-      setIsLoadingItems(true);
-      setError(null);
+      if (!quiet) {
+        setIsLoadingItems(true);
+        setError(null);
+      }
       try {
         const result = await listAdminOrderItems(page);
         if (!cancelled) setItems(result);
       } catch (err) {
-        if (!cancelled) {
+        if (!cancelled && !quiet) {
           setError(
             err instanceof ApiError ? err.message : "Something went wrong. Please try again.",
           );
@@ -121,7 +133,7 @@ export default function AdminOrdersPage() {
     return () => {
       cancelled = true;
     };
-  }, [user, page]);
+  }, [user, page, liveVersion, takeQuiet]);
 
   useEffect(() => {
     if (!hasRole(user, "ADMINISTRATOR")) return;

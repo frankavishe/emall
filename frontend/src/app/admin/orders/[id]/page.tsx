@@ -13,6 +13,7 @@ import {
 import { formatCurrency } from "@/lib/currency";
 import { formatRate, payoutStatusTone } from "@/lib/finance";
 import { useApi, useRequireRole } from "@/lib/use-api";
+import { useRealtime } from "@/lib/realtime";
 import { PageShell } from "@/components/ui/page-shell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,15 @@ export default function AdminOrderDetailPage() {
   const params = useParams<{ id: string }>();
   const allowed = useRequireRole("ADMINISTRATOR");
   const order = useApi(() => getAdminOrder(params.id), params.id, allowed);
+  // Administrators hear about every order; refetch when it's this one.
+  useRealtime(
+    (event) => {
+      if (event.order_id === Number(params.id) && event.type !== "delivery.assigned") {
+        order.reload();
+      }
+    },
+    { enabled: allowed },
+  );
 
   if (!allowed || (order.isLoading && !order.data)) {
     return (

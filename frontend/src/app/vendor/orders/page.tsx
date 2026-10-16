@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { hasRole, useAuth } from "@/lib/auth-context";
+import { useLiveRefresh } from "@/lib/realtime";
 import {
   ApiError,
   listVendorOrderItems,
@@ -42,18 +43,26 @@ export default function VendorOrdersPage() {
     }
   }, [isLoading, user, router]);
 
+  const { version: liveVersion, takeQuiet } = useLiveRefresh(["order.created", "order.updated"], {
+    enabled: hasRole(user, "VENDOR"),
+  });
+
   useEffect(() => {
     if (!hasRole(user, "VENDOR")) return;
     let cancelled = false;
+    // A live update refetches in place: no spinner, and a failure keeps what's shown.
+    const quiet = takeQuiet();
 
     async function run() {
-      setIsLoadingItems(true);
-      setError(null);
+      if (!quiet) {
+        setIsLoadingItems(true);
+        setError(null);
+      }
       try {
         const result = await listVendorOrderItems(page);
         if (!cancelled) setItems(result);
       } catch (err) {
-        if (!cancelled) {
+        if (!cancelled && !quiet) {
           setError(
             err instanceof ApiError ? err.message : "Something went wrong. Please try again.",
           );
@@ -67,7 +76,7 @@ export default function VendorOrdersPage() {
     return () => {
       cancelled = true;
     };
-  }, [user, page]);
+  }, [user, page, liveVersion, takeQuiet]);
 
   async function refreshItems() {
     setIsLoadingItems(true);

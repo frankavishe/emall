@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
+    "channels",
     # Project apps (Constitution "Maintainability": Django app boundaries)
     "apps.core",
     "apps.accounts",
@@ -53,6 +54,7 @@ INSTALLED_APPS = [
     "apps.feedback",
     "apps.delivery",
     "apps.finance",
+    "apps.realtime",
 ]
 
 MIDDLEWARE = [
@@ -87,6 +89,21 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "config.wsgi.application"
+# Served by gunicorn's uvicorn workers so `/ws/` (apps.realtime) runs beside the REST API.
+ASGI_APPLICATION = "config.asgi.application"
+
+# Realtime fan-out between worker processes. Without REDIS_URL (local dev, tests, CI) the
+# in-memory layer only reaches sockets in the same process, which is enough for one worker.
+REDIS_URL = env("REDIS_URL", default="")
+if REDIS_URL:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {"hosts": [REDIS_URL]},
+        }
+    }
+else:
+    CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
 
 
 # Database — PostgreSQL, the "real core" per Constitution Principle IV

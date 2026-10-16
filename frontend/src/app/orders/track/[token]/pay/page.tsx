@@ -19,6 +19,7 @@ export default function GuestOrderPaymentPage() {
       loadOrder={loadOrder}
       loadStatus={loadStatus}
       orderHref={`/orders/track/${params.token}`}
+      watch={{ guestToken: params.token }}
       back={BACK}
     />
   );

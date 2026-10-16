@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { hasRole, useAuth } from "@/lib/auth-context";
+import { useLiveRefresh } from "@/lib/realtime";
 import { ApiError, listOrders, type OrderSummary, type PaginatedResponse } from "@/lib/api-client";
 import { PageShell } from "@/components/ui/page-shell";
 import { Card } from "@/components/ui/card";
@@ -26,18 +27,26 @@ export default function OrdersPage() {
     }
   }, [isLoading, user, router]);
 
+  const { version: liveVersion, takeQuiet } = useLiveRefresh(["order.updated", "payment.updated"], {
+    enabled: hasRole(user, "CUSTOMER"),
+  });
+
   useEffect(() => {
     if (!hasRole(user, "CUSTOMER")) return;
     let cancelled = false;
+    // A live update refetches in place: no spinner, and a failure keeps what's shown.
+    const quiet = takeQuiet();
 
     async function run() {
-      setIsLoadingOrders(true);
-      setError(null);
+      if (!quiet) {
+        setIsLoadingOrders(true);
+        setError(null);
+      }
       try {
         const result = await listOrders(page);
         if (!cancelled) setOrders(result);
       } catch (err) {
-        if (!cancelled) {
+        if (!cancelled && !quiet) {
           setError(
             err instanceof ApiError ? err.message : "Something went wrong. Please try again.",
           );
@@ -51,7 +60,7 @@ export default function OrdersPage() {
     return () => {
       cancelled = true;
     };
-  }, [user, page]);
+  }, [user, page, liveVersion, takeQuiet]);
 
   if (isLoading || !user || !hasRole(user, "CUSTOMER")) {
     return (
