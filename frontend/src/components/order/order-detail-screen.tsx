@@ -15,41 +15,60 @@ import { ErrorText, LoadingText } from "@/components/ui/status-text";
 import { formatCurrency } from "@/lib/currency";
 import { DeliverySummary } from "@/components/delivery-summary";
 import { MapLink } from "@/components/map-link";
+import { useRealtime, type RealtimeWatch } from "@/lib/realtime";
 
 export type BackLink = { href: string; label: string };
 
 /** An order's detail, shared by a customer's `/orders/{id}` and a guest's
  * `/orders/track/{token}` (guest checkout). `orderHref` is the order's own path, `/pay` hangs off
- * it. Nothing is fetched until `enabled`, so callers can wait for their auth check. */
+ * it. Nothing is fetched until `enabled`, so callers can wait for their auth check. With `watch`,
+ * it refetches by itself whenever the order or its payment changes. */
 export function OrderDetailScreen({
   enabled,
   load,
   orderHref,
   back,
   notice,
+  watch,
 }: {
   enabled: boolean;
   load: () => Promise<OrderDetail>;
   orderHref: string;
   back: BackLink;
   notice?: React.ReactNode;
+  watch?: RealtimeWatch;
 }) {
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [isLoadingOrder, setIsLoadingOrder] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Bumped by live updates; a refetch for one keeps the order on screen instead of a spinner.
+  const [version, setVersion] = useState(0);
+
+  useRealtime(
+    (event) => {
+      if (event.type === "order.updated" || event.type === "payment.updated") {
+        setVersion((v) => v + 1);
+      }
+    },
+    { enabled, watch },
+  );
 
   useEffect(() => {
     if (!enabled) return;
     let cancelled = false;
+    const isRefresh = version > 0;
 
     async function run() {
-      setIsLoadingOrder(true);
-      setError(null);
+      if (!isRefresh) {
+        setIsLoadingOrder(true);
+        setError(null);
+      }
       try {
         const result = await load();
         if (!cancelled) setOrder(result);
       } catch (err) {
-        if (!cancelled) {
+        // A failed live refresh leaves the order already shown in place.
+        if (!cancelled && !isRefresh) {
           setError(
             err instanceof ApiError && err.status === 404
               ? "This order doesn't exist."
@@ -65,7 +84,7 @@ export function OrderDetailScreen({
     return () => {
       cancelled = true;
     };
-  }, [enabled, load]);
+  }, [enabled, load, version]);
 
   if (!enabled) {
     return (

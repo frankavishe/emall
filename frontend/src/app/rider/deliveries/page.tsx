@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { hasRole, useAuth } from "@/lib/auth-context";
+import { useLiveRefresh } from "@/lib/realtime";
 import {
   errorMessage,
   listRiderDeliveries,
@@ -116,18 +117,26 @@ export default function RiderDeliveriesPage() {
     }
   }, [isLoading, user, router]);
 
+  const { version: liveVersion, takeQuiet } = useLiveRefresh(["delivery.assigned", "order.updated"], {
+    enabled: hasRole(user, "RIDER"),
+  });
+
   useEffect(() => {
     if (!hasRole(user, "RIDER")) return;
     let cancelled = false;
+    // A live update refetches in place: no spinner, and a failure keeps what's shown.
+    const quiet = takeQuiet();
 
     async function run() {
-      setIsLoadingDeliveries(true);
-      setError(null);
+      if (!quiet) {
+        setIsLoadingDeliveries(true);
+        setError(null);
+      }
       try {
         const result = await listRiderDeliveries(scope, page);
         if (!cancelled) setDeliveries(result);
       } catch (err) {
-        if (!cancelled) setError(errorMessage(err));
+        if (!cancelled && !quiet) setError(errorMessage(err));
       } finally {
         if (!cancelled) setIsLoadingDeliveries(false);
       }
@@ -137,7 +146,7 @@ export default function RiderDeliveriesPage() {
     return () => {
       cancelled = true;
     };
-  }, [user, scope, page, reloadKey]);
+  }, [user, scope, page, reloadKey, liveVersion, takeQuiet]);
 
   function handleScopeChange(next: Scope) {
     setScope(next);

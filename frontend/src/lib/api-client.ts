@@ -4,18 +4,30 @@
  * before retrying the original request — Constitution Principle III / research.md §7.
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
 // Held in a module-level variable, not localStorage — auth-context.tsx keeps this in sync with
 // its own React state whenever the token changes.
 let accessToken: string | null = null;
+const accessTokenListeners = new Set<(token: string | null) => void>();
 
 export function getAccessToken(): string | null {
   return accessToken;
 }
 
 export function setAccessToken(token: string | null): void {
+  if (token === accessToken) return;
   accessToken = token;
+  accessTokenListeners.forEach((listener) => listener(token));
+}
+
+/** Calls `listener` whenever the access token changes (sign-in, refresh, sign-out). Returns an
+ * unsubscribe function. Used by the realtime socket to re-authenticate. */
+export function onAccessTokenChange(listener: (token: string | null) => void): () => void {
+  accessTokenListeners.add(listener);
+  return () => {
+    accessTokenListeners.delete(listener);
+  };
 }
 
 /**

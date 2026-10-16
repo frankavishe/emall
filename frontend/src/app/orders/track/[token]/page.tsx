@@ -17,6 +17,7 @@ export default function GuestOrderPage() {
       enabled
       load={load}
       orderHref={`/orders/track/${params.token}`}
+      watch={{ guestToken: params.token }}
       back={BACK}
       notice={
         <p className="text-sm text-text-muted">

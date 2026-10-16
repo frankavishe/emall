@@ -27,6 +27,7 @@ export default function OrderDetailPage() {
       enabled={isCustomer}
       load={load}
       orderHref={`/orders/${params.id}`}
+      watch={{ orderId: params.id }}
       back={BACK}
     />
   );

@@ -16,13 +16,19 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ErrorText, LoadingText } from "@/components/ui/status-text";
 import type { BackLink } from "@/components/order/order-detail-screen";
+import { useRealtime, useRealtimeConnected, type RealtimeWatch } from "@/lib/realtime";
 
 const POLL_INTERVAL_MS = 3000;
 // Lipa Namba is confirmed by a person, not a phone prompt: no need to ask as often.
 const MANUAL_POLL_INTERVAL_MS = 30000;
+// While the live socket is up a settled payment arrives as a push; polling only backs it up
+// (and lets the server expire a payment that timed out).
+const LIVE_POLL_INTERVAL_MS = 30000;
 
 /** "Check your phone": shown after a mobile-money checkout until AzamPay confirms or fails the
- * payment (or, for Lipa Namba, "We're checking your payment" until an administrator does). Polls the payment status and moves on to the order page (`orderHref`) once it's paid.
+ * payment (or, for Lipa Namba, "We're checking your payment" until an administrator does). Checks
+ * the payment status as soon as `watch` reports a change, polling as a fallback, and moves on to
+ * the order page (`orderHref`) once it's paid.
  * Shared by customers and guests (guest checkout); nothing is fetched until `enabled`. */
 export function OrderPaymentScreen({
   enabled,
@@ -30,17 +36,22 @@ export function OrderPaymentScreen({
   loadStatus,
   orderHref,
   back,
+  watch,
 }: {
   enabled: boolean;
   loadOrder: () => Promise<OrderDetail>;
   loadStatus: () => Promise<PaymentStatus>;
   orderHref: string;
   back: BackLink;
+  watch: RealtimeWatch;
 }) {
   const router = useRouter();
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [status, setStatus] = useState<PaymentStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Bumped by a live update to check the payment status right away.
+  const [nudge, setNudge] = useState(0);
+  const isLive = useRealtimeConnected();
 
   useEffect(() => {
     if (!enabled) return;
@@ -65,7 +76,20 @@ export function OrderPaymentScreen({
 
   const isSettled = status !== null && status.order_status !== "AWAITING_PAYMENT";
   const isLipaNamba = order?.payment.method === "lipa_namba";
-  const pollInterval = isLipaNamba ? MANUAL_POLL_INTERVAL_MS : POLL_INTERVAL_MS;
+  const pollInterval = isLive
+    ? LIVE_POLL_INTERVAL_MS
+    : isLipaNamba
+      ? MANUAL_POLL_INTERVAL_MS
+      : POLL_INTERVAL_MS;
+
+  useRealtime(
+    (event) => {
+      if (event.type === "payment.updated" || event.type === "order.updated") {
+        setNudge((n) => n + 1);
+      }
+    },
+    { enabled: enabled && !isSettled, watch },
+  );
 
   useEffect(() => {
     if (!enabled || isSettled) return;
@@ -93,7 +117,7 @@ export function OrderPaymentScreen({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [enabled, loadStatus, orderHref, router, isSettled, pollInterval]);
+  }, [enabled, loadStatus, orderHref, router, isSettled, pollInterval, nudge]);
 
   if (!enabled) {
     return (
