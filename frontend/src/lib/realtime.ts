@@ -18,10 +18,7 @@ import {
 } from "@/lib/api-client";
 
 export type RealtimeEventType =
-  | "order.created"
-  | "order.updated"
-  | "payment.updated"
-  | "delivery.assigned";
+  "order.created" | "order.updated" | "payment.updated" | "delivery.assigned";
 
 export type RealtimeEvent = { type: RealtimeEventType; order_id: number };
 

@@ -97,9 +97,12 @@ export default function AdminOrdersPage() {
     }
   }, [isLoading, user, router]);
 
-  const { version: liveVersion, takeQuiet } = useLiveRefresh(["order.created", "order.updated", "payment.updated"], {
-    enabled: hasRole(user, "ADMINISTRATOR"),
-  });
+  const { version: liveVersion, takeQuiet } = useLiveRefresh(
+    ["order.created", "order.updated", "payment.updated"],
+    {
+      enabled: hasRole(user, "ADMINISTRATOR"),
+    },
+  );
 
   useEffect(() => {
     if (!hasRole(user, "ADMINISTRATOR")) return;

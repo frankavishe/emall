@@ -117,9 +117,12 @@ export default function RiderDeliveriesPage() {
     }
   }, [isLoading, user, router]);
 
-  const { version: liveVersion, takeQuiet } = useLiveRefresh(["delivery.assigned", "order.updated"], {
-    enabled: hasRole(user, "RIDER"),
-  });
+  const { version: liveVersion, takeQuiet } = useLiveRefresh(
+    ["delivery.assigned", "order.updated"],
+    {
+      enabled: hasRole(user, "RIDER"),
+    },
+  );
 
   useEffect(() => {
     if (!hasRole(user, "RIDER")) return;

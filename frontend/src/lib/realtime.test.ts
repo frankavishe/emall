@@ -129,9 +129,7 @@ describe("RealtimeConnection", () => {
     latest().open();
 
     latest().receive({ type: "auth.error" });
-    await vi.waitFor(() =>
-      expect(latest().sent).toContainEqual({ type: "auth", token: "fresh" }),
-    );
+    await vi.waitFor(() => expect(latest().sent).toContainEqual({ type: "auth", token: "fresh" }));
   });
 
   it("passes events to listeners and ignores replies", () => {
