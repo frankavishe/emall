@@ -11,6 +11,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ErrorText, LoadingText, EmptyText } from "@/components/ui/status-text";
 import { ShopLogo } from "@/components/shop-logo";
+import { RelatedProducts } from "@/components/related-products";
 import { cn } from "@/lib/cn";
 import { formatCurrency } from "@/lib/currency";
 import { shopThemeStyle } from "@/lib/shop-theme";
@@ -290,6 +291,8 @@ export default function ProductDetailPage() {
             </div>
           </div>
         </Card>
+
+        <RelatedProducts productId={product.id} />
       </PageShell>
     </div>
   );

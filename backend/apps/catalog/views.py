@@ -171,6 +171,48 @@ class CatalogProductDetailView(APIView):
         )
 
 
+RELATED_PRODUCTS_LIMIT = 8
+
+
+class CatalogRelatedProductsView(APIView):
+    """Up to RELATED_PRODUCTS_LIMIT other visible products for the product page, ranked by tier:
+    same category, then same parent category (siblings, or children of a top-level category),
+    then same shop — newest first within each tier. Same uniform `404` as product detail."""
+
+    permission_classes = [AllowAny]
+
+    def get(self, request, product_id):
+        visible = Product.objects.filter(is_published=True, shop__status=Shop.Status.APPROVED)
+        product = get_object_or_404(visible.select_related("category"), pk=product_id)
+
+        candidates = (
+            visible.exclude(pk=product.pk)
+            .select_related("shop", "category")
+            .prefetch_related("images")
+            .order_by("-created_at")
+        )
+        tiers = []
+        if product.category_id is not None:
+            tiers.append(models.Q(category_id=product.category_id))
+            family_id = product.category.parent_id or product.category_id
+            tiers.append(models.Q(category__parent_id=family_id) | models.Q(category_id=family_id))
+        tiers.append(models.Q(shop_id=product.shop_id))
+
+        related = []
+        seen = set()
+        for tier in tiers:
+            remaining = RELATED_PRODUCTS_LIMIT - len(related)
+            if remaining <= 0:
+                break
+            for candidate in candidates.filter(tier).exclude(pk__in=seen)[:remaining]:
+                related.append(candidate)
+                seen.add(candidate.pk)
+
+        return Response(
+            CatalogProductListSerializer(related, many=True, context={"request": request}).data
+        )
+
+
 class CatalogShopListView(ListAPIView):
     """Public merchants directory: every APPROVED shop, alphabetically, with its count of
     published products."""
