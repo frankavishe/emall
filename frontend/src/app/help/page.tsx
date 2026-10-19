@@ -24,7 +24,7 @@ const FAQ_SECTIONS: FaqSection[] = [
       },
       {
         q: "How do I track my order?",
-        a: "Sign in and open My Orders. Each item shows its current status: Pending (received by the shop), Processing (being prepared), Shipped (picked up by a rider and on the way), Delivered, or Cancelled. We also email you whenever an item's status changes.",
+        a: "Sign in and open My Orders. Each item shows its current status: Pending (received by the shop), Processing (being prepared), Shipped (picked up by a rider and on the way), Delivered, or Cancelled. We also email you whenever an item's status changes. Checked out as a guest? Open the private tracking link in your order confirmation email, or paste it on the Track Your Order page.",
       },
       {
         q: 'What do "Awaiting payment" and "Payment failed" mean?',

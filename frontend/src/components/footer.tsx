@@ -13,7 +13,7 @@ const ABOUT_LINKS: FooterLink[] = [
 
 const CARE_LINKS: FooterLink[] = [
   { label: "Help Center & FAQ", href: "/help" },
-  { label: "Track Your Order", href: "#" },
+  { label: "Track Your Order", href: "/orders/track" },
   { label: "Returns & Refunds", href: "#" },
   { label: "Delivery Rates", href: "#" },
   { label: "Buyer Protection", href: "#" },
