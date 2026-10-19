@@ -67,8 +67,8 @@ export default function TrackOrderPage() {
         <Card className="flex flex-col gap-3">
           <h2 className="text-lg font-semibold">Have an account?</h2>
           <p className="text-sm text-text-muted">
-            Sign in and open My Orders to see all your orders and live status updates. We also
-            email you whenever an item&apos;s status changes.
+            Sign in and open My Orders to see all your orders and live status updates. We also email
+            you whenever an item&apos;s status changes.
           </p>
           <Button asChild className="mt-auto self-start">
             <Link href="/orders">Go to My Orders</Link>
@@ -102,9 +102,8 @@ export default function TrackOrderPage() {
         <div className="flex flex-col gap-1">
           <h2 className="text-lg font-semibold">Can&apos;t find your link?</h2>
           <p className="text-sm text-text-inverse/70">
-            Our support team is available every day, 8am – 10pm EAT. Share your order number and
-            the email you checked out with, and we&apos;ll help you find your order. More answers
-            in the{" "}
+            Our support team is available every day, 8am – 10pm EAT. Share your order number and the
+            email you checked out with, and we&apos;ll help you find your order. More answers in the{" "}
             <Link href="/help#orders" className="font-medium text-teal-400 hover:underline">
               Help Center
             </Link>
