@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AuthProvider } from "@/lib/auth-context";
+import { CartProvider } from "@/lib/cart-context";
 import { Nav } from "@/components/nav";
 import { AppFrame } from "@/components/app-frame";
 import { themeInitScript } from "@/lib/theme-script";
@@ -34,8 +35,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body className="min-h-full flex flex-col">
         <AuthProvider>
-          <Nav />
-          <AppFrame>{children}</AppFrame>
+          <CartProvider>
+            <Nav />
+            <AppFrame>{children}</AppFrame>
+          </CartProvider>
         </AuthProvider>
       </body>
     </html>

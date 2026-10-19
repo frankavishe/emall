@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { ErrorText, LoadingText, EmptyText } from "@/components/ui/status-text";
 import { ShopLogo } from "@/components/shop-logo";
 import { RelatedProducts } from "@/components/related-products";
+import { AddToCart } from "@/components/add-to-cart";
+import { Pill } from "@/components/ui/pill";
 import { cn } from "@/lib/cn";
 import { formatCurrency } from "@/lib/currency";
 import { shopThemeStyle } from "@/lib/shop-theme";
@@ -44,9 +46,6 @@ export default function ProductDetailPage() {
   const [product, setProduct] = useState<CatalogProductDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [quantity, setQuantity] = useState(1);
-  const [isAddingToCart, setIsAddingToCart] = useState(false);
-  const [addToCartMessage, setAddToCartMessage] = useState<string | null>(null);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState("");
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
@@ -86,25 +85,6 @@ export default function ProductDetailPage() {
       setProduct(result);
     } catch {
       // non-fatal — the page keeps showing the previously loaded product
-    }
-  }
-
-  async function handleAddToCart() {
-    if (!product) return;
-    setIsAddingToCart(true);
-    setAddToCartMessage(null);
-    try {
-      await apiFetch("/api/cart/items", {
-        method: "POST",
-        body: JSON.stringify({ product_id: product.id, quantity }),
-      });
-      setAddToCartMessage("Added to cart.");
-    } catch (err) {
-      setAddToCartMessage(
-        err instanceof ApiError ? err.message : "Something went wrong. Please try again.",
-      );
-    } finally {
-      setIsAddingToCart(false);
     }
   }
 
@@ -187,39 +167,42 @@ export default function ProductDetailPage() {
             {product.category && (
               <p className="mt-1 text-sm text-text-muted">Category: {product.category.name}</p>
             )}
-            <p className="mt-4 text-xl font-medium text-text-primary">
-              {formatCurrency(product.price)}
-            </p>
-            <p className="mt-1 text-sm text-text-muted">
-              {product.stock_status === "in_stock" ? "In stock" : "Out of stock"}
-            </p>
-            <div className="mt-1">
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <p className="text-2xl font-semibold text-text-primary">
+                {formatCurrency(product.price)}
+              </p>
+              {product.stock_status === "in_stock" ? (
+                <Pill tone="delivered">In stock</Pill>
+              ) : (
+                <Pill tone="cancelled">Out of stock</Pill>
+              )}
+            </div>
+            <div className="mt-2">
               <StarRating rating={product.average_rating} reviewCount={product.review_count} />
             </div>
-            <p className="mt-6 whitespace-pre-line text-sm text-text-primary/80">
-              {product.description}
-            </p>
 
-            {product.stock_status === "in_stock" &&
-              (user && !hasRole(user, "CUSTOMER") ? (
-                <p className="mt-6 text-sm text-text-muted">
+            {/* Buy box sits above the description so it stays in view on long listings. */}
+            <div className="mt-6">
+              {product.stock_status !== "in_stock" ? (
+                <Button disabled fullWidth className="h-10">
+                  Out of stock
+                </Button>
+              ) : user && !hasRole(user, "CUSTOMER") ? (
+                <p className="rounded-control bg-card-muted px-4 py-3 text-sm text-text-muted">
                   Only Customer accounts can add items to a cart.
                 </p>
               ) : (
-                <div className="mt-6 flex items-center gap-3">
-                  <input
-                    type="number"
-                    min={1}
-                    value={quantity}
-                    onChange={(event) => setQuantity(Math.max(1, Number(event.target.value)))}
-                    className="w-20 rounded-control border border-border px-2 py-1 text-sm"
-                  />
-                  <Button disabled={isAddingToCart} onClick={() => void handleAddToCart()}>
-                    Add to cart
-                  </Button>
-                </div>
-              ))}
-            {addToCartMessage && <p className="mt-2 text-sm text-text-muted">{addToCartMessage}</p>}
+                <AddToCart
+                  productId={product.id}
+                  productName={product.name}
+                  price={product.price}
+                />
+              )}
+            </div>
+
+            <p className="mt-6 whitespace-pre-line text-sm text-text-primary/80">
+              {product.description}
+            </p>
 
             {user && hasRole(user, "CUSTOMER") && (
               <div className="mt-8 border-t border-border pt-6">

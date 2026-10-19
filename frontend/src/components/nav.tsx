@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
+import { useCart } from "@/lib/cart-context";
 import type { Role } from "@/lib/auth-context";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -98,6 +99,22 @@ function RoleSwitch({
   );
 }
 
+/** Nav link label, with a live item count on the Cart link. */
+function NavLinkLabel({ link, cartCount }: { link: NavLink; cartCount: number }) {
+  if (link.href !== "/cart" || cartCount === 0) return <>{link.label}</>;
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      {link.label}
+      <span
+        aria-label={`${cartCount} item${cartCount === 1 ? "" : "s"}`}
+        className="min-w-5 rounded-pill bg-teal-400 px-1.5 py-0.5 text-center text-[10px] font-semibold leading-none text-navy-900"
+      >
+        {cartCount > 99 ? "99+" : cartCount}
+      </span>
+    </span>
+  );
+}
+
 export function ThemeToggle() {
   const { theme, toggleTheme } = useTheme();
   const dark = theme === "dark";
@@ -135,6 +152,7 @@ export function Nav() {
   const router = useRouter();
   const pathname = usePathname();
   const { user, logout, activeRole, setActiveRole } = useAuth();
+  const { itemCount } = useCart();
   const links = linksForRole(activeRole);
   const [mobileOpen, setMobileOpen] = useState(false);
   const canSwitch = !!user && user.roles.length > 1;
@@ -197,7 +215,7 @@ export function Nav() {
                   active ? "bg-navy-900 text-on-primary" : "text-text-muted hover:bg-hover",
                 )}
               >
-                {link.label}
+                <NavLinkLabel link={link} cartCount={itemCount} />
               </Link>
             );
           })}
@@ -298,7 +316,7 @@ export function Nav() {
                     active ? "bg-navy-900 text-on-primary" : "text-text-muted hover:bg-hover",
                   )}
                 >
-                  {link.label}
+                  <NavLinkLabel link={link} cartCount={itemCount} />
                 </Link>
               );
             })}

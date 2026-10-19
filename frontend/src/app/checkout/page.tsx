@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { hasRole, useAuth } from "@/lib/auth-context";
+import { useCart } from "@/lib/cart-context";
 import {
   ApiError,
   checkout,
@@ -61,6 +62,7 @@ function isValidMobile(value: string): boolean {
 export default function CheckoutPage() {
   const router = useRouter();
   const { user, isLoading } = useAuth();
+  const { refreshCart } = useCart();
   const [shipping, setShipping] = useState<ShippingAddress>(EMPTY_SHIPPING);
   const [pin, setPin] = useState<LatLng | null>(null);
   const [quote, setQuote] = useState<DeliveryQuote | null>(null);
@@ -171,6 +173,8 @@ export default function CheckoutPage() {
         isGuest ? guestEmail.trim() : undefined,
       );
       const path = orderPath(order);
+      // Placing the order empties the cart; keep the nav badge in step.
+      void refreshCart();
       router.push(order.status === "AWAITING_PAYMENT" ? `${path}/pay` : path);
     } catch (err) {
       if (err instanceof ApiError) {

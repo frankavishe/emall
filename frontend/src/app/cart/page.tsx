@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { hasRole, useAuth } from "@/lib/auth-context";
+import { useCart } from "@/lib/cart-context";
 import { apiFetch, ApiError } from "@/lib/api-client";
 import { PageShell } from "@/components/ui/page-shell";
 import { Card } from "@/components/ui/card";
@@ -30,6 +31,7 @@ type Cart = {
 export default function CartPage() {
   const router = useRouter();
   const { user, isLoading } = useAuth();
+  const { setCountFromCart } = useCart();
   const [cart, setCart] = useState<Cart | null>(null);
   const [isLoadingCart, setIsLoadingCart] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -50,12 +52,13 @@ export default function CartPage() {
     try {
       const result = await apiFetch<Cart>("/api/cart");
       setCart(result);
+      setCountFromCart(result);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again.");
     } finally {
       setIsLoadingCart(false);
     }
-  }, []);
+  }, [setCountFromCart]);
 
   useEffect(() => {
     if (isLoading || !canShop) return;
@@ -66,7 +69,10 @@ export default function CartPage() {
       setError(null);
       try {
         const result = await apiFetch<Cart>("/api/cart");
-        if (!cancelled) setCart(result);
+        if (!cancelled) {
+          setCart(result);
+          setCountFromCart(result);
+        }
       } catch (err) {
         if (!cancelled) {
           setError(
@@ -82,7 +88,7 @@ export default function CartPage() {
     return () => {
       cancelled = true;
     };
-  }, [isLoading, canShop, user]);
+  }, [isLoading, canShop, user, setCountFromCart]);
 
   async function handleQuantityChange(item: CartItem, quantity: number) {
     if (quantity < 1) return;
