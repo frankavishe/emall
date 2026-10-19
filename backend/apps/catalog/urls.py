@@ -10,6 +10,11 @@ urlpatterns = [
         views.CatalogProductDetailView.as_view(),
         name="catalog-product-detail",
     ),
+    path(
+        "products/<int:product_id>/related",
+        views.CatalogRelatedProductsView.as_view(),
+        name="catalog-product-related",
+    ),
     path("shops", views.CatalogShopListView.as_view(), name="catalog-shops"),
     path("shops/<int:shop_id>", views.CatalogShopDetailView.as_view(), name="catalog-shop-detail"),
 ]

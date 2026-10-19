@@ -313,6 +313,11 @@ export async function listProducts(
   );
 }
 
+/** `GET /api/catalog/products/:id/related` — up to 8 products for the product page, unpaginated. */
+export async function listRelatedProducts(productId: number): Promise<CatalogProduct[]> {
+  return apiFetch<CatalogProduct[]>(`/api/catalog/products/${productId}/related`);
+}
+
 /** Public shop profile — what a shop page and themed product pages need. */
 export type CatalogShop = {
   id: number;
