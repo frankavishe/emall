@@ -30,6 +30,10 @@ class EmailService(ABC):
     def send_order_confirmation_email(self, order):
         ...
 
+    @abstractmethod
+    def send_shop_approved_email(self, shop):
+        ...
+
 
 def guest_order_url(order):
     """The guest's private link back to their order (guest checkout)."""
@@ -120,6 +124,20 @@ class DjangoEmailService(EmailService):
             ),
             from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[order.contact_email],
+        )
+
+    def send_shop_approved_email(self, shop):
+        owner = shop.owner
+        send_mail(
+            subject=f'Your eMall shop "{shop.name}" is approved',
+            message=(
+                f"Hi {owner.name},\n\n"
+                f'Good news - your shop "{shop.name}" has been approved and is now live on '
+                "eMall. Customers can find it and buy your published products.\n\n"
+                f"Manage your shop: {settings.FRONTEND_BASE_URL.rstrip('/')}/vendor/products\n"
+            ),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[owner.email],
         )
 
 
