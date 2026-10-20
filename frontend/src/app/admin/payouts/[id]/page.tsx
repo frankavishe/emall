@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { errorMessage, getAdminPayout, retryPayout } from "@/lib/api-client";
+import { downloadPayoutReport, errorMessage, getAdminPayout, retryPayout } from "@/lib/api-client";
 import { formatCurrency } from "@/lib/currency";
 import { PAYOUT_NETWORK_LABELS, formatRate, payoutStatusTone } from "@/lib/finance";
 import { useApi, useRequireRole } from "@/lib/use-api";
@@ -12,6 +12,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Pill } from "@/components/ui/pill";
 import { ErrorText, LoadingText } from "@/components/ui/status-text";
+import { ReportButton } from "@/components/report-button";
 
 export default function AdminPayoutDetailPage() {
   const params = useParams<{ id: string }>();
@@ -62,7 +63,16 @@ export default function AdminPayoutDetailPage() {
           </Link>
         </>
       }
-      actions={<Pill tone={payoutStatusTone(data.status)}>{data.status}</Pill>}
+      actions={
+        <>
+          <Pill tone={payoutStatusTone(data.status)}>{data.status}</Pill>
+          <ReportButton
+            fetchReport={() => downloadPayoutReport(data.id)}
+            filename={`mangimall-payout-${data.reference}.pdf`}
+            label="Print statement"
+          />
+        </>
+      }
     >
       <Card padding="sm" className="flex flex-col gap-2 text-sm">
         <Row label="Sent to">

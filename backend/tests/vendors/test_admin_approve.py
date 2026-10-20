@@ -1,4 +1,5 @@
 import pytest
+from django.core import mail
 
 from apps.accounts.models import User
 from apps.vendors.models import Shop
@@ -27,6 +28,37 @@ def test_admin_approve_pending_shop_returns_200(api_client):
     shop.refresh_from_db()
     assert shop.status == Shop.Status.APPROVED
     assert shop.status_changed_at is not None
+
+
+def test_admin_approve_emails_owner_that_shop_is_live(
+    api_client, django_capture_on_commit_callbacks
+):
+    admin = UserFactory(role=User.Role.ADMINISTRATOR)
+    vendor = UserFactory(role=User.Role.VENDOR, email="owner@example.com")
+    shop = ShopFactory(owner=vendor, status=Shop.Status.PENDING)
+
+    _authenticate(api_client, admin)
+    with django_capture_on_commit_callbacks(execute=True):
+        response = api_client.post(f"/api/admin/shops/{shop.id}/approve")
+
+    assert response.status_code == 200
+    assert len(mail.outbox) == 1
+    assert mail.outbox[0].to == ["owner@example.com"]
+    assert "approved" in mail.outbox[0].subject
+    assert "live" in mail.outbox[0].body
+
+
+def test_admin_approve_non_pending_shop_sends_no_email(
+    api_client, django_capture_on_commit_callbacks
+):
+    admin = UserFactory(role=User.Role.ADMINISTRATOR)
+    shop = ShopFactory(status=Shop.Status.REJECTED)
+
+    _authenticate(api_client, admin)
+    with django_capture_on_commit_callbacks(execute=True):
+        api_client.post(f"/api/admin/shops/{shop.id}/approve")
+
+    assert mail.outbox == []
 
 
 def test_admin_approve_non_pending_shop_rejected(api_client):

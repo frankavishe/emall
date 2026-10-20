@@ -143,6 +143,16 @@ describe("RealtimeConnection", () => {
     expect(events).toEqual([{ type: "order.updated", order_id: 1 }]);
   });
 
+  it("passes shop approval hints to listeners", () => {
+    const conn = makeConnection();
+    const events: unknown[] = [];
+    conn.listen((event) => events.push(event));
+    latest().open();
+
+    latest().receive({ type: "shop.updated", shop_id: 7 });
+    expect(events).toEqual([{ type: "shop.updated", shop_id: 7 }]);
+  });
+
   it("shares one subscription between listeners of the same order", () => {
     const conn = makeConnection();
     const stopA = conn.listen(() => {}, { guestToken: "t" });

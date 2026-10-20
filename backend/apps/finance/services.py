@@ -266,6 +266,82 @@ def shops_with_balances():
     )
 
 
+def vendor_shop_earnings(owner, shop_id=None):
+    """Balance figures for each of `owner`'s shops (just `shop_id` when given), by name."""
+
+    shops = Shop.objects.filter(owner=owner).order_by("name")
+    if shop_id is not None:
+        shops = shops.filter(pk=shop_id)
+    default_rate = PlatformSettings.get_solo().default_commission_rate
+    aggregates = balance_aggregates("products__order_items__")
+    return [
+        {
+            "shop_id": shop.id,
+            "shop_name": shop.name,
+            "commission_rate": shop.commission_rate
+            if shop.commission_rate is not None
+            else default_rate,
+            "has_payout_details": shop.has_payout_details,
+            "payout_network": shop.payout_network,
+            "payout_phone": shop.payout_phone,
+            "payout_account_name": shop.payout_account_name,
+            **{key: getattr(shop, key) for key in aggregates},
+        }
+        for shop in shops.annotate(**aggregates)
+    ]
+
+
+def payout_queryset(*, shop_id=None, status=None):
+    """Payouts newest first with their line count, optionally for one shop / status."""
+
+    queryset = (
+        Payout.objects.select_related("shop", "created_by")
+        .annotate(line_count=Count("items"))
+        .order_by("-created_at")
+    )
+    if shop_id is not None:
+        queryset = queryset.filter(shop_id=shop_id)
+    if status:
+        queryset = queryset.filter(status=status)
+    return queryset
+
+
+def filter_transactions(*, date_from=None, date_to=None, status=None, method=None, search=""):
+    """Customer payments newest first, with the mall's commission on each. `search` matches an
+    order id, payment reference or the buyer's name/email."""
+
+    queryset = (
+        PaymentRecord.objects.select_related("order__customer")
+        .annotate(
+            commission_total=_sum("order__items__commission_amount"),
+            shop_count=Count("order__items__product__shop", distinct=True),
+        )
+        .order_by("-created_at")
+    )
+    if date_from:
+        queryset = queryset.filter(created_at__date__gte=date_from)
+    if date_to:
+        queryset = queryset.filter(created_at__date__lte=date_to)
+    if status in PaymentRecord.Status.values:
+        queryset = queryset.filter(status=status)
+    if method:
+        queryset = queryset.filter(method=method)
+    search = (search or "").strip()
+    if search:
+        condition = (
+            Q(transaction_reference__icontains=search)
+            | Q(provider_reference__icontains=search)
+            | Q(order__customer__email__icontains=search)
+            | Q(order__customer__name__icontains=search)
+            | Q(order__guest_email__icontains=search)
+            | Q(order__customer__isnull=True, order__recipient_name__icontains=search)
+        )
+        if search.isdigit():
+            condition |= Q(order_id=int(search))
+        queryset = queryset.filter(condition)
+    return queryset
+
+
 def shop_balance(shop):
     figures = OrderItem.objects.filter(product__shop=shop).aggregate(**balance_aggregates())
     figures["commission_rate"] = shop.effective_commission_rate()

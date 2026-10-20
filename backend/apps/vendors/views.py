@@ -1,3 +1,5 @@
+import logging
+
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -7,8 +9,11 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.email import get_email_service
 from apps.core.pagination import LimitedPageNumberPagination
-from apps.core.permissions import IsAdministrator, IsCustomer, require_verified_email
+from apps.core.permissions import IsAdministrator, IsCustomer
+from apps.realtime.broadcast import publish_on_commit
+from apps.realtime.groups import ADMINS, user_group
 from apps.vendors.models import Shop
 from apps.vendors.serializers import (
     AdminShopListSerializer,
@@ -18,6 +23,8 @@ from apps.vendors.serializers import (
     ShopSerializer,
     ShopThemeSerializer,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class VendorShopListCreateView(ListCreateAPIView):
@@ -136,6 +143,24 @@ class AdminShopListView(ListAPIView):
         return queryset
 
 
+def _announce_shop_change(shop):
+    """Tells the owner's open tabs (and other admins) to refetch, so a shop goes live for its
+    vendor the moment it is approved."""
+
+    publish_on_commit(
+        [user_group(shop.owner_id), ADMINS], {"type": "shop.updated", "shop_id": shop.id}
+    )
+
+
+def _send_shop_approved_email(shop):
+    """Best-effort, like `send_order_confirmation`: the approval is already committed."""
+
+    try:
+        get_email_service().send_shop_approved_email(shop)
+    except Exception:
+        logger.exception("Failed to send shop approval email for shop_id=%s", shop.id)
+
+
 class AdminShopApproveView(APIView):
     permission_classes = [IsAdministrator]
 
@@ -149,10 +174,13 @@ class AdminShopApproveView(APIView):
                     {"detail": "Only a pending shop can be approved."},
                     status=status.HTTP_409_CONFLICT,
                 )
-            require_verified_email(shop.owner)
+            # No email-verification gate here: the owner already verified at sign-up, so an
+            # Administrator's approval takes effect immediately.
             shop.status = Shop.Status.APPROVED
             shop.status_changed_at = timezone.now()
             shop.save(update_fields=["status", "status_changed_at"])
+            _announce_shop_change(shop)
+            transaction.on_commit(lambda: _send_shop_approved_email(shop))
         return Response(ShopSerializer(shop).data, status=status.HTTP_200_OK)
 
 
@@ -171,4 +199,5 @@ class AdminShopRejectView(APIView):
             shop.status_reason = request.data.get("reason")
             shop.status_changed_at = timezone.now()
             shop.save(update_fields=["status", "status_reason", "status_changed_at"])
+            _announce_shop_change(shop)
         return Response(ShopSerializer(shop).data, status=status.HTTP_200_OK)

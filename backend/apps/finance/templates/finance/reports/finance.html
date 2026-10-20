@@ -1,0 +1,44 @@
+{% extends "finance/reports/base.html" %}
+{% load finance_report %}
+{% block content %}
+<table class="figures">
+  <tr>
+    <td><div class="figure-label">Item sales (gross)</div><div class="figure-value">{{ figures.gross_sales|money }}</div><div class="muted">{{ figures.order_count }} orders</div></td>
+    <td><div class="figure-label">Delivery fees collected</div><div class="figure-value">{{ figures.delivery_revenue|money }}</div></td>
+    <td><div class="figure-label">Mall commission earned</div><div class="figure-value">{{ figures.commission_earned|money }}</div></td>
+    <td><div class="figure-label">Commission on the way</div><div class="figure-value">{{ figures.commission_pending|money }}</div></td>
+  </tr>
+  <tr>
+    <td><div class="figure-label">Owed to shops now</div><div class="figure-value">{{ figures.available_balance|money }}</div></td>
+    <td><div class="figure-label">Shops' pending earnings</div><div class="figure-value">{{ figures.pending_earnings|money }}</div></td>
+    <td><div class="figure-label">Paid out to shops</div><div class="figure-value">{{ figures.paid_out|money }}</div>{% if figures.in_payout %}<div class="muted">{{ figures.in_payout|money }} in progress</div>{% endif %}</td>
+    <td><div class="figure-label">Default commission</div><div class="figure-value">{{ figures.default_commission_rate|rate }}</div></td>
+  </tr>
+</table>
+
+<h2>Shop balances (all time)</h2>
+<table repeat="1">
+  <thead><tr>
+    <th width="16%">Shop</th><th width="22%">Owner</th><th width="10%">Status</th><th class="num" width="8%">Rate</th>
+    <th class="num">Gross sales</th><th class="num">Commission earned</th>
+    <th class="num">Pending</th><th class="num">Available</th><th class="num">Paid out</th>
+  </tr></thead>
+  <tbody>
+  {% for shop in shops %}
+    <tr>
+      <td>{{ shop.name }}</td>
+      <td>{{ shop.owner.name }}<br><span class="muted">{{ shop.owner.email }}</span></td>
+      <td>{{ shop.status }}</td>
+      <td class="num">{{ shop.effective_rate|rate }}</td>
+      <td class="num">{{ shop.gross_sales|money }}</td>
+      <td class="num">{{ shop.commission_earned|money }}</td>
+      <td class="num">{{ shop.pending_earnings|money }}</td>
+      <td class="num">{{ shop.available_balance|money }}</td>
+      <td class="num">{{ shop.paid_out|money }}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="9" class="muted">No shops yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

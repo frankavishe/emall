@@ -1,0 +1,24 @@
+{% extends "finance/reports/base.html" %}
+{% load finance_report %}
+{% block content %}
+{% for shop in shops %}
+  <h2>{{ shop.shop_name }} <span class="muted">· mall commission {{ shop.commission_rate|rate }}</span></h2>
+  <table class="figures">
+    <tr>
+      <td><div class="figure-label">Available</div><div class="figure-value">{{ shop.available_balance|money }}</div>{% if shop.in_payout %}<div class="muted">{{ shop.in_payout|money }} on the way</div>{% endif %}</td>
+      <td><div class="figure-label">Pending delivery</div><div class="figure-value">{{ shop.pending_earnings|money }}</div></td>
+      <td><div class="figure-label">Paid to you</div><div class="figure-value">{{ shop.paid_out|money }}</div></td>
+    </tr>
+    <tr>
+      <td><div class="figure-label">Sales so far</div><div class="figure-value">{{ shop.gross_sales|money }}</div></td>
+      <td><div class="figure-label">Mall commission (delivered)</div><div class="figure-value">{{ shop.commission_earned|money }}</div></td>
+      <td><div class="figure-label">Paid to</div>{% if shop.has_payout_details %}{{ shop.payout_network|network }} {{ shop.payout_phone }}<br>{{ shop.payout_account_name }}{% else %}<span class="muted">No payout details</span>{% endif %}</td>
+    </tr>
+  </table>
+{% empty %}
+  <p class="muted">No shops.</p>
+{% endfor %}
+
+<h2>Payouts received</h2>
+{% include "finance/reports/_payout_table.html" with show_total=False %}
+{% endblock %}

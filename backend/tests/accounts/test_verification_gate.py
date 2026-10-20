@@ -14,7 +14,7 @@ def _authenticate(api_client, user, password="a-strong-password-1"):
     api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {login_response.data['access']}")
 
 
-def test_shop_approval_refused_while_owner_email_unverified(api_client):
+def test_shop_approval_does_not_require_owner_email_verification(api_client):
     admin = UserFactory(role=User.Role.ADMINISTRATOR)
     vendor = UserFactory(role=User.Role.VENDOR, is_email_verified=False)
     shop = ShopFactory(owner=vendor, status=Shop.Status.PENDING)
@@ -22,9 +22,9 @@ def test_shop_approval_refused_while_owner_email_unverified(api_client):
     _authenticate(api_client, admin)
     response = api_client.post(f"/api/admin/shops/{shop.id}/approve")
 
-    assert response.status_code in (400, 403)
+    assert response.status_code == 200
     shop.refresh_from_db()
-    assert shop.status == Shop.Status.PENDING
+    assert shop.status == Shop.Status.APPROVED
 
 
 def test_shop_approval_succeeds_once_owner_email_verified(api_client):

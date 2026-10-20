@@ -13,6 +13,7 @@ import { SegmentedToggle } from "@/components/ui/segmented-toggle";
 import { ErrorText, LoadingText, EmptyText } from "@/components/ui/status-text";
 import { inputClassName } from "@/components/ui/form-field";
 import { ShopLogo } from "@/components/shop-logo";
+import { useLiveRefresh } from "@/lib/realtime";
 
 type StatusFilter = "" | "PENDING" | "APPROVED" | "REJECTED";
 
@@ -45,18 +46,27 @@ export default function AdminShopsPage() {
     }
   }, []);
 
+  // Another administrator's decision (e.g. in a second tab) updates this list too.
+  const isAdmin = hasRole(user, "ADMINISTRATOR");
+  const { version: liveVersion, takeQuiet } = useLiveRefresh(["shop.updated"], {
+    enabled: isAdmin,
+  });
+
   useEffect(() => {
-    if (!hasRole(user, "ADMINISTRATOR")) return;
+    if (!isAdmin) return;
     let cancelled = false;
+    const quiet = takeQuiet();
 
     async function run() {
-      setIsLoadingShops(true);
-      setError(null);
+      if (!quiet) {
+        setIsLoadingShops(true);
+        setError(null);
+      }
       try {
         const response = await listAdminShops(statusFilter || undefined);
         if (!cancelled) setShops(response.results);
       } catch (err) {
-        if (!cancelled) {
+        if (!cancelled && !quiet) {
           setError(
             err instanceof ApiError ? err.message : "Something went wrong. Please try again.",
           );
@@ -70,7 +80,7 @@ export default function AdminShopsPage() {
     return () => {
       cancelled = true;
     };
-  }, [user, statusFilter]);
+  }, [isAdmin, statusFilter, liveVersion, takeQuiet]);
 
   async function handleApprove(shopId: string) {
     setPendingActionId(shopId);

@@ -154,6 +154,10 @@ def test_vendor_sets_payout_details_only_on_own_shop(api_client):
         ("get", "/api/admin/payouts"),
         ("post", "/api/admin/shops/1/payouts"),
         ("get", "/api/admin/orders/1"),
+        ("get", "/api/admin/finance/report.pdf"),
+        ("get", "/api/admin/transactions/report.pdf"),
+        ("get", "/api/admin/payouts/report.pdf"),
+        ("get", "/api/admin/payouts/1/report.pdf"),
     ],
 )
 def test_admin_finance_endpoints_forbid_non_admins(api_client, method, url):

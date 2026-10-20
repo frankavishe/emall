@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   createShopPayout,
+  downloadFinanceReport,
   errorMessage,
   getFinanceSettings,
   getFinanceSummary,
@@ -26,6 +27,7 @@ import { FormField, inputClassName } from "@/components/ui/form-field";
 import { EmptyText, ErrorText, LoadingText } from "@/components/ui/status-text";
 import { ShopLogo } from "@/components/shop-logo";
 import { Pager } from "@/components/pager";
+import { ReportButton } from "@/components/report-button";
 
 export default function AdminFinancePage() {
   const allowed = useRequireRole("ADMINISTRATOR");
@@ -64,6 +66,10 @@ export default function AdminFinancePage() {
           <Button asChild variant="secondary" size="sm">
             <Link href="/admin/payouts">Payout history</Link>
           </Button>
+          <ReportButton
+            fetchReport={() => downloadFinanceReport(range)}
+            filename="mangimall-finance.pdf"
+          />
         </>
       }
     >

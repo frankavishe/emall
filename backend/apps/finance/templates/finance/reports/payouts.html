@@ -1,0 +1,5 @@
+{% extends "finance/reports/base.html" %}
+{% block content %}
+<p class="muted">{{ payouts|length }} payout{{ payouts|length|pluralize }}</p>
+{% include "finance/reports/_payout_table.html" with show_total=True %}
+{% endblock %}

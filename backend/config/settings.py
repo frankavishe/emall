@@ -32,6 +32,9 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 # Application definition
 
 INSTALLED_APPS = [
+    # First, so `manage.py runserver` serves ASGI and the realtime socket at `/ws/` works in local
+    # dev (production runs uvicorn and never uses runserver).
+    "daphne",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",

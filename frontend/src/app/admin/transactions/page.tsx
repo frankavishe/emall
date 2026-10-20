@@ -2,7 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { listAdminTransactions, paymentMethodLabel } from "@/lib/api-client";
+import {
+  downloadTransactionsReport,
+  listAdminTransactions,
+  paymentMethodLabel,
+} from "@/lib/api-client";
 import { formatCurrency } from "@/lib/currency";
 import { useApi, useRequireRole } from "@/lib/use-api";
 import { PageShell } from "@/components/ui/page-shell";
@@ -12,6 +16,7 @@ import { Pill, statusToTone } from "@/components/ui/pill";
 import { FormField, inputClassName } from "@/components/ui/form-field";
 import { EmptyText, ErrorText, LoadingText } from "@/components/ui/status-text";
 import { Pager } from "@/components/pager";
+import { ReportButton } from "@/components/report-button";
 
 export default function AdminTransactionsPage() {
   const allowed = useRequireRole("ADMINISTRATOR");
@@ -42,6 +47,12 @@ export default function AdminTransactionsPage() {
       size="lg"
       title="Transactions"
       description="Every payment customers have made to the mall, with the mall's commission on it."
+      actions={
+        <ReportButton
+          fetchReport={() => downloadTransactionsReport(filters)}
+          filename="mangimall-transactions.pdf"
+        />
+      }
     >
       <form
         className="flex flex-wrap items-end gap-3"

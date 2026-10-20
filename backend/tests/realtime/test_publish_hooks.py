@@ -12,7 +12,14 @@ from apps.orders.services import TransitionError, advance_order_item_status, ass
 from apps.payments.models import PaymentRecord
 from apps.payments.outcomes import expire_stale_payments, settle_manual_payment
 from apps.realtime.groups import ADMINS, order_group, user_group
-from tests.factories import OrderItemFactory, ProductFactory, RiderFactory, UserFactory
+from apps.vendors.models import Shop
+from tests.factories import (
+    OrderItemFactory,
+    ProductFactory,
+    RiderFactory,
+    ShopFactory,
+    UserFactory,
+)
 
 pytestmark = pytest.mark.django_db
 
@@ -179,3 +186,37 @@ def test_already_settled_payment_publishes_nothing(
         expire_stale_payments()
 
     published.assert_not_called()
+
+
+def _as_admin(api_client):
+    admin = UserFactory(role=User.Role.ADMINISTRATOR)
+    api_client.force_authenticate(admin)
+    return api_client
+
+
+@pytest.mark.parametrize("action", ["approve", "reject"])
+def test_shop_decision_tells_its_owner_and_admins(
+    api_client, action, published, django_capture_on_commit_callbacks
+):
+    owner = UserFactory(role=User.Role.VENDOR, is_email_verified=True)
+    shop = ShopFactory(owner=owner, status=Shop.Status.PENDING)
+
+    with django_capture_on_commit_callbacks(execute=True):
+        response = _as_admin(api_client).post(f"/api/admin/shops/{shop.id}/{action}")
+
+    assert response.status_code == 200
+    assert _events(published) == [
+        ({user_group(owner.id), ADMINS}, {"type": "shop.updated", "shop_id": shop.id})
+    ]
+
+
+def test_deciding_a_decided_shop_publishes_nothing(
+    api_client, published, django_capture_on_commit_callbacks
+):
+    shop = ShopFactory(status=Shop.Status.APPROVED)
+
+    with django_capture_on_commit_callbacks(execute=True):
+        response = _as_admin(api_client).post(f"/api/admin/shops/{shop.id}/approve")
+
+    assert response.status_code == 409
+    assert published.call_count == 0
