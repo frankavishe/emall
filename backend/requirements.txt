@@ -12,6 +12,8 @@ requests>=2.32,<3
 channels>=4.2,<5
 channels-redis>=4.2,<5
 uvicorn[standard]>=0.32,<1
+# Printable PDF reports (pure Python, no system libraries).
+xhtml2pdf>=0.2.16,<0.3
 
 pytest>=8.3,<8.4
 pytest-django>=4.9,<4.10

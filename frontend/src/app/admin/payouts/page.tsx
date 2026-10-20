@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { listAdminPayouts } from "@/lib/api-client";
+import { downloadPayoutsReport, listAdminPayouts } from "@/lib/api-client";
 import { formatCurrency } from "@/lib/currency";
 import { PAYOUT_NETWORK_LABELS, payoutStatusTone } from "@/lib/finance";
 import { useApi, useRequireRole } from "@/lib/use-api";
@@ -12,6 +12,7 @@ import { Pill } from "@/components/ui/pill";
 import { SegmentedToggle } from "@/components/ui/segmented-toggle";
 import { EmptyText, ErrorText, LoadingText } from "@/components/ui/status-text";
 import { Pager } from "@/components/pager";
+import { ReportButton } from "@/components/report-button";
 
 type StatusFilter = "" | "SUCCEEDED" | "PROCESSING" | "FAILED";
 
@@ -30,7 +31,17 @@ export default function AdminPayoutsPage() {
   }
 
   return (
-    <PageShell size="md" title="Payouts" description="Money the mall has sent to shop owners.">
+    <PageShell
+      size="md"
+      title="Payouts"
+      description="Money the mall has sent to shop owners."
+      actions={
+        <ReportButton
+          fetchReport={() => downloadPayoutsReport({ status })}
+          filename="mangimall-payouts.pdf"
+        />
+      }
+    >
       <SegmentedToggle
         options={[
           { value: "", label: "ALL" },

@@ -1,0 +1,36 @@
+{% extends "finance/reports/base.html" %}
+{% load finance_report %}
+{% block orientation %}landscape{% endblock %}
+{% block content %}
+<p class="muted">{{ transactions|length }} transaction{{ transactions|length|pluralize }}</p>
+<table repeat="1">
+  <thead><tr>
+    <th width="11%">Date</th><th width="6%">Order</th><th width="19%">Customer</th><th width="10%">Method</th><th width="17%">Reference</th>
+    <th width="9%">Status</th><th class="num" width="5%">Shops</th><th class="num" width="11%">Amount</th><th class="num" width="12%">Commission</th>
+  </tr></thead>
+  <tbody>
+  {% for tx in transactions %}
+    <tr>
+      <td>{{ tx.created_at|date:"j M Y H:i" }}</td>
+      <td>#{{ tx.order_id }}</td>
+      <td>{{ tx.order.contact_name }}{% if tx.order.is_guest %} <span class="muted">(guest)</span>{% endif %}<br><span class="muted">{{ tx.order.contact_email }}</span></td>
+      <td>{{ tx.method_label }}</td>
+      <td>{{ tx.transaction_reference|breakable }}{% if tx.provider_reference %}<br><span class="muted">Txn {{ tx.provider_reference|breakable }}</span>{% endif %}</td>
+      <td>{{ tx.get_status_display }}</td>
+      <td class="num">{{ tx.shop_count }}</td>
+      <td class="num">{{ tx.amount|money }}</td>
+      <td class="num">{{ tx.commission_total|money }}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="9" class="muted">No transactions match.</td></tr>
+  {% endfor %}
+  {% if transactions %}
+    <tr class="total">
+      <td colspan="7">Total</td>
+      <td class="num">{{ total_amount|money }}</td>
+      <td class="num">{{ total_commission|money }}</td>
+    </tr>
+  {% endif %}
+  </tbody>
+</table>
+{% endblock %}

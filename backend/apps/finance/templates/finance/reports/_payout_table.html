@@ -1,0 +1,25 @@
+{% load finance_report %}
+<table repeat="1">
+  <thead><tr>
+    <th width="14%">Date</th><th width="16%">Reference</th><th width="16%">Shop</th><th width="20%">Sent to</th>
+    <th class="num">Lines</th><th>Status</th><th class="num">Amount</th>
+  </tr></thead>
+  <tbody>
+  {% for payout in payouts %}
+    <tr>
+      <td>{{ payout.created_at|date:"j M Y H:i" }}</td>
+      <td>{{ payout.reference|breakable }}</td>
+      <td>{{ payout.shop.name }}</td>
+      <td>{{ payout.network|network }} {{ payout.phone }}<br><span class="muted">{{ payout.account_name }}</span></td>
+      <td class="num">{{ payout.line_count }}</td>
+      <td>{{ payout.get_status_display }}{% if payout.failure_reason %}<br><span class="muted">{{ payout.failure_reason }}</span>{% endif %}</td>
+      <td class="num">{{ payout.amount|money }}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="7" class="muted">No payouts yet.</td></tr>
+  {% endfor %}
+  {% if show_total and payouts %}
+    <tr class="total"><td colspan="6">Total</td><td class="num">{{ total_amount|money }}</td></tr>
+  {% endif %}
+  </tbody>
+</table>

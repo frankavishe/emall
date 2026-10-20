@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import {
+  downloadEarningsReport,
   errorMessage,
   getVendorEarnings,
   listVendorPayouts,
@@ -22,6 +23,7 @@ import { StatCard } from "@/components/ui/stat-card";
 import { FormField, inputClassName } from "@/components/ui/form-field";
 import { EmptyText, ErrorText, LoadingText } from "@/components/ui/status-text";
 import { Pager } from "@/components/pager";
+import { ReportButton } from "@/components/report-button";
 
 export default function VendorEarningsPage() {
   const allowed = useRequireRole("VENDOR");
@@ -43,9 +45,12 @@ export default function VendorEarningsPage() {
       title="Earnings"
       description="Customers pay MangiMall. Once an order line is delivered, its earnings (after the mall's commission) become available and the mall sends them to your mobile-money account."
       actions={
-        <Button asChild variant="secondary" size="sm">
-          <Link href="/vendor/orders">Order lines</Link>
-        </Button>
+        <>
+          <Button asChild variant="secondary" size="sm">
+            <Link href="/vendor/orders">Order lines</Link>
+          </Button>
+          <ReportButton fetchReport={downloadEarningsReport} filename="mangimall-earnings.pdf" />
+        </>
       }
     >
       {earnings.error && <ErrorText>{earnings.error}</ErrorText>}

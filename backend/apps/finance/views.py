@@ -28,17 +28,18 @@ from apps.finance.serializers import (
 )
 from apps.finance.services import (
     FinanceError,
-    balance_aggregates,
     create_payout,
+    filter_transactions,
+    payout_queryset,
     platform_summary,
     retry_payout,
     set_shop_commission_rate,
     shop_balance,
     shops_with_balances,
     update_platform_settings,
+    vendor_shop_earnings,
 )
 from apps.orders.models import Order, OrderItem
-from apps.payments.models import PaymentRecord
 from apps.payments.outcomes import SettlementError, settle_manual_payment
 from apps.vendors.models import Shop
 
@@ -170,11 +171,21 @@ class AdminShopPayoutCreateView(APIView):
         return Response(PayoutSerializer(payout).data, status=status.HTTP_201_CREATED)
 
 
-def _payout_queryset():
-    return (
-        Payout.objects.select_related("shop", "created_by")
-        .annotate(line_count=Count("items"))
-        .order_by("-created_at")
+def _admin_payouts(request):
+    return payout_queryset(
+        shop_id=_int_param(request, "shop"), status=request.query_params.get("status")
+    )
+
+
+def _payout_with_lines(payout_id):
+    return get_object_or_404(
+        payout_queryset().prefetch_related(
+            Prefetch(
+                "items",
+                queryset=OrderItem.objects.select_related("product").order_by("id"),
+            )
+        ),
+        pk=payout_id,
     )
 
 
@@ -184,30 +195,14 @@ class AdminPayoutListView(ListAPIView):
     pagination_class = LimitedPageNumberPagination
 
     def get_queryset(self):
-        queryset = _payout_queryset()
-        shop = _int_param(self.request, "shop")
-        if shop is not None:
-            queryset = queryset.filter(shop_id=shop)
-        status_param = self.request.query_params.get("status")
-        if status_param:
-            queryset = queryset.filter(status=status_param)
-        return queryset
+        return _admin_payouts(self.request)
 
 
 class AdminPayoutDetailView(APIView):
     permission_classes = [IsAdministrator]
 
     def get(self, request, payout_id):
-        payout = get_object_or_404(
-            _payout_queryset().prefetch_related(
-                Prefetch(
-                    "items",
-                    queryset=OrderItem.objects.select_related("product").order_by("id"),
-                )
-            ),
-            pk=payout_id,
-        )
-        return Response(PayoutDetailSerializer(payout).data)
+        return Response(PayoutDetailSerializer(_payout_with_lines(payout_id)).data)
 
 
 class AdminPayoutRetryView(APIView):
@@ -231,42 +226,17 @@ class AdminTransactionListView(ListAPIView):
     pagination_class = LimitedPageNumberPagination
 
     def get_queryset(self):
-        queryset = (
-            PaymentRecord.objects.select_related("order__customer")
-            .annotate(
-                commission_total=Coalesce(
-                    Sum("order__items__commission_amount", output_field=_MONEY),
-                    Value(0),
-                    output_field=_MONEY,
-                ),
-                shop_count=Count("order__items__product__shop", distinct=True),
-            )
-            .order_by("-created_at")
-        )
-        dates = _date_range(self.request)
-        if dates.get("date_from"):
-            queryset = queryset.filter(created_at__date__gte=dates["date_from"])
-        if dates.get("date_to"):
-            queryset = queryset.filter(created_at__date__lte=dates["date_to"])
-        params = self.request.query_params
-        if params.get("status") in PaymentRecord.Status.values:
-            queryset = queryset.filter(status=params["status"])
-        if params.get("method"):
-            queryset = queryset.filter(method=params["method"])
-        search = (params.get("search") or "").strip()
-        if search:
-            condition = (
-                Q(transaction_reference__icontains=search)
-                | Q(provider_reference__icontains=search)
-                | Q(order__customer__email__icontains=search)
-                | Q(order__customer__name__icontains=search)
-                | Q(order__guest_email__icontains=search)
-                | Q(order__customer__isnull=True, order__recipient_name__icontains=search)
-            )
-            if search.isdigit():
-                condition |= Q(order_id=int(search))
-            queryset = queryset.filter(condition)
-        return queryset
+        return _admin_transactions(self.request)
+
+
+def _admin_transactions(request):
+    params = request.query_params
+    return filter_transactions(
+        **_date_range(request),
+        status=params.get("status"),
+        method=params.get("method"),
+        search=params.get("search"),
+    )
 
 
 class AdminOrderDetailView(APIView):
@@ -381,29 +351,12 @@ class VendorEarningsView(APIView):
     permission_classes = [IsVendor]
 
     def get(self, request):
-        shops = Shop.objects.filter(owner=request.user).order_by("name")
-        shop_param = _int_param(request, "shop")
-        if shop_param is not None:
-            shops = shops.filter(pk=shop_param)
-        default_rate = PlatformSettings.get_solo().default_commission_rate
-        aggregates = balance_aggregates("products__order_items__")
-        rows = []
-        for shop in shops.annotate(**aggregates):
-            rows.append(
-                {
-                    "shop_id": shop.id,
-                    "shop_name": shop.name,
-                    "commission_rate": shop.commission_rate
-                    if shop.commission_rate is not None
-                    else default_rate,
-                    "has_payout_details": shop.has_payout_details,
-                    "payout_network": shop.payout_network,
-                    "payout_phone": shop.payout_phone,
-                    "payout_account_name": shop.payout_account_name,
-                    **{key: getattr(shop, key) for key in aggregates},
-                }
-            )
+        rows = vendor_shop_earnings(request.user, _int_param(request, "shop"))
         return Response(VendorShopEarningsSerializer(rows, many=True).data)
+
+
+def _vendor_payouts(request):
+    return payout_queryset(shop_id=_int_param(request, "shop")).filter(shop__owner=request.user)
 
 
 class VendorPayoutListView(ListAPIView):
@@ -412,8 +365,4 @@ class VendorPayoutListView(ListAPIView):
     pagination_class = LimitedPageNumberPagination
 
     def get_queryset(self):
-        queryset = _payout_queryset().filter(shop__owner=self.request.user)
-        shop = _int_param(self.request, "shop")
-        if shop is not None:
-            queryset = queryset.filter(shop_id=shop)
-        return queryset
+        return _vendor_payouts(self.request)

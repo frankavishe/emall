@@ -148,6 +148,23 @@ export async function apiFetch<T = unknown>(
   return body as T;
 }
 
+/** Like `apiFetch`, but for a file response (e.g. a PDF report): resolves to its bytes. */
+export async function apiFetchBlob(path: string, _isRetry = false): Promise<Blob> {
+  const response = await fetch(`${API_BASE_URL}${path}`, buildRequestInit({}));
+
+  if (response.status === 401 && !_isRetry) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) {
+      return apiFetchBlob(path, true);
+    }
+  }
+
+  if (!response.ok) {
+    throw new ApiError(response.status, await parseBody(response));
+  }
+  return response.blob();
+}
+
 /** The typed delivery address a customer enters at checkout. */
 export type ShippingAddress = {
   recipient_name: string;
@@ -907,6 +924,11 @@ export async function getFinanceSummary(range?: DateRange): Promise<PlatformSumm
   return apiFetch<PlatformSummary>(withQuery("/api/admin/finance/summary", dateRangeQuery(range)));
 }
 
+/** PDF of the finance summary for `range`, plus every shop's balance. */
+export async function downloadFinanceReport(range?: DateRange): Promise<Blob> {
+  return apiFetchBlob(withQuery("/api/admin/finance/report.pdf", dateRangeQuery(range)));
+}
+
 export type DeliveryPricing = {
   delivery_base_fee: string;
   delivery_per_km_fee: string;
@@ -1042,8 +1064,23 @@ export async function listAdminPayouts(
   return apiFetch<PaginatedResponse<Payout>>(withQuery("/api/admin/payouts", params));
 }
 
+/** PDF of every payout matching the filters (not just one page). */
+export async function downloadPayoutsReport(
+  options: { shop?: number | string; status?: string } = {},
+): Promise<Blob> {
+  const params = new URLSearchParams();
+  if (options.shop) params.set("shop", String(options.shop));
+  if (options.status) params.set("status", options.status);
+  return apiFetchBlob(withQuery("/api/admin/payouts/report.pdf", params));
+}
+
 export async function getAdminPayout(payoutId: number | string): Promise<PayoutDetail> {
   return apiFetch<PayoutDetail>(`/api/admin/payouts/${payoutId}`);
+}
+
+/** PDF statement of one payout and the order lines it paid. */
+export async function downloadPayoutReport(payoutId: number | string): Promise<Blob> {
+  return apiFetchBlob(`/api/admin/payouts/${payoutId}/report.pdf`);
 }
 
 export async function retryPayout(payoutId: number | string): Promise<Payout> {
@@ -1079,6 +1116,17 @@ export async function listAdminTransactions(
   return apiFetch<PaginatedResponse<AdminTransaction>>(
     withQuery("/api/admin/transactions", params),
   );
+}
+
+/** PDF of every transaction matching the filters (not just one page). */
+export async function downloadTransactionsReport(
+  options: DateRange & { search?: string; status?: string; method?: string } = {},
+): Promise<Blob> {
+  const params = dateRangeQuery(options);
+  if (options.search) params.set("search", options.search);
+  if (options.status) params.set("status", options.status);
+  if (options.method) params.set("method", options.method);
+  return apiFetchBlob(withQuery("/api/admin/transactions/report.pdf", params));
 }
 
 export type AdminOrderLine = PayoutLine & {
@@ -1171,6 +1219,11 @@ export type VendorShopEarnings = BalanceFigures & {
 
 export async function getVendorEarnings(): Promise<VendorShopEarnings[]> {
   return apiFetch<VendorShopEarnings[]>("/api/vendor/earnings");
+}
+
+/** PDF of the vendor's earnings per shop and every payout received. */
+export async function downloadEarningsReport(): Promise<Blob> {
+  return apiFetchBlob("/api/vendor/earnings/report.pdf");
 }
 
 export async function updatePayoutDetails(

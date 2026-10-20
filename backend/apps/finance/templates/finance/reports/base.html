@@ -1,0 +1,58 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>MangiMall · {{ title }}</title>
+<style>
+  @page {
+    size: a4 {% block orientation %}portrait{% endblock %};
+    margin: 1.5cm 1.4cm 2cm 1.4cm;
+    @frame footer {
+      -pdf-frame-content: footer;
+      bottom: 0.8cm;
+      margin-left: 1.4cm;
+      margin-right: 1.4cm;
+      height: 0.8cm;
+    }
+  }
+  body { font-family: Helvetica; font-size: 9pt; color: #1f2937; }
+  .brand { font-size: 10pt; font-weight: bold; color: #6b7280; }
+  h1 { font-size: 18pt; margin: 2pt 0 6pt 0; }
+  h2 { font-size: 12pt; margin: 14pt 0 6pt 0; }
+  .meta { color: #6b7280; font-size: 8.5pt; margin-bottom: 8pt; }
+  .meta b { color: #1f2937; }
+  table { width: 100%; }
+  th { background-color: #f3f4f6; text-align: left; font-weight: bold; padding: 4pt 3pt 3pt 3pt;
+       border-bottom: 1px solid #9ca3af; }
+  td { padding: 4pt 3pt 3pt 3pt; border-bottom: 0.5px solid #e5e7eb; vertical-align: top; }
+  .num { text-align: right; }
+  .muted { color: #6b7280; }
+  tr.total td { font-weight: bold; border-top: 1px solid #9ca3af; border-bottom: none; }
+  .figures td { border: 0.5px solid #e5e7eb; padding: 6pt; }
+  .figure-label { color: #6b7280; font-size: 8pt; }
+  .figure-value { font-size: 12pt; font-weight: bold; }
+  .notice { color: #b45309; margin: 6pt 0; }
+  #footer { color: #6b7280; font-size: 8pt; }
+</style>
+</head>
+<body>
+  <div class="brand">MangiMall</div>
+  <h1>{{ title }}</h1>
+  <div class="meta">
+    {% for label, value in filters %}<b>{{ label }}:</b> {{ value }} &nbsp;·&nbsp; {% endfor %}
+    Printed {{ printed_at|date:"j M Y, H:i" }}
+  </div>
+  {% if truncated %}
+    <p class="notice">Only the first {{ row_limit }} rows are shown. Narrow the filters to see the rest.</p>
+  {% endif %}
+
+  {% block content %}{% endblock %}
+
+  <div id="footer">
+    <table><tr>
+      <td style="border: none;">MangiMall · {{ title }}</td>
+      <td class="num" style="border: none;">Page <pdf:pagenumber> of <pdf:pagecount></td>
+    </tr></table>
+  </div>
+</body>
+</html>

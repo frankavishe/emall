@@ -1,0 +1,39 @@
+{% extends "finance/reports/base.html" %}
+{% load finance_report %}
+{% block content %}
+<table class="figures">
+  <tr>
+    <td><div class="figure-label">Shop</div><div class="figure-value">{{ payout.shop.name }}</div></td>
+    <td><div class="figure-label">Amount</div><div class="figure-value">{{ payout.amount|money }}</div></td>
+    <td><div class="figure-label">Status</div><div class="figure-value">{{ payout.get_status_display }}</div></td>
+  </tr>
+  <tr>
+    <td><div class="figure-label">Sent to</div>{{ payout.network|network }} {{ payout.phone }}<br>{{ payout.account_name }}</td>
+    <td><div class="figure-label">Created</div>{{ payout.created_at|date:"j M Y H:i" }}{% if payout.created_by %}<br><span class="muted">by {{ payout.created_by.name }}</span>{% endif %}</td>
+    <td><div class="figure-label">Completed</div>{{ payout.completed_at|date:"j M Y H:i"|default:"-" }}{% if payout.provider_reference %}<br><span class="muted">Txn {{ payout.provider_reference|breakable:24 }}</span>{% endif %}</td>
+  </tr>
+</table>
+{% if payout.failure_reason %}<p class="notice">Failed: {{ payout.failure_reason }}</p>{% endif %}
+
+<h2>Order lines</h2>
+<table repeat="1">
+  <thead><tr>
+    <th>Order</th><th>Product</th><th class="num">Qty</th><th class="num">Unit price</th>
+    <th class="num">Subtotal</th><th class="num">Commission</th><th class="num">Shop earning</th>
+  </tr></thead>
+  <tbody>
+  {% for line in payout.items.all %}
+    <tr>
+      <td>#{{ line.order_id }}</td>
+      <td>{{ line.product.name }}</td>
+      <td class="num">{{ line.quantity }}</td>
+      <td class="num">{{ line.unit_price|money }}</td>
+      <td class="num">{{ line.subtotal|money }}</td>
+      <td class="num">{{ line.commission_amount|money }} <span class="muted">({{ line.commission_rate|rate }})</span></td>
+      <td class="num">{{ line.vendor_earning|money }}</td>
+    </tr>
+  {% endfor %}
+  <tr class="total"><td colspan="6">Total paid to shop</td><td class="num">{{ payout.amount|money }}</td></tr>
+  </tbody>
+</table>
+{% endblock %}
