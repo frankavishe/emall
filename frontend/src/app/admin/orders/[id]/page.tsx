@@ -29,7 +29,11 @@ export default function AdminOrderDetailPage() {
   // Administrators hear about every order; refetch when it's this one.
   useRealtime(
     (event) => {
-      if (event.order_id === Number(params.id) && event.type !== "delivery.assigned") {
+      if (
+        "order_id" in event &&
+        event.order_id === Number(params.id) &&
+        event.type !== "delivery.assigned"
+      ) {
         order.reload();
       }
     },

@@ -17,10 +17,15 @@ import {
   refreshAccessToken,
 } from "@/lib/api-client";
 
-export type RealtimeEventType =
-  "order.created" | "order.updated" | "payment.updated" | "delivery.assigned";
+type OrderEventType = "order.created" | "order.updated" | "payment.updated" | "delivery.assigned";
 
-export type RealtimeEvent = { type: RealtimeEventType; order_id: number };
+export type RealtimeEventType = OrderEventType | "shop.updated";
+
+/** `shop.updated` goes to a shop's owner (and the administrators) when it is approved or
+ * rejected, so a vendor's open tabs see their shop go live without a reload. */
+export type RealtimeEvent =
+  | { type: OrderEventType; order_id: number }
+  | { type: "shop.updated"; shop_id: number };
 
 /** One order to hear about: a signed-in buyer's by id, a guest's by its private token. */
 export type RealtimeWatch = { orderId: number | string } | { guestToken: string };
@@ -33,6 +38,7 @@ const EVENT_TYPES = new Set<string>([
   "order.updated",
   "payment.updated",
   "delivery.assigned",
+  "shop.updated",
 ]);
 const MAX_BACKOFF_MS = 30_000;
 // The server closes with this when a different account authenticates on an open socket.

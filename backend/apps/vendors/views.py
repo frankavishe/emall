@@ -9,6 +9,8 @@ from rest_framework.views import APIView
 
 from apps.core.pagination import LimitedPageNumberPagination
 from apps.core.permissions import IsAdministrator, IsCustomer, require_verified_email
+from apps.realtime.broadcast import publish_on_commit
+from apps.realtime.groups import ADMINS, user_group
 from apps.vendors.models import Shop
 from apps.vendors.serializers import (
     AdminShopListSerializer,
@@ -136,6 +138,15 @@ class AdminShopListView(ListAPIView):
         return queryset
 
 
+def _announce_shop_change(shop):
+    """Tells the owner's open tabs (and other admins) to refetch, so a shop goes live for its
+    vendor the moment it is approved."""
+
+    publish_on_commit(
+        [user_group(shop.owner_id), ADMINS], {"type": "shop.updated", "shop_id": shop.id}
+    )
+
+
 class AdminShopApproveView(APIView):
     permission_classes = [IsAdministrator]
 
@@ -153,6 +164,7 @@ class AdminShopApproveView(APIView):
             shop.status = Shop.Status.APPROVED
             shop.status_changed_at = timezone.now()
             shop.save(update_fields=["status", "status_changed_at"])
+            _announce_shop_change(shop)
         return Response(ShopSerializer(shop).data, status=status.HTTP_200_OK)
 
 
@@ -171,4 +183,5 @@ class AdminShopRejectView(APIView):
             shop.status_reason = request.data.get("reason")
             shop.status_changed_at = timezone.now()
             shop.save(update_fields=["status", "status_reason", "status_changed_at"])
+            _announce_shop_change(shop)
         return Response(ShopSerializer(shop).data, status=status.HTTP_200_OK)

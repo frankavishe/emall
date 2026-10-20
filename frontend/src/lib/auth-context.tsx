@@ -8,6 +8,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { apiFetch, refreshAccessToken, setAccessToken } from "./api-client";
+import { useRealtime } from "./realtime";
 
 export type Shop = {
   id: string;
@@ -111,6 +112,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const me = await apiFetch<AuthUser>("/api/auth/me");
     setUser(me);
   }, []);
+
+  // An administrator approving (or rejecting) one of this vendor's shops: refetch the profile so
+  // `shops` — and every page reading it — shows the new status straight away.
+  useRealtime(
+    (event) => {
+      if (event.type === "shop.updated") void refreshUser().catch(() => {});
+    },
+    { enabled: hasRole(user, "VENDOR") },
+  );
 
   useEffect(() => {
     let cancelled = false;

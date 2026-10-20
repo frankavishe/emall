@@ -2,7 +2,7 @@
 
 - `order.<id>`: whoever is watching that one order (a guest holding its token, or its customer).
 - `user.<id>`: one signed-in account's own sockets: a customer's orders, a vendor's or rider's
-  lines.
+  lines, a vendor's shop approval.
 - `admins`: every signed-in Administrator.
 """
 
