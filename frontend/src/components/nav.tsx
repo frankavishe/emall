@@ -38,7 +38,6 @@ const VENDOR_LINKS: NavLink[] = [
   { label: "Account", href: "/account" },
 ];
 
-
 const RIDER_LINKS: NavLink[] = [
   { label: "Home", href: "/" },
   { label: "Deliveries", href: "/rider/deliveries" },

@@ -42,7 +42,8 @@ def _user_for_token(token):
 @database_sync_to_async
 def _order_id_for(user, order_id=None, guest_token=None):
     """The order id the requester may watch, or None. Mirrors the REST views: a customer reaches
-    their own orders, an administrator who may view orders any order, a guest only the order behind its token."""
+    their own orders, an administrator who may view orders any order, a guest only the order
+    behind its token."""
 
     if guest_token:
         return (

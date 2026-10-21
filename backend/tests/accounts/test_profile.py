@@ -47,7 +47,9 @@ def test_me_includes_profile_fields_for_admin(api_client):
     codes = {permission["code"] for permission in data["permissions"]}
     assert "orders.manage" in codes
     assert "finance.view" not in codes
-    assert all(permission["label"] and permission["description"] for permission in data["permissions"])
+    assert all(
+        permission["label"] and permission["description"] for permission in data["permissions"]
+    )
 
 
 def test_me_has_no_admin_fields_for_customer(api_client):
