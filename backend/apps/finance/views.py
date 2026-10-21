@@ -10,7 +10,7 @@ from apps.audit.models import AuditAction
 from apps.audit.services import changed_fields, record
 from apps.catalog.models import Product
 from apps.core.pagination import LimitedPageNumberPagination
-from apps.core.permissions import IsAdministrator, IsCustomer, IsVendor
+from apps.core.permissions import AdminArea, IsCustomer, IsVendor
 from apps.finance.models import Payout, PlatformSettings
 from apps.finance.serializers import (
     AdminOrderDetailSerializer,
@@ -77,7 +77,7 @@ def _date_range(request):
 
 
 class AdminFinanceSettingsView(APIView):
-    permission_classes = [IsAdministrator]
+    permission_classes = [AdminArea("finance")]
 
     def get(self, request):
         return Response(PlatformSettingsSerializer(PlatformSettings.get_solo()).data)
@@ -107,7 +107,7 @@ class AdminFinanceSettingsView(APIView):
 class AdminFinanceSummaryView(APIView):
     """Mall-wide money figures; `?from=YYYY-MM-DD&to=YYYY-MM-DD` limits to orders placed then."""
 
-    permission_classes = [IsAdministrator]
+    permission_classes = [AdminArea("finance")]
 
     def get(self, request):
         figures = platform_summary(**_date_range(request))
@@ -115,7 +115,7 @@ class AdminFinanceSummaryView(APIView):
 
 
 class AdminShopBalanceListView(ListAPIView):
-    permission_classes = [IsAdministrator]
+    permission_classes = [AdminArea("finance")]
     serializer_class = AdminShopBalanceSerializer
     pagination_class = LimitedPageNumberPagination
 
@@ -133,7 +133,7 @@ class AdminShopBalanceListView(ListAPIView):
 
 
 class AdminShopDetailView(APIView):
-    permission_classes = [IsAdministrator]
+    permission_classes = [AdminArea("shops")]
 
     def get(self, request, shop_id):
         shop = get_object_or_404(
@@ -155,7 +155,7 @@ class AdminShopDetailView(APIView):
 class AdminShopCommissionView(APIView):
     """Sets (or with `null`, clears) a shop's commission override. Applies to future orders."""
 
-    permission_classes = [IsAdministrator]
+    permission_classes = [AdminArea("finance")]
 
     def patch(self, request, shop_id):
         shop = get_object_or_404(Shop, pk=shop_id)
@@ -184,7 +184,7 @@ class AdminShopCommissionView(APIView):
 class AdminShopPayoutCreateView(APIView):
     """Sends the shop everything it has available (delivered, not yet paid)."""
 
-    permission_classes = [IsAdministrator]
+    permission_classes = [AdminArea("finance")]
 
     def post(self, request, shop_id):
         shop = get_object_or_404(Shop, pk=shop_id)
@@ -225,7 +225,7 @@ def _payout_with_lines(payout_id):
 
 
 class AdminPayoutListView(ListAPIView):
-    permission_classes = [IsAdministrator]
+    permission_classes = [AdminArea("finance")]
     serializer_class = PayoutSerializer
     pagination_class = LimitedPageNumberPagination
 
@@ -234,14 +234,14 @@ class AdminPayoutListView(ListAPIView):
 
 
 class AdminPayoutDetailView(APIView):
-    permission_classes = [IsAdministrator]
+    permission_classes = [AdminArea("finance")]
 
     def get(self, request, payout_id):
         return Response(PayoutDetailSerializer(_payout_with_lines(payout_id)).data)
 
 
 class AdminPayoutRetryView(APIView):
-    permission_classes = [IsAdministrator]
+    permission_classes = [AdminArea("finance")]
 
     def post(self, request, payout_id):
         payout = get_object_or_404(Payout.objects.select_related("shop"), pk=payout_id)
@@ -257,7 +257,7 @@ class AdminTransactionListView(ListAPIView):
     """Every customer payment the mall has received, newest first. Filters: `from`, `to`
     (dates), `search` (order id, payment reference, customer name/email)."""
 
-    permission_classes = [IsAdministrator]
+    permission_classes = [AdminArea("finance")]
     serializer_class = AdminTransactionSerializer
     pagination_class = LimitedPageNumberPagination
 
@@ -276,7 +276,7 @@ def _admin_transactions(request):
 
 
 class AdminOrderDetailView(APIView):
-    permission_classes = [IsAdministrator]
+    permission_classes = [AdminArea("orders")]
 
     def get(self, request, order_id):
         return Response(_admin_order_data(order_id))
@@ -299,7 +299,7 @@ class AdminOrderPaymentSettleView(APIView):
     """`POST /api/admin/orders/{id}/payment/confirm` (or `/reject`, with an optional `reason`):
     an administrator settling a cash-on-delivery or Lipa Namba payment by hand."""
 
-    permission_classes = [IsAdministrator]
+    permission_classes = [AdminArea("orders", write_permission="finance.manage")]
     confirm = True
 
     def post(self, request, order_id):
@@ -327,7 +327,7 @@ class AdminProductListView(ListAPIView):
     """Every product in the mall, including drafts and deleted ones. Filters: `shop`, `search`,
     `published` (true/false), `deleted` (true/false)."""
 
-    permission_classes = [IsAdministrator]
+    permission_classes = [AdminArea("catalog")]
     serializer_class = AdminProductSerializer
     pagination_class = LimitedPageNumberPagination
 

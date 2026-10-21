@@ -11,7 +11,7 @@ from apps.accounts.services import blacklist_all_tokens
 from apps.audit.models import AuditAction
 from apps.audit.services import order_item_repr, record
 from apps.core.pagination import LimitedPageNumberPagination
-from apps.core.permissions import IsAdministrator, IsRider
+from apps.core.permissions import AdminArea, IsRider
 from apps.delivery.serializers import (
     ACTIVE_DELIVERY_STATUSES,
     AdminRiderCreateSerializer,
@@ -37,7 +37,7 @@ def _riders():
 
 
 class AdminRiderListCreateView(ListAPIView):
-    permission_classes = [IsAdministrator]
+    permission_classes = [AdminArea("riders")]
     serializer_class = AdminRiderSerializer
     pagination_class = LimitedPageNumberPagination
 
@@ -61,7 +61,7 @@ class AdminRiderListCreateView(ListAPIView):
 
 
 class AdminRiderDetailView(APIView):
-    permission_classes = [IsAdministrator]
+    permission_classes = [AdminArea("riders")]
 
     def patch(self, request, rider_id):
         rider = get_object_or_404(

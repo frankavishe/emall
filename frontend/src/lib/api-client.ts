@@ -610,6 +610,25 @@ export type VendorReview = {
 };
 
 /** `GET /api/vendor/reviews` (task T032, contracts/feedback-api.md). */
+export type ProfileUpdate = { name?: string; phone?: string };
+
+/** `PATCH /api/auth/me`: the signed-in user's own name and phone. Email is not editable. */
+export async function updateMyProfile(body: ProfileUpdate): Promise<void> {
+  await apiFetch("/api/auth/me", { method: "PATCH", body: JSON.stringify(body) });
+}
+
+/** `PUT /api/auth/me/avatar` — upload or replace the signed-in user's photo (multipart). */
+export async function uploadMyAvatar(file: File): Promise<void> {
+  const formData = new FormData();
+  formData.set("avatar", file);
+  await apiFetch("/api/auth/me/avatar", { method: "PUT", body: formData });
+}
+
+/** `DELETE /api/auth/me/avatar` */
+export async function removeMyAvatar(): Promise<void> {
+  await apiFetch("/api/auth/me/avatar", { method: "DELETE" });
+}
+
 /** `PUT /api/vendor/shops/:id/logo` — upload or replace a shop's logo (multipart). */
 export async function uploadShopLogo(shopId: string, file: File): Promise<void> {
   const formData = new FormData();

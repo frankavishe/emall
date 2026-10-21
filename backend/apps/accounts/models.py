@@ -3,6 +3,9 @@ from django.contrib.auth.models import PermissionsMixin
 from django.db import models
 from django.utils import timezone
 
+from apps.core.admin_permissions import AdminRole, permissions_for
+from apps.core.uploads import UniqueUploadTo
+
 # Wrong guesses allowed against a single OTP before it is burned and a new one must be requested.
 MAX_OTP_ATTEMPTS = 5
 
@@ -27,6 +30,7 @@ class UserManager(BaseUserManager):
 
     def create_superuser(self, email, password=None, **extra_fields):
         extra_fields.setdefault("role", User.Role.ADMINISTRATOR)
+        extra_fields.setdefault("admin_role", AdminRole.SUPER_ADMIN)
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
         extra_fields.setdefault("is_email_verified", True)
@@ -53,6 +57,11 @@ class User(AbstractBaseUser, PermissionsMixin):
     # vendor. VENDOR remains a legacy choice; save() folds it into CUSTOMER + is_vendor.
     role = models.CharField(max_length=20, choices=Role.choices)
     is_vendor = models.BooleanField(default=False)
+    # Administrators only: the tier deciding which admin areas they may see and change. Null for
+    # everyone else — and an administrator without a tier is granted nothing.
+    admin_role = models.CharField(max_length=20, choices=AdminRole.choices, null=True, blank=True)
+    phone = models.CharField(max_length=16, blank=True, default="")
+    avatar = models.ImageField(upload_to=UniqueUploadTo("users/avatars"), blank=True)
     is_email_verified = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
@@ -89,6 +98,15 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def has_role(self, role):
         return role in self.roles
+
+    @property
+    def admin_permissions(self):
+        if self.role != self.Role.ADMINISTRATOR:
+            return frozenset()
+        return permissions_for(self.admin_role)
+
+    def has_admin_permission(self, permission):
+        return permission in self.admin_permissions
 
     def __str__(self):
         return self.email

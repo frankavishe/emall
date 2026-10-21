@@ -15,6 +15,9 @@ class AuditAction(models.TextChoices):
     EMAIL_VERIFIED = "auth.email_verified", "Verified email"
     PASSWORD_RESET_REQUESTED = "auth.password_reset_requested", "Requested password reset"
     PASSWORD_RESET_COMPLETED = "auth.password_reset_completed", "Reset password"
+    ACCOUNT_PROFILE_UPDATED = "account.profile_updated", "Updated own profile"
+    ACCOUNT_AVATAR_UPDATED = "account.avatar_updated", "Changed profile photo"
+    ADMIN_ROLE_CHANGED = "account.admin_role_changed", "Changed admin role"
     # Customers and riders (admin)
     CUSTOMER_BLOCKED = "customer.blocked", "Blocked customer"
     CUSTOMER_UNBLOCKED = "customer.unblocked", "Unblocked customer"

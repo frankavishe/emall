@@ -30,19 +30,40 @@ export type Shop = {
 
 export type Role = "CUSTOMER" | "VENDOR" | "ADMINISTRATOR" | "RIDER";
 
+export type AdminRole = "SUPER_ADMIN" | "SUPPORT_ADMIN";
+
+/** One thing an administrator's tier lets them do, e.g. `orders.manage`. */
+export type AdminPermission = { code: string; label: string; description: string };
+
 export type AuthUser = {
   id: string;
   name: string;
   email: string;
+  /** `""` when unset. */
+  phone: string;
+  avatar_url: string | null;
   role: Role;
   /** Every role this account can act as — one account (one email) can be customer and vendor. */
   roles: Role[];
   is_email_verified: boolean;
+  /** Administrators only (null otherwise): the tier deciding which admin areas they reach. */
+  admin_role: AdminRole | null;
+  admin_role_label: string | null;
+  /** What the admin tier grants; empty for everyone else. */
+  permissions: AdminPermission[];
+  date_joined: string;
+  /** Null until the first sign-in after last-login tracking began. */
+  last_login: string | null;
   shops?: Shop[];
 };
 
 export function hasRole(user: AuthUser | null | undefined, role: Role): boolean {
   return !!user && user.roles.includes(role);
+}
+
+/** Whether an administrator's tier grants `code`. UI only — the server enforces every check. */
+export function hasAdminPermission(user: AuthUser | null | undefined, code: string): boolean {
+  return !!user && user.permissions.some((permission) => permission.code === code);
 }
 
 // Which of a multi-role user's modes the UI is showing. A UI preference, not a credential, so

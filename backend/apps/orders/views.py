@@ -15,7 +15,7 @@ from apps.audit.models import AuditAction
 from apps.audit.services import order_item_repr, record
 from apps.cart.services import resolve_cart
 from apps.core.pagination import LimitedPageNumberPagination
-from apps.core.permissions import IsAdministrator, IsCustomer, IsCustomerOrGuest, IsVendor
+from apps.core.permissions import AdminArea, IsCustomer, IsCustomerOrGuest, IsVendor
 from apps.core.throttles import GuestScopedRateThrottle
 from apps.orders.models import Order, OrderItem, OrderItemStatusEvent
 from apps.orders.serializers import (
@@ -306,7 +306,7 @@ class AdminOrderItemListView(ListAPIView):
     """Read-only oversight across every shop/vendor's order lines, each with its full
     status-change history (FR-007, FR-008, FR-009)."""
 
-    permission_classes = [IsAdministrator]
+    permission_classes = [AdminArea("orders")]
     serializer_class = AdminOrderItemSerializer
     pagination_class = LimitedPageNumberPagination
 
@@ -339,7 +339,7 @@ class AdminOrderItemListView(ListAPIView):
 class AdminOrderItemAssignRiderView(APIView):
     """Assigns a delivery rider to an order line (`{"rider_id": null}` unassigns)."""
 
-    permission_classes = [IsAdministrator]
+    permission_classes = [AdminArea("orders")]
 
     def post(self, request, item_id):
         serializer = AssignRiderSerializer(data=request.data)

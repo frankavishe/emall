@@ -8,12 +8,14 @@ tokens are set *exclusively* as an httpOnly/Secure/SameSite cookie, never in a J
 
 from django.conf import settings
 from django.contrib.auth import authenticate
+from django.contrib.auth.models import update_last_login
 from django.db import transaction
 from django.db.models import Count, DecimalField, F, OuterRef, Q, Subquery, Sum, Value
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.generics import ListAPIView
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
@@ -23,10 +25,10 @@ from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.audit.models import AuditAction
-from apps.audit.services import record
+from apps.audit.services import changed_fields, record
 from apps.cart.services import merge_guest_cart
 from apps.core.pagination import LimitedPageNumberPagination
-from apps.core.permissions import IsAdministrator
+from apps.core.permissions import AdminArea
 from apps.orders.models import Order, OrderItem
 from apps.vendors.models import Shop
 from apps.vendors.serializers import OwnShopBriefSerializer
@@ -35,9 +37,11 @@ from .models import EmailVerificationToken, PasswordResetToken, User
 from .serializers import (
     AdminCustomerSerializer,
     AdminCustomerUpdateSerializer,
+    AvatarSerializer,
     LoginSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
+    ProfileUpdateSerializer,
     RegisterCustomerSerializer,
     RegisterVendorSerializer,
     UserProfileSerializer,
@@ -192,9 +196,13 @@ class LoginView(TokenResponseMixin, APIView):
             )
 
         record(AuditAction.LOGIN, request=request, actor=user, target=user)
+        update_last_login(None, user)
         access, refresh = self.issue_tokens(user)
         response = Response(
-            {"access": access, "user": UserProfileSerializer(user).data},
+            {
+                "access": access,
+                "user": UserProfileSerializer(user, context={"request": request}).data,
+            },
             status=status.HTTP_200_OK,
         )
         self.set_refresh_cookie(response, refresh)
@@ -250,12 +258,64 @@ class MeView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        data = UserProfileSerializer(request.user).data
-        if request.user.has_role(User.Role.VENDOR):
-            data["shops"] = OwnShopBriefSerializer(
-                request.user.shops.all(), many=True, context={"request": request}
-            ).data
-        return Response(data)
+        return Response(_me_data(request))
+
+    def patch(self, request):
+        user = request.user
+        serializer = ProfileUpdateSerializer(user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        fields = changed_fields(user, serializer.validated_data)
+        serializer.save()
+        if fields:
+            record(
+                AuditAction.ACCOUNT_PROFILE_UPDATED,
+                request=request,
+                target=user,
+                metadata={"fields": fields},
+            )
+        return Response(_me_data(request))
+
+
+class MeAvatarView(APIView):
+    """Upload/replace (PUT) or remove (DELETE) the signed-in user's profile photo."""
+
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def put(self, request):
+        user = request.user
+        serializer = AvatarSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        if user.avatar:
+            user.avatar.delete(save=False)
+        user.avatar = serializer.validated_data["avatar"]
+        user.save(update_fields=["avatar"])
+        record(AuditAction.ACCOUNT_AVATAR_UPDATED, request=request, target=user)
+        return Response(_me_data(request))
+
+    def delete(self, request):
+        user = request.user
+        if user.avatar:
+            user.avatar.delete(save=False)
+            user.avatar = None
+            user.save(update_fields=["avatar"])
+            record(
+                AuditAction.ACCOUNT_AVATAR_UPDATED,
+                request=request,
+                target=user,
+                metadata={"removed": True},
+            )
+        return Response(_me_data(request))
+
+
+def _me_data(request):
+    user = request.user
+    data = UserProfileSerializer(user, context={"request": request}).data
+    if user.has_role(User.Role.VENDOR):
+        data["shops"] = OwnShopBriefSerializer(
+            user.shops.all(), many=True, context={"request": request}
+        ).data
+    return data
 
 
 class VerifyEmailRequestView(APIView):
@@ -402,7 +462,7 @@ def _recent_orders(user, limit=5):
 
 
 class AdminCustomerListView(ListAPIView):
-    permission_classes = [IsAdministrator]
+    permission_classes = [AdminArea("customers")]
     serializer_class = AdminCustomerSerializer
     pagination_class = LimitedPageNumberPagination
 
@@ -422,7 +482,7 @@ class AdminCustomerDetailView(APIView):
     """Scoped to customer accounts, so an administrator or rider ID 404s here — riders are
     deactivated from the riders screen, and admins can't block each other."""
 
-    permission_classes = [IsAdministrator]
+    permission_classes = [AdminArea("customers")]
 
     def _response(self, customer_id):
         customer = get_object_or_404(_customers(), pk=customer_id)

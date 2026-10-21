@@ -9,7 +9,7 @@ from apps.audit.models import AuditAction
 from apps.audit.services import record
 from apps.catalog.models import Product
 from apps.core.pagination import LimitedPageNumberPagination
-from apps.core.permissions import IsAdministrator, IsCustomer, IsVendor
+from apps.core.permissions import AdminArea, IsCustomer, IsVendor
 from apps.feedback.models import Review
 from apps.feedback.permissions import has_delivered_purchase
 from apps.feedback.serializers import (
@@ -71,7 +71,7 @@ class VendorReviewListView(ListAPIView):
 class AdminReviewListView(ListAPIView):
     """Read-only oversight across every shop/product's reviews (FR-010)."""
 
-    permission_classes = [IsAdministrator]
+    permission_classes = [AdminArea("reviews")]
     serializer_class = AdminReviewSerializer
     pagination_class = LimitedPageNumberPagination
 
@@ -87,7 +87,7 @@ class AdminReviewDeleteView(APIView):
     public catalog aggregate/display and the Vendor feedback view since both are computed on
     read, not denormalized (data-model.md)."""
 
-    permission_classes = [IsAdministrator]
+    permission_classes = [AdminArea("reviews")]
 
     def delete(self, request, review_id):
         review = get_object_or_404(

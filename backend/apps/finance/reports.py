@@ -9,7 +9,7 @@ from django.utils import timezone
 from rest_framework.views import APIView
 from xhtml2pdf import pisa
 
-from apps.core.permissions import IsAdministrator, IsVendor
+from apps.core.permissions import AdminArea, IsVendor
 from apps.finance.models import Payout, PlatformSettings
 from apps.finance.services import platform_summary, shops_with_balances, vendor_shop_earnings
 from apps.finance.views import (
@@ -69,7 +69,7 @@ def _date_filters(dates):
 
 
 class AdminFinanceReportView(APIView):
-    permission_classes = [IsAdministrator]
+    permission_classes = [AdminArea("finance")]
 
     def get(self, request):
         dates = _date_range(request)
@@ -93,7 +93,7 @@ class AdminFinanceReportView(APIView):
 
 
 class AdminTransactionReportView(APIView):
-    permission_classes = [IsAdministrator]
+    permission_classes = [AdminArea("finance")]
 
     def get(self, request):
         queryset = _admin_transactions(request)
@@ -136,7 +136,7 @@ def _payout_filters(request, shops):
 
 
 class AdminPayoutReportView(APIView):
-    permission_classes = [IsAdministrator]
+    permission_classes = [AdminArea("finance")]
 
     def get(self, request):
         payouts, truncated = _limited(_admin_payouts(request))
@@ -154,7 +154,7 @@ class AdminPayoutReportView(APIView):
 
 
 class AdminPayoutStatementView(APIView):
-    permission_classes = [IsAdministrator]
+    permission_classes = [AdminArea("finance")]
 
     def get(self, request, payout_id):
         payout = _payout_with_lines(payout_id)

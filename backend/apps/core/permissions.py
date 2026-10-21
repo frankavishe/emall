@@ -3,7 +3,7 @@ checks MUST NOT be relied upon for authorization).
 """
 
 from rest_framework.exceptions import PermissionDenied
-from rest_framework.permissions import BasePermission
+from rest_framework.permissions import SAFE_METHODS, BasePermission
 
 
 def require_verified_email(user):
@@ -28,6 +28,25 @@ IsCustomer = IsRole("CUSTOMER")
 IsVendor = IsRole("VENDOR")
 IsAdministrator = IsRole("ADMINISTRATOR")
 IsRider = IsRole("RIDER")
+
+
+def AdminArea(area, *, write_permission=None):
+    """An administrator whose tier grants `<area>.view` (reads) or `<area>.manage` (writes); see
+    `apps.core.admin_permissions`. `write_permission` overrides what a non-safe method needs."""
+
+    read_permission = f"{area}.view"
+    write_permission = write_permission or f"{area}.manage"
+
+    class _AdminArea(BasePermission):
+        def has_permission(self, request, view):
+            user = request.user
+            if not (user and user.is_authenticated and user.has_role("ADMINISTRATOR")):
+                return False
+            needed = read_permission if request.method in SAFE_METHODS else write_permission
+            return user.has_admin_permission(needed)
+
+    _AdminArea.__name__ = f"AdminArea_{area}"
+    return _AdminArea
 
 
 class IsCustomerOrGuest(BasePermission):

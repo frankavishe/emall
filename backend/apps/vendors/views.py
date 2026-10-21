@@ -13,7 +13,7 @@ from apps.audit.models import AuditAction
 from apps.audit.services import changed_fields, record
 from apps.core.email import get_email_service
 from apps.core.pagination import LimitedPageNumberPagination
-from apps.core.permissions import IsAdministrator, IsCustomer
+from apps.core.permissions import AdminArea, IsCustomer
 from apps.realtime.broadcast import publish_on_commit
 from apps.realtime.groups import ADMINS, user_group
 from apps.vendors.models import Shop
@@ -145,7 +145,7 @@ class VendorShopLocationView(APIView):
 class AdminShopLocationView(APIView):
     """An Administrator sets or corrects any shop's pickup location."""
 
-    permission_classes = [IsAdministrator]
+    permission_classes = [AdminArea("shops")]
 
     def put(self, request, shop_id):
         shop = get_object_or_404(Shop, pk=shop_id)
@@ -153,7 +153,7 @@ class AdminShopLocationView(APIView):
 
 
 class AdminShopListView(ListAPIView):
-    permission_classes = [IsAdministrator]
+    permission_classes = [AdminArea("shops")]
     serializer_class = AdminShopListSerializer
     pagination_class = LimitedPageNumberPagination
 
@@ -184,7 +184,7 @@ def _send_shop_approved_email(shop):
 
 
 class AdminShopApproveView(APIView):
-    permission_classes = [IsAdministrator]
+    permission_classes = [AdminArea("shops")]
 
     def post(self, request, shop_id):
         with transaction.atomic():
@@ -208,7 +208,7 @@ class AdminShopApproveView(APIView):
 
 
 class AdminShopRejectView(APIView):
-    permission_classes = [IsAdministrator]
+    permission_classes = [AdminArea("shops")]
 
     def post(self, request, shop_id):
         with transaction.atomic():

@@ -3,7 +3,7 @@ from rest_framework.generics import ListAPIView
 from apps.audit.models import AuditEvent
 from apps.audit.serializers import AuditEventSerializer, AuditFilterSerializer
 from apps.core.pagination import LimitedPageNumberPagination
-from apps.core.permissions import IsAdministrator
+from apps.core.permissions import AdminArea
 
 
 class AdminAuditEventListView(ListAPIView):
@@ -11,7 +11,7 @@ class AdminAuditEventListView(ListAPIView):
     `shop.`), `actor` (email contains), `actor_role`, `target_type`, `target_id`, `from`, `to`
     (dates)."""
 
-    permission_classes = [IsAdministrator]
+    permission_classes = [AdminArea("audit")]
     serializer_class = AuditEventSerializer
     pagination_class = LimitedPageNumberPagination
 

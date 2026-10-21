@@ -25,7 +25,7 @@ from apps.catalog.serializers import (
     VendorProductWriteSerializer,
 )
 from apps.core.pagination import LimitedPageNumberPagination
-from apps.core.permissions import IsAdministrator, IsVendor
+from apps.core.permissions import AdminArea, IsVendor
 from apps.vendors.models import Shop
 
 
@@ -74,7 +74,7 @@ def _admin_category_response(category_id, response_status=status.HTTP_200_OK):
 
 
 class AdminCategoryListCreateView(APIView):
-    permission_classes = [IsAdministrator]
+    permission_classes = [AdminArea("catalog")]
 
     def get(self, request):
         return _admin_category_tree_response()
@@ -88,7 +88,7 @@ class AdminCategoryListCreateView(APIView):
 
 
 class AdminCategoryDetailView(APIView):
-    permission_classes = [IsAdministrator]
+    permission_classes = [AdminArea("catalog")]
 
     def patch(self, request, category_id):
         category = get_object_or_404(Category, pk=category_id)
