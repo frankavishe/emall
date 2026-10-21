@@ -174,10 +174,13 @@ class LoginView(TokenResponseMixin, APIView):
             # the account is blocked; everyone else gets the same generic message.
             blocked = User.objects.filter(email=email, is_active=False).first()
             is_blocked = blocked is not None and blocked.check_password(password)
+            target = blocked or User.objects.filter(email=email).first()
             record(
                 AuditAction.LOGIN_FAILED,
                 request=request,
-                target=blocked or User.objects.filter(email=email).first(),
+                target=target,
+                # An unknown email has no user to point at; still show what was tried.
+                target_repr=None if target else email,
                 metadata={"email": email, "reason": "blocked" if is_blocked else "invalid"},
             )
             if is_blocked:
