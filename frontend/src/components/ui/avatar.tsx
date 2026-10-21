@@ -10,9 +10,30 @@ function initialsFrom(name: string): string {
 const SIZE_CLASSES = {
   sm: "h-8 w-8 text-xs",
   md: "h-10 w-10 text-sm",
+  lg: "h-20 w-20 text-2xl",
 } as const;
 
-export function Avatar({ name, size = "md" }: { name: string; size?: keyof typeof SIZE_CLASSES }) {
+/** A profile photo when `src` is set, otherwise the person's initials. */
+export function Avatar({
+  name,
+  src,
+  size = "md",
+}: {
+  name: string;
+  src?: string | null;
+  size?: keyof typeof SIZE_CLASSES;
+}) {
+  if (src) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={src}
+        alt=""
+        className={cn("shrink-0 rounded-full object-cover", SIZE_CLASSES[size])}
+        aria-hidden
+      />
+    );
+  }
   return (
     <span
       className={cn(

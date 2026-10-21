@@ -6,6 +6,7 @@ from factory.django import DjangoModelFactory
 from apps.accounts.models import User
 from apps.cart.models import Cart, CartItem
 from apps.catalog.models import Category, Product
+from apps.core.admin_permissions import AdminRole
 from apps.delivery.models import RiderProfile
 from apps.feedback.models import Review
 from apps.orders.models import Order, OrderItem
@@ -21,6 +22,10 @@ class UserFactory(DjangoModelFactory):
     email = factory.Sequence(lambda n: f"user{n}@example.com")
     role = User.Role.CUSTOMER
     is_email_verified = False
+    # Administrators get the full tier unless a test asks for another.
+    admin_role = factory.LazyAttribute(
+        lambda o: AdminRole.SUPER_ADMIN if o.role == User.Role.ADMINISTRATOR else None
+    )
 
     @factory.post_generation
     def password(self, create, extracted, **kwargs):

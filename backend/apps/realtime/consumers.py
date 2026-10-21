@@ -42,7 +42,8 @@ def _user_for_token(token):
 @database_sync_to_async
 def _order_id_for(user, order_id=None, guest_token=None):
     """The order id the requester may watch, or None. Mirrors the REST views: a customer reaches
-    their own orders, an administrator any order, a guest only the order behind its token."""
+    their own orders, an administrator who may view orders any order, a guest only the order
+    behind its token."""
 
     if guest_token:
         return (
@@ -53,7 +54,7 @@ def _order_id_for(user, order_id=None, guest_token=None):
     if user is None or not isinstance(order_id, int):
         return None
     orders = Order.objects.filter(pk=order_id)
-    if not user.has_role(User.Role.ADMINISTRATOR):
+    if not user.has_admin_permission("orders.view"):
         orders = orders.filter(customer=user)
     return orders.values_list("id", flat=True).first()
 

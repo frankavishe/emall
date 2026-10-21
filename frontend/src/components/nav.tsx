@@ -5,12 +5,12 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { useCart } from "@/lib/cart-context";
-import type { Role } from "@/lib/auth-context";
+import type { AuthUser, Role } from "@/lib/auth-context";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import { useTheme } from "@/lib/theme";
-import { ADMIN_SECTIONS, AdminNavSections, isLinkActive } from "@/components/admin-sidebar";
+import { AdminNavSections, isLinkActive, visibleAdminSections } from "@/components/admin-sidebar";
 
 type NavLink = { label: string; href: string };
 
@@ -38,22 +38,20 @@ const VENDOR_LINKS: NavLink[] = [
   { label: "Account", href: "/account" },
 ];
 
-const ADMINISTRATOR_LINKS: NavLink[] = ADMIN_SECTIONS.flatMap((section) => section.links);
-
 const RIDER_LINKS: NavLink[] = [
   { label: "Home", href: "/" },
   { label: "Deliveries", href: "/rider/deliveries" },
   { label: "Account", href: "/account" },
 ];
 
-function linksForRole(role: Role | null): NavLink[] {
+function linksForRole(role: Role | null, user: AuthUser | null): NavLink[] {
   switch (role) {
     case "CUSTOMER":
       return CUSTOMER_LINKS;
     case "VENDOR":
       return VENDOR_LINKS;
     case "ADMINISTRATOR":
-      return ADMINISTRATOR_LINKS;
+      return visibleAdminSections(user).flatMap((section) => section.links);
     case "RIDER":
       return RIDER_LINKS;
     default:
@@ -153,7 +151,7 @@ export function Nav() {
   const pathname = usePathname();
   const { user, logout, activeRole, setActiveRole } = useAuth();
   const { itemCount } = useCart();
-  const links = linksForRole(activeRole);
+  const links = linksForRole(activeRole, user);
   const [mobileOpen, setMobileOpen] = useState(false);
   const canSwitch = !!user && user.roles.length > 1;
   // Administrators have too many destinations for an inline row: they get the sidebar and top bar
@@ -230,7 +228,7 @@ export function Nav() {
                 </div>
               )}
               <Link href="/account" className="hidden items-center gap-2 sm:flex">
-                <Avatar name={user.name} size="sm" />
+                <Avatar name={user.name} src={user.avatar_url} size="sm" />
                 <span className="flex flex-col leading-tight">
                   <span className="text-sm font-medium text-text-primary">{user.name}</span>
                   <span className="text-xs capitalize text-text-muted">
@@ -323,7 +321,7 @@ export function Nav() {
           <div className="mt-2 flex items-center gap-2 border-t border-border pt-2">
             {user ? (
               <>
-                <Avatar name={user.name} size="sm" />
+                <Avatar name={user.name} src={user.avatar_url} size="sm" />
                 <span className="flex flex-1 flex-col leading-tight">
                   <span className="text-sm font-medium text-text-primary">{user.name}</span>
                   <span className="text-xs capitalize text-text-muted">

@@ -1,5 +1,11 @@
 <!--
 Sync Impact Report
+- Version change: 1.0.0 → 1.1.0 (MINOR: Principle I expanded with Administrator tiers)
+- Modified principles: I. Role Separation & Least Privilege — Administrators now hold a tier
+  (Super Admin, Support Admin) whose code-defined permission set scopes each admin area
+- Templates requiring follow-up: none
+
+Previous report (1.0.0):
 - Version change: [TEMPLATE] → 1.0.0 (initial ratification)
 - Modified principles: n/a (first concrete adoption from placeholder template)
 - Added sections: Core Principles I–VI (Role Separation & Least Privilege; Vendor Approval Gate;
@@ -23,7 +29,11 @@ The system MUST recognize exactly three roles — Customer, Vendor, Administrato
 capability MUST be scoped to the role(s) the source requirements grant it to (per the SRS use-case
 diagram and the project's confirmed addition of the Vendor role). Role checks MUST be enforced
 server-side on every request; any client-side role check (route guards, hidden UI) is a UX
-convenience only and MUST NOT be relied upon for authorization. Rationale: this is a marketplace
+convenience only and MUST NOT be relied upon for authorization. Administrators MUST additionally
+hold a tier (Super Admin or Support Admin), and every admin endpoint MUST check the tier's
+permission for its area — `<area>.view` to read, `<area>.manage` to change. Tiers and their
+permissions are defined in code (`apps/core/admin_permissions.py`), are never self-service, and an
+Administrator without a tier MUST be granted nothing. Rationale: this is a marketplace
 handling other people's money and shops — authorization bugs here are data breaches or fraud, not
 cosmetic issues.
 
@@ -122,4 +132,4 @@ guidance; PATCH: wording/clarification only), and MUST update `Last Amended`. Ev
 and `/speckit-implement` stage MUST be checked against these principles as part of its own review
 step described in Principle V, rather than deferring compliance review to a separate audit.
 
-**Version**: 1.0.0 | **Ratified**: 2026-09-14 | **Last Amended**: 2026-09-14
+**Version**: 1.1.0 | **Ratified**: 2026-09-14 | **Last Amended**: 2026-10-21

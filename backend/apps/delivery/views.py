@@ -8,8 +8,10 @@ from rest_framework.views import APIView
 
 from apps.accounts.models import User
 from apps.accounts.services import blacklist_all_tokens
+from apps.audit.models import AuditAction
+from apps.audit.services import order_item_repr, record
 from apps.core.pagination import LimitedPageNumberPagination
-from apps.core.permissions import IsAdministrator, IsRider
+from apps.core.permissions import AdminArea, IsRider
 from apps.delivery.serializers import (
     ACTIVE_DELIVERY_STATUSES,
     AdminRiderCreateSerializer,
@@ -35,7 +37,7 @@ def _riders():
 
 
 class AdminRiderListCreateView(ListAPIView):
-    permission_classes = [IsAdministrator]
+    permission_classes = [AdminArea("riders")]
     serializer_class = AdminRiderSerializer
     pagination_class = LimitedPageNumberPagination
 
@@ -49,7 +51,9 @@ class AdminRiderListCreateView(ListAPIView):
     def post(self, request):
         serializer = AdminRiderCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        rider = serializer.save()
+        with transaction.atomic():
+            rider = serializer.save()
+            record(AuditAction.RIDER_CREATED, request=request, target=rider)
         return Response(
             AdminRiderSerializer(_riders().get(pk=rider.pk)).data,
             status=status.HTTP_201_CREATED,
@@ -57,7 +61,7 @@ class AdminRiderListCreateView(ListAPIView):
 
 
 class AdminRiderDetailView(APIView):
-    permission_classes = [IsAdministrator]
+    permission_classes = [AdminArea("riders")]
 
     def patch(self, request, rider_id):
         rider = get_object_or_404(
@@ -66,12 +70,32 @@ class AdminRiderDetailView(APIView):
         serializer = AdminRiderUpdateSerializer(data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
 
+        data = serializer.validated_data
         was_active = rider.is_active
+        profile = getattr(rider, "rider_profile", None)
+        changed = [
+            name
+            for name, value in data.items()
+            if name != "password"
+            and getattr(rider, name, getattr(profile, name, None)) != value
+        ]
         with transaction.atomic():
-            serializer.update(rider, serializer.validated_data)
+            serializer.update(rider, data)
             # Deactivation or a new password logs the rider out of every device.
-            if (was_active and not rider.is_active) or "password" in serializer.validated_data:
+            if (was_active and not rider.is_active) or "password" in data:
                 blacklist_all_tokens(rider)
+            if was_active and not rider.is_active:
+                record(AuditAction.RIDER_DEACTIVATED, request=request, target=rider)
+                changed = [name for name in changed if name != "is_active"]
+            if "password" in data:
+                record(AuditAction.RIDER_PASSWORD_RESET, request=request, target=rider)
+            if changed:
+                record(
+                    AuditAction.RIDER_UPDATED,
+                    request=request,
+                    target=rider,
+                    metadata={"fields": sorted(changed)},
+                )
 
         return Response(AdminRiderSerializer(_riders().get(pk=rider.pk)).data)
 
@@ -109,10 +133,19 @@ class RiderDeliveryStatusView(APIView):
         serializer = RiderDeliveryStatusSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
+        previous = order_item.status
         try:
-            advance_order_item_status(
-                order_item=order_item, new_status=serializer.validated_data["status"]
-            )
+            with transaction.atomic():
+                advance_order_item_status(
+                    order_item=order_item, new_status=serializer.validated_data["status"]
+                )
+                record(
+                    AuditAction.ORDER_ITEM_STATUS_CHANGED,
+                    request=request,
+                    target=order_item,
+                    target_repr=order_item_repr(order_item),
+                    metadata={"from": previous, "to": order_item.status},
+                )
         except TransitionError as error:
             return Response({"status": [str(error)]}, status=status.HTTP_400_BAD_REQUEST)
 

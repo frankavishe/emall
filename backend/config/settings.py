@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     "apps.delivery",
     "apps.finance",
     "apps.realtime",
+    "apps.audit",
 ]
 
 MIDDLEWARE = [

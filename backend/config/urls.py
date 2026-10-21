@@ -20,6 +20,7 @@ from django.contrib import admin
 from django.urls import include, path
 
 from apps.accounts.urls import admin_urlpatterns as accounts_admin_urlpatterns
+from apps.audit.urls import admin_urlpatterns as audit_admin_urlpatterns
 from apps.catalog.urls import admin_urlpatterns as catalog_admin_urlpatterns
 from apps.catalog.urls import vendor_urlpatterns as catalog_vendor_urlpatterns
 from apps.delivery.urls import admin_urlpatterns as delivery_admin_urlpatterns
@@ -52,6 +53,7 @@ urlpatterns = [
     path("api/admin/", include(feedback_admin_urlpatterns)),
     path("api/admin/", include(delivery_admin_urlpatterns)),
     path("api/admin/", include(finance_admin_urlpatterns)),
+    path("api/admin/", include(audit_admin_urlpatterns)),
     path("api/rider/", include(rider_urlpatterns)),
     path("api/", include("apps.cart.urls")),
     path("api/", include(checkout_urlpatterns)),

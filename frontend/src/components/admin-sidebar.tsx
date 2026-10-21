@@ -4,11 +4,12 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/cn";
-import { useAuth } from "@/lib/auth-context";
+import { hasAdminPermission, useAuth, type AuthUser } from "@/lib/auth-context";
 import { listAdminShops } from "@/lib/api-client";
 import { useApi } from "@/lib/use-api";
 
-type AdminLink = { label: string; href: string; icon: ReactNode };
+/** `permission` is the `<area>.view` code an admin's tier must grant to see the link. */
+type AdminLink = { label: string; href: string; icon: ReactNode; permission?: string };
 export type AdminSection = { title: string; links: AdminLink[] };
 
 function Icon({ children }: { children: ReactNode }) {
@@ -45,6 +46,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
       {
         label: "Finance",
         href: "/admin/finance",
+        permission: "finance.view",
         icon: (
           <Icon>
             <path d="M3 16.5h14M5 13.5V9M8.5 13.5V6M12 13.5v-3M15.5 13.5V4" />
@@ -54,6 +56,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
       {
         label: "Transactions",
         href: "/admin/transactions",
+        permission: "finance.view",
         icon: (
           <Icon>
             <path d="M4 7h11l-3-3M16 13H5l3 3" />
@@ -68,6 +71,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
       {
         label: "Shop Approvals",
         href: "/admin/shops",
+        permission: "shops.view",
         icon: (
           <Icon>
             <path d="M3.5 8 5 3.5h10L16.5 8M3.5 8v8.5h13V8M3.5 8h13M8 16.5V12h4v4.5" />
@@ -77,6 +81,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
       {
         label: "Products",
         href: "/admin/products",
+        permission: "catalog.view",
         icon: (
           <Icon>
             <path d="m10 2.5 6.5 3.5v8L10 17.5 3.5 14V6zM3.5 6 10 9.5 16.5 6M10 9.5v8" />
@@ -86,6 +91,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
       {
         label: "Categories",
         href: "/admin/categories",
+        permission: "catalog.view",
         icon: (
           <Icon>
             <path d="M3.5 3.5h5v5h-5zM11.5 3.5h5v5h-5zM3.5 11.5h5v5h-5zM11.5 11.5h5v5h-5z" />
@@ -100,6 +106,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
       {
         label: "Customers",
         href: "/admin/customers",
+        permission: "customers.view",
         icon: (
           <Icon>
             <circle cx="8" cy="7" r="3" />
@@ -110,6 +117,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
       {
         label: "Riders",
         href: "/admin/riders",
+        permission: "riders.view",
         icon: (
           <Icon>
             <circle cx="5" cy="14" r="2.5" />
@@ -126,6 +134,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
       {
         label: "Order Oversight",
         href: "/admin/orders",
+        permission: "orders.view",
         icon: (
           <Icon>
             <path d="M6 3.5h8a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-12a1 1 0 0 1 1-1zM8 7.5h4M8 10.5h4M8 13.5h2" />
@@ -135,9 +144,20 @@ export const ADMIN_SECTIONS: AdminSection[] = [
       {
         label: "Review Moderation",
         href: "/admin/reviews",
+        permission: "reviews.view",
         icon: (
           <Icon>
             <path d="m10 3 2.1 4.3 4.7.7-3.4 3.3.8 4.7L10 13.8 5.8 16l.8-4.7L3.2 8l4.7-.7z" />
+          </Icon>
+        ),
+      },
+      {
+        label: "Audit Log",
+        href: "/admin/audit-log",
+        permission: "audit.view",
+        icon: (
+          <Icon>
+            <path d="M5 3.5h7.5L15 6v10.5H5zM7.5 8h5M7.5 11h5M7.5 14h3" />
           </Icon>
         ),
       },
@@ -147,8 +167,8 @@ export const ADMIN_SECTIONS: AdminSection[] = [
     title: "You",
     links: [
       {
-        label: "Account",
-        href: "/account",
+        label: "My Profile",
+        href: "/admin/profile",
         icon: (
           <Icon>
             <circle cx="10" cy="7" r="3.5" />
@@ -160,6 +180,16 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   },
 ];
 
+/** The admin sections with only the links this admin's tier may see; empty sections dropped. */
+export function visibleAdminSections(user: AuthUser | null | undefined): AdminSection[] {
+  return ADMIN_SECTIONS.map((section) => ({
+    ...section,
+    links: section.links.filter(
+      (link) => !link.permission || hasAdminPermission(user, link.permission),
+    ),
+  })).filter((section) => section.links.length > 0);
+}
+
 export function isLinkActive(pathname: string, href: string): boolean {
   if (href === "/") return pathname === "/";
   return pathname === href || pathname.startsWith(`${href}/`);
@@ -167,11 +197,11 @@ export function isLinkActive(pathname: string, href: string): boolean {
 
 /** Pending shop applications, shown as a badge on the Shop Approvals link. */
 function usePendingShopCount(): number | null {
-  const { activeRole } = useAuth();
+  const { activeRole, user } = useAuth();
   const pending = useApi(
     () => listAdminShops("PENDING", 1),
     "admin-pending-shops",
-    activeRole === "ADMINISTRATOR",
+    activeRole === "ADMINISTRATOR" && hasAdminPermission(user, "shops.view"),
   );
   return pending.data?.count ?? null;
 }
@@ -201,11 +231,12 @@ export function AdminNavSections({
   variant?: keyof typeof SECTION_VARIANTS;
 }) {
   const pathname = usePathname();
+  const { user } = useAuth();
   const pendingShops = usePendingShopCount();
   const styles = SECTION_VARIANTS[variant];
   return (
     <div className={cn("flex flex-col", variant === "dark" ? "gap-6" : "gap-4")}>
-      {ADMIN_SECTIONS.map((section) => (
+      {visibleAdminSections(user).map((section) => (
         <div key={section.title} className="flex flex-col gap-0.5">
           <p
             className={cn(

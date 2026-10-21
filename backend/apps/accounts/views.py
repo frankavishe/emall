@@ -8,12 +8,14 @@ tokens are set *exclusively* as an httpOnly/Secure/SameSite cookie, never in a J
 
 from django.conf import settings
 from django.contrib.auth import authenticate
+from django.contrib.auth.models import update_last_login
 from django.db import transaction
 from django.db.models import Count, DecimalField, F, OuterRef, Q, Subquery, Sum, Value
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.generics import ListAPIView
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
@@ -22,9 +24,11 @@ from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from apps.audit.models import AuditAction
+from apps.audit.services import changed_fields, record
 from apps.cart.services import merge_guest_cart
 from apps.core.pagination import LimitedPageNumberPagination
-from apps.core.permissions import IsAdministrator
+from apps.core.permissions import AdminArea
 from apps.orders.models import Order, OrderItem
 from apps.vendors.models import Shop
 from apps.vendors.serializers import OwnShopBriefSerializer
@@ -33,9 +37,11 @@ from .models import EmailVerificationToken, PasswordResetToken, User
 from .serializers import (
     AdminCustomerSerializer,
     AdminCustomerUpdateSerializer,
+    AvatarSerializer,
     LoginSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
+    ProfileUpdateSerializer,
     RegisterCustomerSerializer,
     RegisterVendorSerializer,
     UserProfileSerializer,
@@ -91,6 +97,13 @@ class RegisterCustomerView(TokenResponseMixin, APIView):
         serializer.is_valid(raise_exception=True)
         with transaction.atomic():
             user = serializer.save()
+            record(
+                AuditAction.REGISTERED,
+                request=request,
+                actor=user,
+                target=user,
+                metadata={"as": "customer"},
+            )
 
         try:
             issue_verification_token(user)
@@ -119,6 +132,13 @@ class RegisterVendorView(TokenResponseMixin, APIView):
         upgraded = serializer.existing_user is not None
         with transaction.atomic():
             user, shop = serializer.save()
+            record(
+                AuditAction.REGISTERED,
+                request=request,
+                actor=user,
+                target=user,
+                metadata={"as": "vendor", "upgraded": upgraded, "shop_id": shop.pk},
+            )
 
         if not user.is_email_verified:
             try:
@@ -157,7 +177,17 @@ class LoginView(TokenResponseMixin, APIView):
             # ModelBackend refuses inactive accounts. Only someone who knows the password learns
             # the account is blocked; everyone else gets the same generic message.
             blocked = User.objects.filter(email=email, is_active=False).first()
-            if blocked is not None and blocked.check_password(password):
+            is_blocked = blocked is not None and blocked.check_password(password)
+            target = blocked or User.objects.filter(email=email).first()
+            record(
+                AuditAction.LOGIN_FAILED,
+                request=request,
+                target=target,
+                # An unknown email has no user to point at; still show what was tried.
+                target_repr=None if target else email,
+                metadata={"email": email, "reason": "blocked" if is_blocked else "invalid"},
+            )
+            if is_blocked:
                 return Response(
                     {"detail": BLOCKED_ACCOUNT_DETAIL}, status=status.HTTP_403_FORBIDDEN
                 )
@@ -165,9 +195,14 @@ class LoginView(TokenResponseMixin, APIView):
                 {"detail": "Invalid email or password."}, status=status.HTTP_401_UNAUTHORIZED
             )
 
+        record(AuditAction.LOGIN, request=request, actor=user, target=user)
+        update_last_login(None, user)
         access, refresh = self.issue_tokens(user)
         response = Response(
-            {"access": access, "user": UserProfileSerializer(user).data},
+            {
+                "access": access,
+                "user": UserProfileSerializer(user, context={"request": request}).data,
+            },
             status=status.HTTP_200_OK,
         )
         self.set_refresh_cookie(response, refresh)
@@ -183,9 +218,14 @@ class LogoutView(TokenResponseMixin, APIView):
         raw_refresh = self.get_refresh_token_from_cookie(request)
         if raw_refresh:
             try:
-                RefreshToken(raw_refresh).blacklist()
+                token = RefreshToken(raw_refresh)
+                token.blacklist()
             except TokenError:
                 pass
+            else:
+                user = User.objects.filter(pk=token.get("user_id")).first()
+                if user is not None:
+                    record(AuditAction.LOGOUT, request=request, actor=user, target=user)
 
         response = Response(status=status.HTTP_204_NO_CONTENT)
         self.clear_refresh_cookie(response)
@@ -218,12 +258,64 @@ class MeView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        data = UserProfileSerializer(request.user).data
-        if request.user.has_role(User.Role.VENDOR):
-            data["shops"] = OwnShopBriefSerializer(
-                request.user.shops.all(), many=True, context={"request": request}
-            ).data
-        return Response(data)
+        return Response(_me_data(request))
+
+    def patch(self, request):
+        user = request.user
+        serializer = ProfileUpdateSerializer(user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        fields = changed_fields(user, serializer.validated_data)
+        serializer.save()
+        if fields:
+            record(
+                AuditAction.ACCOUNT_PROFILE_UPDATED,
+                request=request,
+                target=user,
+                metadata={"fields": fields},
+            )
+        return Response(_me_data(request))
+
+
+class MeAvatarView(APIView):
+    """Upload/replace (PUT) or remove (DELETE) the signed-in user's profile photo."""
+
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def put(self, request):
+        user = request.user
+        serializer = AvatarSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        if user.avatar:
+            user.avatar.delete(save=False)
+        user.avatar = serializer.validated_data["avatar"]
+        user.save(update_fields=["avatar"])
+        record(AuditAction.ACCOUNT_AVATAR_UPDATED, request=request, target=user)
+        return Response(_me_data(request))
+
+    def delete(self, request):
+        user = request.user
+        if user.avatar:
+            user.avatar.delete(save=False)
+            user.avatar = None
+            user.save(update_fields=["avatar"])
+            record(
+                AuditAction.ACCOUNT_AVATAR_UPDATED,
+                request=request,
+                target=user,
+                metadata={"removed": True},
+            )
+        return Response(_me_data(request))
+
+
+def _me_data(request):
+    user = request.user
+    data = UserProfileSerializer(user, context={"request": request}).data
+    if user.has_role(User.Role.VENDOR):
+        data["shops"] = OwnShopBriefSerializer(
+            user.shops.all(), many=True, context={"request": request}
+        ).data
+    return data
 
 
 class VerifyEmailRequestView(APIView):
@@ -260,6 +352,7 @@ class VerifyEmailConfirmView(APIView):
 
         user.is_email_verified = True
         user.save(update_fields=["is_email_verified"])
+        record(AuditAction.EMAIL_VERIFIED, request=request, actor=user, target=user)
         return Response({"detail": "Email verified."}, status=status.HTTP_200_OK)
 
 
@@ -276,6 +369,7 @@ class PasswordResetRequestView(APIView):
         user = User.objects.filter(email=email).first()
         if user is not None:
             issue_password_reset_token(user)
+            record(AuditAction.PASSWORD_RESET_REQUESTED, request=request, target=user)
 
         return Response(
             {"detail": "If that email is registered, a reset code has been sent."},
@@ -304,6 +398,7 @@ class PasswordResetConfirmView(APIView):
             user.save(update_fields=["password"])
 
             blacklist_all_tokens(user)
+            record(AuditAction.PASSWORD_RESET_COMPLETED, request=request, actor=user, target=user)
 
         return Response(
             {"detail": "Password updated. Please log in again."}, status=status.HTTP_200_OK
@@ -367,7 +462,7 @@ def _recent_orders(user, limit=5):
 
 
 class AdminCustomerListView(ListAPIView):
-    permission_classes = [IsAdministrator]
+    permission_classes = [AdminArea("customers")]
     serializer_class = AdminCustomerSerializer
     pagination_class = LimitedPageNumberPagination
 
@@ -387,7 +482,7 @@ class AdminCustomerDetailView(APIView):
     """Scoped to customer accounts, so an administrator or rider ID 404s here — riders are
     deactivated from the riders screen, and admins can't block each other."""
 
-    permission_classes = [IsAdministrator]
+    permission_classes = [AdminArea("customers")]
 
     def _response(self, customer_id):
         customer = get_object_or_404(_customers(), pk=customer_id)
@@ -408,6 +503,11 @@ class AdminCustomerDetailView(APIView):
             if customer.is_active != is_active:
                 customer.is_active = is_active
                 customer.save(update_fields=["is_active"])
+                record(
+                    AuditAction.CUSTOMER_UNBLOCKED if is_active else AuditAction.CUSTOMER_BLOCKED,
+                    request=request,
+                    target=customer,
+                )
             # Blocking logs the customer out of every device.
             if not is_active:
                 blacklist_all_tokens(customer)

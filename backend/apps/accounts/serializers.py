@@ -4,16 +4,90 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
 from apps.accounts.models import User
+from apps.core.admin_permissions import PERMISSION_DESCRIPTIONS, AdminPermission
+from apps.core.validators import PHONE_REGEX
 from apps.vendors.models import Shop
+
+MAX_AVATAR_SIZE_BYTES = 2 * 1024 * 1024
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
     roles = serializers.ListField(child=serializers.CharField(), read_only=True)
+    avatar_url = serializers.SerializerMethodField()
+    admin_role_label = serializers.SerializerMethodField()
+    permissions = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ["id", "name", "email", "role", "roles", "is_email_verified"]
+        fields = [
+            "id",
+            "name",
+            "email",
+            "phone",
+            "avatar_url",
+            "role",
+            "roles",
+            "is_email_verified",
+            "admin_role",
+            "admin_role_label",
+            "permissions",
+            "date_joined",
+            "last_login",
+        ]
         read_only_fields = fields
+
+    def get_avatar_url(self, obj):
+        if not obj.avatar:
+            return None
+        url = obj.avatar.url
+        request = self.context.get("request")
+        return request.build_absolute_uri(url) if request else url
+
+    def get_admin_role_label(self, obj):
+        return obj.get_admin_role_display() if obj.role == User.Role.ADMINISTRATOR else None
+
+    def get_permissions(self, obj):
+        granted = obj.admin_permissions
+        # Catalog order, so the profile page lists them grouped by area.
+        return [
+            {
+                "code": permission.value,
+                "label": permission.label,
+                "description": PERMISSION_DESCRIPTIONS[permission],
+            }
+            for permission in AdminPermission
+            if permission in granted
+        ]
+
+
+class ProfileUpdateSerializer(serializers.ModelSerializer):
+    """What a signed-in user may change about themselves. Email is the sign-in identity and is
+    not editable here; role and tier are never self-service."""
+
+    name = serializers.CharField(min_length=2, max_length=255)
+    phone = serializers.RegexField(
+        PHONE_REGEX,
+        allow_blank=True,
+        required=False,
+        error_messages={"invalid": "Enter a valid phone number, e.g. +255712345678."},
+    )
+
+    class Meta:
+        model = User
+        fields = ["name", "phone"]
+
+    def validate_phone(self, value):
+        return value.strip()
+
+
+class AvatarSerializer(serializers.Serializer):
+    avatar = serializers.ImageField()
+
+    def validate_avatar(self, value):
+        if value.size > MAX_AVATAR_SIZE_BYTES:
+            max_mb = MAX_AVATAR_SIZE_BYTES // (1024 * 1024)
+            raise serializers.ValidationError(f"The photo must be {max_mb}MB or smaller.")
+        return value
 
 
 class RegisterCustomerSerializer(serializers.Serializer):

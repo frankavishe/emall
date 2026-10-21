@@ -9,6 +9,7 @@ urlpatterns = [
     path("logout", views.LogoutView.as_view(), name="logout"),
     path("refresh", views.RefreshView.as_view(), name="refresh"),
     path("me", views.MeView.as_view(), name="me"),
+    path("me/avatar", views.MeAvatarView.as_view(), name="me-avatar"),
     path(
         "verify-email/request",
         views.VerifyEmailRequestView.as_view(),

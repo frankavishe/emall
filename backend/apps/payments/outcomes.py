@@ -12,6 +12,8 @@ from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
+from apps.audit.models import AuditAction
+from apps.audit.services import record as record_audit
 from apps.cart.models import CartItem
 from apps.catalog.models import Product
 from apps.orders.models import Order, OrderItem, OrderItemStatusEvent
@@ -78,8 +80,31 @@ def complete_payment(*, record_id, success, provider_reference="", message="", s
 
         record.save()
         order.save(update_fields=["status"])
+        # An administrator's manual settlement is audited by its view, with their request.
+        if settled_by is None:
+            _audit_system_payment(record, success=success, message=message)
         _announce_payment(order.id, success=success, was_awaiting=was_awaiting)
     return record
+
+
+def _audit_system_payment(record, *, success, message):
+    if success:
+        action = AuditAction.PAYMENT_COMPLETED
+    elif message == EXPIRED_REASON:
+        action = AuditAction.PAYMENT_EXPIRED
+    else:
+        action = AuditAction.PAYMENT_FAILED
+    record_audit(
+        action,
+        target=record.order,
+        target_repr=f"Order #{record.order_id}",
+        metadata={
+            "reference": record.transaction_reference,
+            "method": record.method,
+            "amount": record.amount,
+            **({} if success else {"reason": record.failure_reason}),
+        },
+    )
 
 
 def _announce_payment(order_id, *, success, was_awaiting):

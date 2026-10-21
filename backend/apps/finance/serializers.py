@@ -3,6 +3,7 @@ from decimal import Decimal
 from rest_framework import serializers
 
 from apps.catalog.models import Product
+from apps.core.validators import PHONE_REGEX
 from apps.finance.models import Payout, PlatformSettings
 from apps.orders.models import Order, OrderItem
 from apps.orders.serializers import OrderDeliverySerializer, OrderTotalsMixin
@@ -81,7 +82,7 @@ class PayoutDetailsSerializer(serializers.ModelSerializer):
 
     payout_network = serializers.ChoiceField(choices=Shop.PayoutNetwork.choices)
     payout_phone = serializers.RegexField(
-        r"^\+?[0-9]{9,15}$", error_messages={"invalid": "Enter a valid phone number."}
+        PHONE_REGEX, error_messages={"invalid": "Enter a valid phone number."}
     )
     payout_account_name = serializers.CharField(max_length=255)
 

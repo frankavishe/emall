@@ -51,10 +51,12 @@ export function AdminTopBar() {
           onClick={() => setOpen((value) => !value)}
           className="flex items-center gap-3 rounded-pill py-1 pl-1 pr-3 transition-colors hover:bg-hover"
         >
-          <Avatar name={user.name} />
+          <Avatar name={user.name} src={user.avatar_url} />
           <span className="flex flex-col text-left leading-tight">
             <span className="text-sm font-semibold text-text-primary">{user.name}</span>
-            <span className="text-xs text-text-muted">Administrator</span>
+            <span className="text-xs text-text-muted">
+              {user.admin_role_label ?? "Administrator"}
+            </span>
           </span>
           <svg
             viewBox="0 0 20 20"
@@ -75,12 +77,12 @@ export function AdminTopBar() {
             className="absolute right-0 mt-2 w-48 rounded-control border border-border bg-card p-1 shadow-card"
           >
             <Link
-              href="/account"
+              href="/admin/profile"
               role="menuitem"
               onClick={() => setOpen(false)}
               className="block rounded-control px-3 py-2 text-sm text-text-primary hover:bg-hover"
             >
-              Account
+              My profile
             </Link>
             <button
               type="button"

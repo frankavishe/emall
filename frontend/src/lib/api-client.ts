@@ -610,6 +610,25 @@ export type VendorReview = {
 };
 
 /** `GET /api/vendor/reviews` (task T032, contracts/feedback-api.md). */
+export type ProfileUpdate = { name?: string; phone?: string };
+
+/** `PATCH /api/auth/me`: the signed-in user's own name and phone. Email is not editable. */
+export async function updateMyProfile(body: ProfileUpdate): Promise<void> {
+  await apiFetch("/api/auth/me", { method: "PATCH", body: JSON.stringify(body) });
+}
+
+/** `PUT /api/auth/me/avatar` — upload or replace the signed-in user's photo (multipart). */
+export async function uploadMyAvatar(file: File): Promise<void> {
+  const formData = new FormData();
+  formData.set("avatar", file);
+  await apiFetch("/api/auth/me/avatar", { method: "PUT", body: formData });
+}
+
+/** `DELETE /api/auth/me/avatar` */
+export async function removeMyAvatar(): Promise<void> {
+  await apiFetch("/api/auth/me/avatar", { method: "DELETE" });
+}
+
 /** `PUT /api/vendor/shops/:id/logo` — upload or replace a shop's logo (multipart). */
 export async function uploadShopLogo(shopId: string, file: File): Promise<void> {
   const formData = new FormData();
@@ -1127,6 +1146,37 @@ export async function downloadTransactionsReport(
   if (options.status) params.set("status", options.status);
   if (options.method) params.set("method", options.method);
   return apiFetchBlob(withQuery("/api/admin/transactions/report.pdf", params));
+}
+
+/** One audited action. `actor` is null for system events and anonymous callers. */
+export type AuditEvent = {
+  id: number;
+  created_at: string;
+  actor: number | null;
+  actor_email: string;
+  /** CUSTOMER, VENDOR, ADMINISTRATOR, RIDER, SYSTEM, or "" for an anonymous caller. */
+  actor_role: string;
+  /** `<area>.<verb>`, e.g. `shop.approved`. */
+  action: string;
+  action_label: string;
+  target_type: string;
+  target_id: string;
+  target_repr: string;
+  metadata: Record<string, unknown>;
+  ip_address: string | null;
+  user_agent: string;
+};
+
+/** `action` is an exact action or an area prefix ending in "." (e.g. "shop."). */
+export async function listAdminAuditEvents(
+  options: DateRange & { page?: number; action?: string; actor?: string; actorRole?: string } = {},
+): Promise<PaginatedResponse<AuditEvent>> {
+  const params = dateRangeQuery(options);
+  params.set("page", String(options.page ?? 1));
+  if (options.action) params.set("action", options.action);
+  if (options.actor) params.set("actor", options.actor);
+  if (options.actorRole) params.set("actor_role", options.actorRole);
+  return apiFetch<PaginatedResponse<AuditEvent>>(withQuery("/api/admin/audit-events", params));
 }
 
 export type AdminOrderLine = PayoutLine & {

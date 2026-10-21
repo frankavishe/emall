@@ -54,7 +54,7 @@ All required variables are documented with inline comments in `backend/.env.exam
 | `EMAIL_BACKEND` | `django.core.mail.backends.console.EmailBackend` in dev — verification and password-reset emails print to the `runserver` console instead of sending real mail |
 | `DEFAULT_FROM_EMAIL` | from-address used on those console emails |
 | `ACCESS_TOKEN_LIFETIME_MINUTES` / `REFRESH_TOKEN_LIFETIME_DAYS` | simplejwt token lifetimes |
-| `ADMIN_SEED_EMAIL` / `ADMIN_SEED_PASSWORD` / `ADMIN_SEED_NAME` | used only by `seed_admin` (below) |
+| `ADMIN_SEED_EMAIL` / `ADMIN_SEED_PASSWORD` / `ADMIN_SEED_NAME` / `ADMIN_SEED_ROLE` | used only by `seed_admin` (below) |
 
 ## Seeding the Administrator account
 
@@ -65,7 +65,15 @@ python manage.py seed_admin
 ```
 
 This creates (or updates, if it already exists) the Administrator user from `ADMIN_SEED_EMAIL` /
-`ADMIN_SEED_PASSWORD` / `ADMIN_SEED_NAME` in `.env`.
+`ADMIN_SEED_PASSWORD` / `ADMIN_SEED_NAME` in `.env`, with the tier in `ADMIN_SEED_ROLE`
+(`SUPER_ADMIN` by default; re-running resets the seeded account to that tier).
+
+Every Administrator has a tier that decides which admin areas they can see and change (the
+permission sets live in `apps/core/admin_permissions.py`). Change a tier with:
+
+```powershell
+python manage.py set_admin_role someone@example.com SUPPORT_ADMIN   # or SUPER_ADMIN
+```
 
 ## Product Catalog (`catalog` app)
 
