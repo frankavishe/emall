@@ -8,6 +8,8 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.audit.models import AuditAction
+from apps.audit.services import changed_fields, record
 from apps.catalog.models import Category, Product
 from apps.catalog.permissions import IsApprovedShopOwnerForProduct, IsProductOwner
 from apps.catalog.serializers import (
@@ -81,6 +83,7 @@ class AdminCategoryListCreateView(APIView):
         serializer = AdminCategoryWriteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         category = serializer.save()
+        record(AuditAction.CATEGORY_CREATED, request=request, target=category)
         return _admin_category_response(category.pk, status.HTTP_201_CREATED)
 
 
@@ -91,7 +94,15 @@ class AdminCategoryDetailView(APIView):
         category = get_object_or_404(Category, pk=category_id)
         serializer = AdminCategoryWriteSerializer(category, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
+        fields = changed_fields(category, serializer.validated_data)
         serializer.save()
+        if fields:
+            record(
+                AuditAction.CATEGORY_UPDATED,
+                request=request,
+                target=category,
+                metadata={"fields": fields},
+            )
         return _admin_category_response(category.pk)
 
     def delete(self, request, category_id):
@@ -106,6 +117,7 @@ class AdminCategoryDetailView(APIView):
                 f"Products are listed under {category.name}. Move them to another category "
                 "first."
             )
+        record(AuditAction.CATEGORY_DELETED, request=request, target=category)
         category.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -270,6 +282,12 @@ class VendorProductListCreateView(ListCreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         product = serializer.save()
+        record(
+            AuditAction.PRODUCT_CREATED,
+            request=request,
+            target=product,
+            metadata={"shop_id": product.shop_id},
+        )
         return Response(
             VendorProductListSerializer(product, context=self.get_serializer_context()).data,
             status=status.HTTP_201_CREATED,
@@ -295,7 +313,15 @@ class VendorProductDetailView(APIView):
             product, data=request.data, partial=True, context={"request": request}
         )
         serializer.is_valid(raise_exception=True)
+        fields = changed_fields(product, serializer.validated_data)
         serializer.save()
+        if fields:
+            record(
+                AuditAction.PRODUCT_UPDATED,
+                request=request,
+                target=product,
+                metadata={"fields": fields},
+            )
         return Response(VendorProductListSerializer(product, context={"request": request}).data)
 
     def delete(self, request, product_id):
@@ -303,6 +329,7 @@ class VendorProductDetailView(APIView):
         product.is_deleted = True
         product.deleted_at = timezone.now()
         product.save(update_fields=["is_deleted", "deleted_at"])
+        record(AuditAction.PRODUCT_DELETED, request=request, target=product)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -320,6 +347,7 @@ class VendorProductPublishView(APIView):
             return Response({"missing_fields": missing}, status=status.HTTP_400_BAD_REQUEST)
         product.is_published = True
         product.save(update_fields=["is_published"])
+        record(AuditAction.PRODUCT_PUBLISHED, request=request, target=product)
         return Response({"id": product.id, "is_published": product.is_published})
 
 
@@ -331,4 +359,5 @@ class VendorProductUnpublishView(APIView):
         self.check_object_permissions(request, product)
         product.is_published = False
         product.save(update_fields=["is_published"])
+        record(AuditAction.PRODUCT_UNPUBLISHED, request=request, target=product)
         return Response({"id": product.id, "is_published": product.is_published})

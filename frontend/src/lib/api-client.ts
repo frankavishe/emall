@@ -1129,6 +1129,37 @@ export async function downloadTransactionsReport(
   return apiFetchBlob(withQuery("/api/admin/transactions/report.pdf", params));
 }
 
+/** One audited action. `actor` is null for system events and anonymous callers. */
+export type AuditEvent = {
+  id: number;
+  created_at: string;
+  actor: number | null;
+  actor_email: string;
+  /** CUSTOMER, VENDOR, ADMINISTRATOR, RIDER, SYSTEM, or "" for an anonymous caller. */
+  actor_role: string;
+  /** `<area>.<verb>`, e.g. `shop.approved`. */
+  action: string;
+  action_label: string;
+  target_type: string;
+  target_id: string;
+  target_repr: string;
+  metadata: Record<string, unknown>;
+  ip_address: string | null;
+  user_agent: string;
+};
+
+/** `action` is an exact action or an area prefix ending in "." (e.g. "shop."). */
+export async function listAdminAuditEvents(
+  options: DateRange & { page?: number; action?: string; actor?: string; actorRole?: string } = {},
+): Promise<PaginatedResponse<AuditEvent>> {
+  const params = dateRangeQuery(options);
+  params.set("page", String(options.page ?? 1));
+  if (options.action) params.set("action", options.action);
+  if (options.actor) params.set("actor", options.actor);
+  if (options.actorRole) params.set("actor_role", options.actorRole);
+  return apiFetch<PaginatedResponse<AuditEvent>>(withQuery("/api/admin/audit-events", params));
+}
+
 export type AdminOrderLine = PayoutLine & {
   shop: { id: number; name: string };
   payout: { id: number; status: PayoutStatus } | null;

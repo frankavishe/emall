@@ -22,6 +22,8 @@ from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from apps.audit.models import AuditAction
+from apps.audit.services import record
 from apps.cart.services import merge_guest_cart
 from apps.core.pagination import LimitedPageNumberPagination
 from apps.core.permissions import IsAdministrator
@@ -91,6 +93,13 @@ class RegisterCustomerView(TokenResponseMixin, APIView):
         serializer.is_valid(raise_exception=True)
         with transaction.atomic():
             user = serializer.save()
+            record(
+                AuditAction.REGISTERED,
+                request=request,
+                actor=user,
+                target=user,
+                metadata={"as": "customer"},
+            )
 
         try:
             issue_verification_token(user)
@@ -119,6 +128,13 @@ class RegisterVendorView(TokenResponseMixin, APIView):
         upgraded = serializer.existing_user is not None
         with transaction.atomic():
             user, shop = serializer.save()
+            record(
+                AuditAction.REGISTERED,
+                request=request,
+                actor=user,
+                target=user,
+                metadata={"as": "vendor", "upgraded": upgraded, "shop_id": shop.pk},
+            )
 
         if not user.is_email_verified:
             try:
@@ -157,7 +173,14 @@ class LoginView(TokenResponseMixin, APIView):
             # ModelBackend refuses inactive accounts. Only someone who knows the password learns
             # the account is blocked; everyone else gets the same generic message.
             blocked = User.objects.filter(email=email, is_active=False).first()
-            if blocked is not None and blocked.check_password(password):
+            is_blocked = blocked is not None and blocked.check_password(password)
+            record(
+                AuditAction.LOGIN_FAILED,
+                request=request,
+                target=blocked or User.objects.filter(email=email).first(),
+                metadata={"email": email, "reason": "blocked" if is_blocked else "invalid"},
+            )
+            if is_blocked:
                 return Response(
                     {"detail": BLOCKED_ACCOUNT_DETAIL}, status=status.HTTP_403_FORBIDDEN
                 )
@@ -165,6 +188,7 @@ class LoginView(TokenResponseMixin, APIView):
                 {"detail": "Invalid email or password."}, status=status.HTTP_401_UNAUTHORIZED
             )
 
+        record(AuditAction.LOGIN, request=request, actor=user, target=user)
         access, refresh = self.issue_tokens(user)
         response = Response(
             {"access": access, "user": UserProfileSerializer(user).data},
@@ -183,9 +207,14 @@ class LogoutView(TokenResponseMixin, APIView):
         raw_refresh = self.get_refresh_token_from_cookie(request)
         if raw_refresh:
             try:
-                RefreshToken(raw_refresh).blacklist()
+                token = RefreshToken(raw_refresh)
+                token.blacklist()
             except TokenError:
                 pass
+            else:
+                user = User.objects.filter(pk=token.get("user_id")).first()
+                if user is not None:
+                    record(AuditAction.LOGOUT, request=request, actor=user, target=user)
 
         response = Response(status=status.HTTP_204_NO_CONTENT)
         self.clear_refresh_cookie(response)
@@ -260,6 +289,7 @@ class VerifyEmailConfirmView(APIView):
 
         user.is_email_verified = True
         user.save(update_fields=["is_email_verified"])
+        record(AuditAction.EMAIL_VERIFIED, request=request, actor=user, target=user)
         return Response({"detail": "Email verified."}, status=status.HTTP_200_OK)
 
 
@@ -276,6 +306,7 @@ class PasswordResetRequestView(APIView):
         user = User.objects.filter(email=email).first()
         if user is not None:
             issue_password_reset_token(user)
+            record(AuditAction.PASSWORD_RESET_REQUESTED, request=request, target=user)
 
         return Response(
             {"detail": "If that email is registered, a reset code has been sent."},
@@ -304,6 +335,7 @@ class PasswordResetConfirmView(APIView):
             user.save(update_fields=["password"])
 
             blacklist_all_tokens(user)
+            record(AuditAction.PASSWORD_RESET_COMPLETED, request=request, actor=user, target=user)
 
         return Response(
             {"detail": "Password updated. Please log in again."}, status=status.HTTP_200_OK
@@ -408,6 +440,11 @@ class AdminCustomerDetailView(APIView):
             if customer.is_active != is_active:
                 customer.is_active = is_active
                 customer.save(update_fields=["is_active"])
+                record(
+                    AuditAction.CUSTOMER_UNBLOCKED if is_active else AuditAction.CUSTOMER_BLOCKED,
+                    request=request,
+                    target=customer,
+                )
             # Blocking logs the customer out of every device.
             if not is_active:
                 blacklist_all_tokens(customer)

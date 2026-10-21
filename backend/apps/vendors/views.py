@@ -9,6 +9,8 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.audit.models import AuditAction
+from apps.audit.services import changed_fields, record
 from apps.core.email import get_email_service
 from apps.core.pagination import LimitedPageNumberPagination
 from apps.core.permissions import IsAdministrator, IsCustomer
@@ -45,6 +47,7 @@ class VendorShopListCreateView(ListCreateAPIView):
             if not request.user.is_vendor:
                 request.user.is_vendor = True
                 request.user.save(update_fields=["is_vendor"])
+            record(AuditAction.SHOP_CREATED, request=request, actor_role="VENDOR", target=shop)
         return Response(self.get_serializer(shop).data, status=status.HTTP_201_CREATED)
 
 
@@ -63,6 +66,7 @@ class VendorShopLogoView(APIView):
             shop.logo.delete(save=False)
         shop.logo = serializer.validated_data["logo"]
         shop.save(update_fields=["logo"])
+        _record_profile_update(request, shop, ["logo"])
         return Response(ShopSerializer(shop, context={"request": request}).data)
 
     def delete(self, request, shop_id):
@@ -71,6 +75,7 @@ class VendorShopLogoView(APIView):
             shop.logo.delete(save=False)
             shop.logo = None
             shop.save(update_fields=["logo"])
+            _record_profile_update(request, shop, ["logo"], removed=True)
         return Response(ShopSerializer(shop, context={"request": request}).data)
 
 
@@ -84,7 +89,9 @@ class VendorShopThemeView(APIView):
         shop = get_object_or_404(Shop, pk=shop_id, owner=request.user)
         serializer = ShopThemeSerializer(shop, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
+        fields = changed_fields(shop, serializer.validated_data)
         serializer.save()
+        _record_profile_update(request, shop, fields)
         return Response(ShopSerializer(shop, context={"request": request}).data)
 
 
@@ -98,14 +105,29 @@ class VendorShopDescriptionView(APIView):
         shop = get_object_or_404(Shop, pk=shop_id, owner=request.user)
         serializer = ShopDescriptionSerializer(shop, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
+        fields = changed_fields(shop, serializer.validated_data)
         serializer.save()
+        _record_profile_update(request, shop, fields)
         return Response(ShopSerializer(shop, context={"request": request}).data)
 
 
-def _save_shop_location(request, shop):
+def _record_profile_update(request, shop, fields, **metadata):
+    if fields:
+        record(
+            AuditAction.SHOP_PROFILE_UPDATED,
+            request=request,
+            target=shop,
+            metadata={"fields": fields, **metadata},
+        )
+
+
+def _save_shop_location(request, shop, action):
     serializer = ShopLocationSerializer(shop, data=request.data)
     serializer.is_valid(raise_exception=True)
+    fields = changed_fields(shop, serializer.validated_data)
     serializer.save()
+    if fields:
+        record(action, request=request, target=shop, metadata={"fields": fields})
     return Response(ShopSerializer(shop, context={"request": request}).data)
 
 
@@ -117,7 +139,7 @@ class VendorShopLocationView(APIView):
 
     def put(self, request, shop_id):
         shop = get_object_or_404(Shop, pk=shop_id, owner=request.user)
-        return _save_shop_location(request, shop)
+        return _save_shop_location(request, shop, AuditAction.SHOP_PROFILE_UPDATED)
 
 
 class AdminShopLocationView(APIView):
@@ -127,7 +149,7 @@ class AdminShopLocationView(APIView):
 
     def put(self, request, shop_id):
         shop = get_object_or_404(Shop, pk=shop_id)
-        return _save_shop_location(request, shop)
+        return _save_shop_location(request, shop, AuditAction.SHOP_LOCATION_UPDATED)
 
 
 class AdminShopListView(ListAPIView):
@@ -179,6 +201,7 @@ class AdminShopApproveView(APIView):
             shop.status = Shop.Status.APPROVED
             shop.status_changed_at = timezone.now()
             shop.save(update_fields=["status", "status_changed_at"])
+            record(AuditAction.SHOP_APPROVED, request=request, target=shop)
             _announce_shop_change(shop)
             transaction.on_commit(lambda: _send_shop_approved_email(shop))
         return Response(ShopSerializer(shop).data, status=status.HTTP_200_OK)
@@ -199,5 +222,11 @@ class AdminShopRejectView(APIView):
             shop.status_reason = request.data.get("reason")
             shop.status_changed_at = timezone.now()
             shop.save(update_fields=["status", "status_reason", "status_changed_at"])
+            record(
+                AuditAction.SHOP_REJECTED,
+                request=request,
+                target=shop,
+                metadata={"reason": shop.status_reason or ""},
+            )
             _announce_shop_change(shop)
         return Response(ShopSerializer(shop).data, status=status.HTTP_200_OK)

@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.db import transaction
 from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404
 from rest_framework import status
@@ -10,6 +11,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.accounts.models import User
+from apps.audit.models import AuditAction
+from apps.audit.services import order_item_repr, record
 from apps.cart.services import resolve_cart
 from apps.core.pagination import LimitedPageNumberPagination
 from apps.core.permissions import IsAdministrator, IsCustomer, IsCustomerOrGuest, IsVendor
@@ -82,6 +85,17 @@ class CheckoutView(APIView):
             )
             return Response(body, status=http_status)
 
+        record(
+            AuditAction.ORDER_PLACED,
+            request=request,
+            target=order,
+            target_repr=f"Order #{order.pk}",
+            metadata={
+                "status": order.status,
+                "payment_method": data["payment_method"],
+                "guest": is_guest,
+            },
+        )
         # 202: a mobile-money order exists but waits for the customer to approve the push.
         http_status = (
             status.HTTP_202_ACCEPTED
@@ -269,10 +283,19 @@ class VendorOrderItemStatusUpdateView(APIView):
         serializer = OrderItemStatusUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
+        previous = order_item.status
         try:
-            advance_order_item_status(
-                order_item=order_item, new_status=serializer.validated_data["status"]
-            )
+            with transaction.atomic():
+                advance_order_item_status(
+                    order_item=order_item, new_status=serializer.validated_data["status"]
+                )
+                record(
+                    AuditAction.ORDER_ITEM_STATUS_CHANGED,
+                    request=request,
+                    target=order_item,
+                    target_repr=order_item_repr(order_item),
+                    metadata={"from": previous, "to": order_item.status},
+                )
         except TransitionError as error:
             return Response({"status": [str(error)]}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -323,7 +346,7 @@ class AdminOrderItemAssignRiderView(APIView):
         serializer.is_valid(raise_exception=True)
         rider_id = serializer.validated_data["rider_id"]
 
-        order_item = get_object_or_404(OrderItem, pk=item_id)
+        order_item = get_object_or_404(OrderItem.objects.select_related("product"), pk=item_id)
         rider = None
         if rider_id is not None:
             rider = User.objects.filter(pk=rider_id, role=User.Role.RIDER).first()
@@ -332,8 +355,23 @@ class AdminOrderItemAssignRiderView(APIView):
                     {"rider_id": ["Rider not found."]}, status=status.HTTP_400_BAD_REQUEST
                 )
 
+        previous_rider_id = order_item.rider_id
         try:
-            assign_rider(order_item=order_item, rider=rider)
+            with transaction.atomic():
+                assign_rider(order_item=order_item, rider=rider)
+                record(
+                    AuditAction.ORDER_ITEM_RIDER_ASSIGNED
+                    if rider is not None
+                    else AuditAction.ORDER_ITEM_RIDER_UNASSIGNED,
+                    request=request,
+                    target=order_item,
+                    target_repr=order_item_repr(order_item),
+                    metadata={
+                        "rider_id": rider.pk if rider else None,
+                        "rider_email": rider.email if rider else None,
+                        "previous_rider_id": previous_rider_id,
+                    },
+                )
         except AssignmentError as error:
             return Response({"detail": error.detail}, status=status.HTTP_400_BAD_REQUEST)
 

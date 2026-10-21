@@ -5,6 +5,8 @@ from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.audit.models import AuditAction
+from apps.audit.services import record
 from apps.catalog.models import Product
 from apps.core.pagination import LimitedPageNumberPagination
 from apps.core.permissions import IsAdministrator, IsCustomer, IsVendor
@@ -88,6 +90,21 @@ class AdminReviewDeleteView(APIView):
     permission_classes = [IsAdministrator]
 
     def delete(self, request, review_id):
-        review = get_object_or_404(Review, pk=review_id)
+        review = get_object_or_404(
+            Review.objects.select_related("customer", "product"), pk=review_id
+        )
+        # Hard delete, so the row keeps what was removed.
+        record(
+            AuditAction.REVIEW_DELETED,
+            request=request,
+            target=review,
+            target_repr=f"Review of {review.product.name}",
+            metadata={
+                "rating": review.rating,
+                "comment": review.comment[:500],
+                "customer_email": review.customer.email,
+                "product_id": review.product_id,
+            },
+        )
         review.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)

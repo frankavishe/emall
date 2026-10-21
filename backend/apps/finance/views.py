@@ -6,6 +6,8 @@ from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.audit.models import AuditAction
+from apps.audit.services import changed_fields, record
 from apps.catalog.models import Product
 from apps.core.pagination import LimitedPageNumberPagination
 from apps.core.permissions import IsAdministrator, IsCustomer, IsVendor
@@ -83,7 +85,22 @@ class AdminFinanceSettingsView(APIView):
     def patch(self, request):
         serializer = PlatformSettingsSerializer(data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
-        platform = update_platform_settings(admin=request.user, **serializer.validated_data)
+        data = serializer.validated_data
+        before = PlatformSettings.get_solo()
+        changes = {
+            name: {"from": getattr(before, name), "to": value}
+            for name, value in data.items()
+            if getattr(before, name) != value
+        }
+        platform = update_platform_settings(admin=request.user, **data)
+        if changes:
+            record(
+                AuditAction.SETTINGS_UPDATED,
+                request=request,
+                target=platform,
+                target_repr="Platform settings",
+                metadata={"changes": changes},
+            )
         return Response(PlatformSettingsSerializer(platform).data)
 
 
@@ -144,10 +161,17 @@ class AdminShopCommissionView(APIView):
         shop = get_object_or_404(Shop, pk=shop_id)
         serializer = ShopCommissionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        previous_rate = shop.commission_rate
         try:
             set_shop_commission_rate(shop=shop, rate=serializer.validated_data["commission_rate"])
         except FinanceError as error:
             return _error(error)
+        record(
+            AuditAction.SHOP_COMMISSION_SET,
+            request=request,
+            target=shop,
+            metadata={"from": previous_rate, "to": shop.commission_rate},
+        )
         return Response(
             {
                 "id": shop.id,
@@ -168,7 +192,18 @@ class AdminShopPayoutCreateView(APIView):
             payout = create_payout(shop=shop, admin=request.user)
         except FinanceError as error:
             return _error(error)
+        _record_payout(request, AuditAction.PAYOUT_CREATED, payout, shop)
         return Response(PayoutSerializer(payout).data, status=status.HTTP_201_CREATED)
+
+
+def _record_payout(request, action, payout, shop):
+    record(
+        action,
+        request=request,
+        target=payout,
+        target_repr=f"Payout #{payout.pk} · {shop.name}",
+        metadata={"shop_id": shop.pk, "amount": payout.amount, "status": payout.status},
+    )
 
 
 def _admin_payouts(request):
@@ -209,11 +244,12 @@ class AdminPayoutRetryView(APIView):
     permission_classes = [IsAdministrator]
 
     def post(self, request, payout_id):
-        payout = get_object_or_404(Payout, pk=payout_id)
+        payout = get_object_or_404(Payout.objects.select_related("shop"), pk=payout_id)
         try:
             payout = retry_payout(payout=payout)
         except FinanceError as error:
             return _error(error)
+        _record_payout(request, AuditAction.PAYOUT_RETRIED, payout, payout.shop)
         return Response(PayoutSerializer(payout).data)
 
 
@@ -270,15 +306,20 @@ class AdminOrderPaymentSettleView(APIView):
         order = get_object_or_404(Order, pk=order_id)
         serializer = SettlePaymentSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        reason = serializer.validated_data.get("reason", "")
         try:
             settle_manual_payment(
-                order=order,
-                admin=request.user,
-                confirm=self.confirm,
-                reason=serializer.validated_data.get("reason", ""),
+                order=order, admin=request.user, confirm=self.confirm, reason=reason
             )
         except SettlementError as error:
             return _error(error)
+        record(
+            AuditAction.PAYMENT_CONFIRMED if self.confirm else AuditAction.PAYMENT_REJECTED,
+            request=request,
+            target=order,
+            target_repr=f"Order #{order.pk}",
+            metadata={"reason": reason} if reason else {},
+        )
         return Response(_admin_order_data(order_id))
 
 
@@ -340,7 +381,17 @@ class VendorPayoutDetailsView(APIView):
         shop = get_object_or_404(Shop, pk=shop_id, owner=request.user)
         serializer = PayoutDetailsSerializer(shop, data=request.data)
         serializer.is_valid(raise_exception=True)
+        fields = changed_fields(shop, serializer.validated_data)
         serializer.save()
+        # Field names only: account numbers stay out of the audit trail.
+        if fields:
+            record(
+                AuditAction.PAYOUT_DETAILS_UPDATED,
+                request=request,
+                actor_role="VENDOR",
+                target=shop,
+                metadata={"fields": fields},
+            )
         return Response(serializer.data)
 
 

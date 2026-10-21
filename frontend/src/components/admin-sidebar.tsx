@@ -141,6 +141,15 @@ export const ADMIN_SECTIONS: AdminSection[] = [
           </Icon>
         ),
       },
+      {
+        label: "Audit Log",
+        href: "/admin/audit-log",
+        icon: (
+          <Icon>
+            <path d="M5 3.5h7.5L15 6v10.5H5zM7.5 8h5M7.5 11h5M7.5 14h3" />
+          </Icon>
+        ),
+      },
     ],
   },
   {

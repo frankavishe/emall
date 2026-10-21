@@ -6,6 +6,7 @@ import {
   decideSimulatedPush,
   getAccessToken,
   getPaymentStatus,
+  listAdminAuditEvents,
   refreshAccessToken,
   setAccessToken,
   settleOrderPayment,
@@ -217,5 +218,42 @@ describe("mobile money payments", () => {
     expect(url).toMatch(/\/api\/dev\/azampay-sim\/pushes\/ref123\/approve$/);
     expect(init.method).toBe("POST");
     expect(JSON.parse(init.body as string)).toEqual({ pin: "1234" });
+  });
+});
+
+describe("listAdminAuditEvents", () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    vi.stubGlobal("fetch", fetchMock);
+    fetchMock.mockImplementation(
+      async () =>
+        new Response(JSON.stringify({ count: 0, next: null, previous: null, results: [] }), {
+          status: 200,
+        }),
+    );
+  });
+
+  afterEach(() => {
+    fetchMock.mockReset();
+    vi.unstubAllGlobals();
+  });
+
+  it("sends only the filters that are set", async () => {
+    await listAdminAuditEvents({
+      page: 2,
+      action: "shop.",
+      actorRole: "VENDOR",
+      from: "2026-10-01",
+    });
+
+    const url = new URL(String(fetchMock.mock.calls.at(-1)?.[0]));
+    expect(url.pathname).toBe("/api/admin/audit-events");
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      from: "2026-10-01",
+      page: "2",
+      action: "shop.",
+      actor_role: "VENDOR",
+    });
   });
 });
