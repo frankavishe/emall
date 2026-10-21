@@ -101,7 +101,11 @@ def test_vendor_order_item_status_change(api_client):
 def test_manual_payment_settle(api_client):
     item = OrderItemFactory(status=OrderItem.Status.PENDING)
     PaymentRecord.objects.create(
-        order=item.order, method="cod", amount="9.99", transaction_reference="ref-cod"
+        order=item.order,
+        method="cod",
+        amount="9.99",
+        transaction_reference="ref-cod",
+        status=PaymentRecord.Status.PENDING,
     )
     admin = UserFactory(role=User.Role.ADMINISTRATOR)
     api_client.force_authenticate(admin)
