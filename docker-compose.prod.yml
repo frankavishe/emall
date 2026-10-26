@@ -133,6 +133,7 @@ services:
       ACME_EMAIL: ${ACME_EMAIL}
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./deploy/errors:/srv/errors:ro
       - caddy_data:/data
       - caddy_config:/config
 

@@ -34,7 +34,7 @@ export default function NewVendorProductPage() {
 
   useEffect(() => {
     if (!isLoading && (!user || !hasRole(user, "VENDOR"))) {
-      router.replace("/login");
+      router.replace(user ? "/forbidden" : "/login");
     }
   }, [isLoading, user, router]);
 

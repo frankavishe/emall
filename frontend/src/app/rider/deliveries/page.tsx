@@ -113,7 +113,7 @@ export default function RiderDeliveriesPage() {
 
   useEffect(() => {
     if (!isLoading && (!user || !hasRole(user, "RIDER"))) {
-      router.replace("/login");
+      router.replace(user ? "/forbidden" : "/login");
     }
   }, [isLoading, user, router]);
 

@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { errorMessage } from "@/lib/api-client";
+import { ApiError, errorMessage } from "@/lib/api-client";
 import { hasRole, useAuth, type Role } from "@/lib/auth-context";
 
-/** Sends anyone without `role` to /login (convenience only — the API enforces roles). Returns
- * true once the signed-in user is known to hold `role`. */
+/** Sends signed-out visitors to /login and signed-in users without `role` to /forbidden
+ * (convenience only — the API enforces roles). Returns true once the signed-in user is known
+ * to hold `role`. */
 export function useRequireRole(role: Role): boolean {
   const router = useRouter();
   const { user, isLoading } = useAuth();
@@ -14,7 +15,7 @@ export function useRequireRole(role: Role): boolean {
 
   useEffect(() => {
     if (!isLoading && (!user || !hasRole(user, role))) {
-      router.replace("/login");
+      router.replace(user ? "/forbidden" : "/login");
     }
   }, [isLoading, user, role, router]);
 
@@ -25,6 +26,8 @@ export function useRequireRole(role: Role): boolean {
 export function useApi<T>(load: () => Promise<T>, key: string, enabled: boolean) {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** HTTP status of the last failure, when the API answered (null for network errors). */
+  const [errorStatus, setErrorStatus] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [version, setVersion] = useState(0);
 
@@ -35,11 +38,15 @@ export function useApi<T>(load: () => Promise<T>, key: string, enabled: boolean)
     async function run() {
       setIsLoading(true);
       setError(null);
+      setErrorStatus(null);
       try {
         const result = await load();
         if (!cancelled) setData(result);
       } catch (err) {
-        if (!cancelled) setError(errorMessage(err));
+        if (!cancelled) {
+          setError(errorMessage(err));
+          setErrorStatus(err instanceof ApiError ? err.status : null);
+        }
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -54,5 +61,5 @@ export function useApi<T>(load: () => Promise<T>, key: string, enabled: boolean)
   }, [enabled, key, version]);
 
   const reload = useCallback(() => setVersion((v) => v + 1), []);
-  return { data, error, isLoading, reload };
+  return { data, error, errorStatus, isLoading, reload };
 }

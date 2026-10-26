@@ -8,6 +8,7 @@ import { formatCurrency } from "@/lib/currency";
 import { PAYOUT_NETWORK_LABELS, formatRate, payoutStatusTone } from "@/lib/finance";
 import { useApi, useRequireRole } from "@/lib/use-api";
 import { PageShell } from "@/components/ui/page-shell";
+import { ErrorState } from "@/components/ui/error-state";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Pill } from "@/components/ui/pill";
@@ -44,10 +45,18 @@ export default function AdminPayoutDetailPage() {
 
   const data = payout.data;
   if (!data) {
+    const isMissing = !payout.error || payout.errorStatus === 404;
     return (
-      <PageShell size="md" title="Payout">
-        <ErrorText>{payout.error ?? "Payout not found."}</ErrorText>
-      </PageShell>
+      <ErrorState
+        code={isMissing ? "404" : undefined}
+        title={isMissing ? "Payout not found" : "Couldn't load this payout"}
+        description={isMissing ? "It may have been removed, or the link is wrong." : payout.error}
+        actions={
+          <Button asChild>
+            <Link href="/admin/payouts">Back to payouts</Link>
+          </Button>
+        }
+      />
     );
   }
 

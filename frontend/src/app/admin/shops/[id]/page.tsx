@@ -8,6 +8,7 @@ import { formatCurrency } from "@/lib/currency";
 import { PAYOUT_NETWORK_LABELS, formatRate, payoutStatusTone } from "@/lib/finance";
 import { useApi, useRequireRole } from "@/lib/use-api";
 import { PageShell } from "@/components/ui/page-shell";
+import { ErrorState } from "@/components/ui/error-state";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Pill, statusToTone } from "@/components/ui/pill";
@@ -32,10 +33,18 @@ export default function AdminShopDetailPage() {
 
   const data = shop.data;
   if (!data) {
+    const isMissing = !shop.error || shop.errorStatus === 404;
     return (
-      <PageShell size="md" title="Shop">
-        <ErrorText>{shop.error ?? "Shop not found."}</ErrorText>
-      </PageShell>
+      <ErrorState
+        code={isMissing ? "404" : undefined}
+        title={isMissing ? "Shop not found" : "Couldn't load this shop"}
+        description={isMissing ? "It may have been removed, or the link is wrong." : shop.error}
+        actions={
+          <Button asChild>
+            <Link href="/admin/shops">Back to shops</Link>
+          </Button>
+        }
+      />
     );
   }
 

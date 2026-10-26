@@ -93,7 +93,7 @@ export default function AdminOrdersPage() {
 
   useEffect(() => {
     if (!isLoading && (!user || !hasRole(user, "ADMINISTRATOR"))) {
-      router.replace("/login");
+      router.replace(user ? "/forbidden" : "/login");
     }
   }, [isLoading, user, router]);
 

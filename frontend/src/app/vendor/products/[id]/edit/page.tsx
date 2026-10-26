@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { hasRole, useAuth } from "@/lib/auth-context";
 import { apiFetch, ApiError, listCategories, type Category } from "@/lib/api-client";
 import { PageShell } from "@/components/ui/page-shell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ErrorState } from "@/components/ui/error-state";
 import { FormField, inputClassName } from "@/components/ui/form-field";
 import { Pill } from "@/components/ui/pill";
 import { ErrorText, LoadingText } from "@/components/ui/status-text";
@@ -54,7 +56,7 @@ export default function EditVendorProductPage() {
 
   useEffect(() => {
     if (!isLoading && (!user || !hasRole(user, "VENDOR"))) {
-      router.replace("/login");
+      router.replace(user ? "/forbidden" : "/login");
     }
   }, [isLoading, user, router]);
 
@@ -143,6 +145,20 @@ export default function EditVendorProductPage() {
     } finally {
       setIsTogglingPublish(false);
     }
+  }
+
+  if (!isLoading && user && hasRole(user, "VENDOR") && !product && error) {
+    return (
+      <ErrorState
+        title="Couldn't open this product"
+        description={error}
+        actions={
+          <Button asChild>
+            <Link href="/vendor/products">Back to my products</Link>
+          </Button>
+        }
+      />
+    );
   }
 
   if (isLoading || !user || !hasRole(user, "VENDOR") || !product) {
