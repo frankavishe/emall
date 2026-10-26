@@ -8,6 +8,13 @@
 {$SHOP_DOMAIN} {
 	encode zstd gzip
 	reverse_proxy frontend:3000
+
+	# Branded page while the frontend is down or restarting (deploys).
+	handle_errors 502 503 504 {
+		root * /srv/errors
+		rewrite * /maintenance.html
+		file_server
+	}
 }
 
 www.{$SHOP_DOMAIN} {

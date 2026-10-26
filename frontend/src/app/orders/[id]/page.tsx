@@ -16,7 +16,7 @@ export default function OrderDetailPage() {
 
   useEffect(() => {
     if (!isLoading && (!user || !hasRole(user, "CUSTOMER"))) {
-      router.replace("/login");
+      router.replace(user ? "/forbidden" : "/login");
     }
   }, [isLoading, user, router]);
 

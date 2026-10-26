@@ -15,6 +15,7 @@ import { formatRate, payoutStatusTone } from "@/lib/finance";
 import { useApi, useRequireRole } from "@/lib/use-api";
 import { useRealtime } from "@/lib/realtime";
 import { PageShell } from "@/components/ui/page-shell";
+import { ErrorState } from "@/components/ui/error-state";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FormField, inputClassName } from "@/components/ui/form-field";
@@ -50,10 +51,18 @@ export default function AdminOrderDetailPage() {
 
   const data = order.data;
   if (!data) {
+    const isMissing = !order.error || order.errorStatus === 404;
     return (
-      <PageShell size="md" title="Order">
-        <ErrorText>{order.error ?? "Order not found."}</ErrorText>
-      </PageShell>
+      <ErrorState
+        code={isMissing ? "404" : undefined}
+        title={isMissing ? "Order not found" : "Couldn't load this order"}
+        description={isMissing ? "It may have been removed, or the link is wrong." : order.error}
+        actions={
+          <Button asChild>
+            <Link href="/admin/orders">Back to orders</Link>
+          </Button>
+        }
+      />
     );
   }
 

@@ -9,7 +9,8 @@ import { StarRating } from "@/components/star-rating";
 import { PageShell } from "@/components/ui/page-shell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ErrorText, LoadingText, EmptyText } from "@/components/ui/status-text";
+import { ErrorState } from "@/components/ui/error-state";
+import { LoadingText, EmptyText } from "@/components/ui/status-text";
 import { ShopLogo } from "@/components/shop-logo";
 import { RelatedProducts } from "@/components/related-products";
 import { AddToCart } from "@/components/add-to-cart";
@@ -46,6 +47,7 @@ export default function ProductDetailPage() {
   const [product, setProduct] = useState<CatalogProductDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isMissing, setIsMissing] = useState(false);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState("");
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
@@ -57,11 +59,13 @@ export default function ProductDetailPage() {
     async function loadProduct() {
       setIsLoading(true);
       setError(null);
+      setIsMissing(false);
       try {
         const result = await apiFetch<CatalogProductDetail>(`/api/catalog/products/${params.id}`);
         if (!cancelled) setProduct(result);
       } catch (err) {
         if (!cancelled) {
+          setIsMissing(err instanceof ApiError && err.status === 404);
           setError(
             err instanceof ApiError && err.status === 404
               ? "This product doesn't exist or is no longer available."
@@ -119,12 +123,16 @@ export default function ProductDetailPage() {
 
   if (error || !product) {
     return (
-      <PageShell size="lg" className="min-h-screen items-center justify-center">
-        <ErrorText>{error ?? "Product not found."}</ErrorText>
-        <Link href="/products" className="text-sm font-medium text-text-primary underline">
-          Back to products
-        </Link>
-      </PageShell>
+      <ErrorState
+        code={isMissing ? "404" : undefined}
+        title={isMissing ? "Product not found" : "Couldn't load this product"}
+        description={error ?? "This product doesn't exist or is no longer available."}
+        actions={
+          <Button asChild>
+            <Link href="/products">Back to products</Link>
+          </Button>
+        }
+      />
     );
   }
 

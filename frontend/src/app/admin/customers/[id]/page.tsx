@@ -7,10 +7,12 @@ import { getAdminCustomer } from "@/lib/api-client";
 import { formatCurrency } from "@/lib/currency";
 import { useApi, useRequireRole } from "@/lib/use-api";
 import { PageShell } from "@/components/ui/page-shell";
+import { ErrorState } from "@/components/ui/error-state";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Pill } from "@/components/ui/pill";
 import { StatCard } from "@/components/ui/stat-card";
-import { EmptyText, ErrorText, LoadingText } from "@/components/ui/status-text";
+import { EmptyText, LoadingText } from "@/components/ui/status-text";
 import { BlockToggle } from "@/components/admin/block-toggle";
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
@@ -38,10 +40,18 @@ export default function AdminCustomerDetailPage() {
 
   const data = customer.data;
   if (!data) {
+    const isMissing = !customer.error || customer.errorStatus === 404;
     return (
-      <PageShell size="md" title="Customer">
-        <ErrorText>{customer.error ?? "Customer not found."}</ErrorText>
-      </PageShell>
+      <ErrorState
+        code={isMissing ? "404" : undefined}
+        title={isMissing ? "Customer not found" : "Couldn't load this customer"}
+        description={isMissing ? "It may have been removed, or the link is wrong." : customer.error}
+        actions={
+          <Button asChild>
+            <Link href="/admin/customers">Back to customers</Link>
+          </Button>
+        }
+      />
     );
   }
 

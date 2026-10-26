@@ -16,7 +16,8 @@ import { ShopLogo } from "@/components/shop-logo";
 import { PageShell } from "@/components/ui/page-shell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { EmptyText, ErrorText, LoadingText } from "@/components/ui/status-text";
+import { ErrorState } from "@/components/ui/error-state";
+import { EmptyText, LoadingText } from "@/components/ui/status-text";
 
 /** Public storefront for one approved shop, rendered in the shop's own colors. */
 export default function ShopPage() {
@@ -28,6 +29,7 @@ export default function ShopPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isMissing, setIsMissing] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -35,6 +37,7 @@ export default function ShopPage() {
     async function loadShop() {
       setIsLoading(true);
       setError(null);
+      setIsMissing(false);
       try {
         const [shopResult, productResult] = await Promise.all([
           getPublicShop(params.id),
@@ -47,6 +50,7 @@ export default function ShopPage() {
         setNextPage(productResult.next ? 2 : null);
       } catch (err) {
         if (!cancelled) {
+          setIsMissing(err instanceof ApiError && err.status === 404);
           setError(
             err instanceof ApiError && err.status === 404
               ? "This shop doesn't exist or isn't open yet."
@@ -88,12 +92,21 @@ export default function ShopPage() {
 
   if (error || !shop) {
     return (
-      <PageShell size="xl" className="min-h-screen items-center justify-center">
-        <ErrorText>{error ?? "Shop not found."}</ErrorText>
-        <Link href="/products" className="text-sm font-medium text-text-primary underline">
-          Browse all products
-        </Link>
-      </PageShell>
+      <ErrorState
+        code={isMissing ? "404" : undefined}
+        title={isMissing ? "Shop not found" : "Couldn't load this shop"}
+        description={error ?? "This shop doesn't exist or isn't open yet."}
+        actions={
+          <>
+            <Button asChild>
+              <Link href="/shops">Browse shops</Link>
+            </Button>
+            <Button asChild variant="secondary">
+              <Link href="/products">Browse all products</Link>
+            </Button>
+          </>
+        }
+      />
     );
   }
 
