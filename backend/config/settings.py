@@ -301,3 +301,7 @@ EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
 EMAIL_TIMEOUT = env.int("EMAIL_TIMEOUT", default=10)
 
 FRONTEND_BASE_URL = env("FRONTEND_BASE_URL", default="http://localhost:3000")
+
+# A product with this many units or fewer (but not zero) is "low stock": its card turns amber and
+# its vendor is emailed when a sale takes it down to this level.
+LOW_STOCK_THRESHOLD = env.int("LOW_STOCK_THRESHOLD", default=5)

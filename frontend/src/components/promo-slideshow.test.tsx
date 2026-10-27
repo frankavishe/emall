@@ -19,6 +19,8 @@ function product(
     name: `Product ${overrides.id}`,
     price: "10000",
     in_stock: true,
+    stock_quantity: 10,
+    low_stock: false,
     shop_name: "Shop A",
     shop_logo_url: null,
     thumbnail_url: null,

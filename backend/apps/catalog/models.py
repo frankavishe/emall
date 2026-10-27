@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 
 from apps.core.uploads import UniqueUploadTo
@@ -86,6 +87,11 @@ class Product(models.Model):
 
     def __str__(self):
         return self.name
+
+    @property
+    def is_low_stock(self):
+        """In stock, but at or below `LOW_STOCK_THRESHOLD`."""
+        return 0 < (self.stock_quantity or 0) <= settings.LOW_STOCK_THRESHOLD
 
     def missing_fields_for_publish(self):
         missing = []

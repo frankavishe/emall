@@ -286,6 +286,8 @@ export type CatalogProduct = {
   price: string;
   category: string | null;
   in_stock: boolean;
+  stock_quantity: number;
+  low_stock: boolean;
   shop_name: string;
   shop_logo_url: string | null;
   thumbnail_url: string | null;
@@ -672,6 +674,14 @@ export async function updateShopTheme(
   await apiFetch(`/api/vendor/shops/${shopId}/theme`, {
     method: "PATCH",
     body: JSON.stringify(theme),
+  });
+}
+
+/** `PATCH /api/vendor/shops/:id/name` — must not be taken by another shop. */
+export async function updateShopName(shopId: string, name: string): Promise<void> {
+  await apiFetch(`/api/vendor/shops/${shopId}/name`, {
+    method: "PATCH",
+    body: JSON.stringify({ name }),
   });
 }
 

@@ -34,6 +34,10 @@ class EmailService(ABC):
     def send_shop_approved_email(self, shop):
         ...
 
+    @abstractmethod
+    def send_low_stock_email(self, product):
+        ...
+
 
 def guest_order_url(order):
     """The guest's private link back to their order (guest checkout)."""
@@ -135,6 +139,27 @@ class DjangoEmailService(EmailService):
                 f'Good news - your shop "{shop.name}" has been approved and is now live on '
                 "eMall. Customers can find it and buy your published products.\n\n"
                 f"Manage your shop: {settings.FRONTEND_BASE_URL.rstrip('/')}/vendor/products\n"
+            ),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[owner.email],
+        )
+
+    def send_low_stock_email(self, product):
+        owner = product.shop.owner
+        remaining = product.stock_quantity or 0
+        if remaining:
+            subject = f'Low stock: "{product.name}"'
+            status = f"is running low - only {remaining} left"
+        else:
+            subject = f'Out of stock: "{product.name}"'
+            status = "has sold out and is no longer available to customers"
+        send_mail(
+            subject=subject,
+            message=(
+                f"Hi {owner.name},\n\n"
+                f'Your product "{product.name}" {status}.\n\n'
+                "Restock it here: "
+                f"{settings.FRONTEND_BASE_URL.rstrip('/')}/vendor/products/{product.id}/edit\n"
             ),
             from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[owner.email],

@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Pill } from "@/components/ui/pill";
 import { ErrorText, LoadingText, EmptyText } from "@/components/ui/status-text";
+import { cn } from "@/lib/cn";
 
 type VendorProduct = {
   id: number;
@@ -18,6 +19,7 @@ type VendorProduct = {
   description: string;
   price: string | null;
   stock_quantity: number | null;
+  low_stock: boolean;
   category: string | null;
   is_published: boolean;
   images: { id: number; url: string; position: number }[];
@@ -152,7 +154,15 @@ export default function VendorProductsPage() {
                     Shop: {product.shop.name} ({product.shop.status})
                   </p>
                   <p className="mt-1 text-sm text-text-muted">
-                    Price: {product.price ?? "—"} &middot; Stock: {product.stock_quantity ?? "—"}{" "}
+                    Price: {product.price ?? "—"} &middot; Stock:{" "}
+                    <span
+                      className={cn(
+                        product.stock_quantity === 0 && "font-medium text-status-cancelled",
+                        product.low_stock && "font-medium text-status-pending",
+                      )}
+                    >
+                      {product.stock_quantity ?? "—"}
+                    </span>{" "}
                     &middot; Category: {product.category ?? "—"}
                   </p>
                   <div className="mt-2">

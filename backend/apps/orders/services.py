@@ -7,6 +7,7 @@ import secrets
 import uuid
 from decimal import Decimal
 
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
@@ -276,9 +277,31 @@ def _create_order(*, cart, guest_email, shipping_data, status, cart_items, legs,
             commission_amount=commission,
             vendor_earning=vendor_earning,
         )
+        stock_before = item.product.stock_quantity
         item.product.stock_quantity -= item.quantity
         item.product.save(update_fields=["stock_quantity"])
+        _notify_if_low_stock(item.product, stock_before)
     return order
+
+
+def _notify_if_low_stock(product, stock_before):
+    """Emails the vendor once, when this sale takes the product down across
+    `LOW_STOCK_THRESHOLD` (or to zero) — not on every later sale of an already-low product."""
+
+    stock_after = product.stock_quantity
+    crossed_low = stock_before > settings.LOW_STOCK_THRESHOLD >= stock_after
+    sold_out = stock_before > 0 and stock_after == 0
+    if crossed_low or sold_out:
+        transaction.on_commit(lambda: send_low_stock_alert(product))
+
+
+def send_low_stock_alert(product):
+    """Best-effort, like `send_order_confirmation`: the order is already committed."""
+
+    try:
+        get_email_service().send_low_stock_email(product)
+    except Exception:
+        logger.exception("Failed to send low-stock alert for product_id=%s", product.id)
 
 
 def place_order(**kwargs):
