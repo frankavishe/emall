@@ -32,7 +32,15 @@ export function ProductCard({ product }: { product: CatalogProduct }) {
           {product.shop_name}
         </p>
         <p className="text-sm font-medium text-text-primary">{formatCurrency(product.price)}</p>
-        <p className="text-sm text-text-muted">{product.in_stock ? "In stock" : "Out of stock"}</p>
+        {!product.in_stock ? (
+          <p className="text-sm font-medium text-status-cancelled">Out of stock</p>
+        ) : product.low_stock ? (
+          <p className="text-sm font-medium text-status-pending">
+            Only {product.stock_quantity} left
+          </p>
+        ) : (
+          <p className="text-sm text-text-muted">{product.stock_quantity} in stock</p>
+        )}
         <StarRating rating={product.average_rating} reviewCount={product.review_count} />
       </Link>
     </Card>

@@ -286,6 +286,8 @@ export type CatalogProduct = {
   price: string;
   category: string | null;
   in_stock: boolean;
+  stock_quantity: number;
+  low_stock: boolean;
   shop_name: string;
   shop_logo_url: string | null;
   thumbnail_url: string | null;

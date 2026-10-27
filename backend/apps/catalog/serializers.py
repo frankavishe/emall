@@ -322,12 +322,14 @@ class CatalogShopListSerializer(CatalogShopProfileSerializer):
 
 
 class CatalogProductListSerializer(ReviewAggregateMixin, serializers.ModelSerializer):
-    """Public list shape (contracts/catalog-api.md) — never exposes the raw `stock_quantity`,
-    only the derived `in_stock` boolean (FR-011). Carries the aggregate rating (FR-006) but not
+    """Public list shape (contracts/catalog-api.md). Shows the `stock_quantity` count on the card
+    alongside the derived `in_stock` and `low_stock` flags. Carries the aggregate rating (FR-006) but not
     the full `reviews` list, which is detail-only (contracts/feedback-api.md)."""
 
     category = serializers.SlugRelatedField(slug_field="slug", read_only=True)
     in_stock = serializers.SerializerMethodField()
+    stock_quantity = serializers.SerializerMethodField()
+    low_stock = serializers.BooleanField(source="is_low_stock", read_only=True)
     shop_name = serializers.CharField(source="shop.name", read_only=True)
     shop_logo_url = serializers.SerializerMethodField()
     thumbnail_url = serializers.SerializerMethodField()
@@ -342,6 +344,8 @@ class CatalogProductListSerializer(ReviewAggregateMixin, serializers.ModelSerial
             "price",
             "category",
             "in_stock",
+            "stock_quantity",
+            "low_stock",
             "shop_name",
             "shop_logo_url",
             "thumbnail_url",
@@ -352,6 +356,9 @@ class CatalogProductListSerializer(ReviewAggregateMixin, serializers.ModelSerial
 
     def get_in_stock(self, obj):
         return bool(obj.stock_quantity)
+
+    def get_stock_quantity(self, obj):
+        return obj.stock_quantity or 0
 
     def get_shop_logo_url(self, obj):
         return shop_logo_url(obj.shop, self.context.get("request"))
@@ -411,6 +418,7 @@ class VendorProductListSerializer(serializers.ModelSerializer):
     shop = ShopBriefSerializer(read_only=True)
     category = serializers.SlugRelatedField(slug_field="slug", read_only=True)
     images = ProductImageReadSerializer(many=True, read_only=True)
+    low_stock = serializers.BooleanField(source="is_low_stock", read_only=True)
 
     class Meta:
         model = Product
@@ -421,6 +429,7 @@ class VendorProductListSerializer(serializers.ModelSerializer):
             "description",
             "price",
             "stock_quantity",
+            "low_stock",
             "category",
             "is_published",
             "images",
