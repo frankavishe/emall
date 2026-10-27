@@ -22,6 +22,7 @@ from apps.vendors.serializers import (
     ShopDescriptionSerializer,
     ShopLocationSerializer,
     ShopLogoSerializer,
+    ShopNameSerializer,
     ShopSerializer,
     ShopThemeSerializer,
 )
@@ -104,6 +105,21 @@ class VendorShopDescriptionView(APIView):
     def patch(self, request, shop_id):
         shop = get_object_or_404(Shop, pk=shop_id, owner=request.user)
         serializer = ShopDescriptionSerializer(shop, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        fields = changed_fields(shop, serializer.validated_data)
+        serializer.save()
+        _record_profile_update(request, shop, fields)
+        return Response(ShopSerializer(shop, context={"request": request}).data)
+
+
+class VendorShopNameView(APIView):
+    """Rename (PATCH) a shop. Ownership only, any approval status, no re-approval."""
+
+    permission_classes = [IsCustomer]
+
+    def patch(self, request, shop_id):
+        shop = get_object_or_404(Shop, pk=shop_id, owner=request.user)
+        serializer = ShopNameSerializer(shop, data=request.data)
         serializer.is_valid(raise_exception=True)
         fields = changed_fields(shop, serializer.validated_data)
         serializer.save()

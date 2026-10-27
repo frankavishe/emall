@@ -109,6 +109,21 @@ class ShopThemeSerializer(serializers.ModelSerializer):
         return value.lower()
 
 
+class ShopNameSerializer(serializers.ModelSerializer):
+    """Rename a shop. Trimmed; unique across shops, ignoring case and the shop itself."""
+
+    name = serializers.CharField(max_length=255, trim_whitespace=True)
+
+    class Meta:
+        model = Shop
+        fields = ["name"]
+
+    def validate_name(self, value):
+        if Shop.objects.filter(name__iexact=value).exclude(pk=self.instance.pk).exists():
+            raise serializers.ValidationError("A shop with this name already exists.")
+        return value
+
+
 MAX_SHOP_DESCRIPTION_LENGTH = 1000
 
 

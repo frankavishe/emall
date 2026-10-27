@@ -675,6 +675,14 @@ export async function updateShopTheme(
   });
 }
 
+/** `PATCH /api/vendor/shops/:id/name` — must not be taken by another shop. */
+export async function updateShopName(shopId: string, name: string): Promise<void> {
+  await apiFetch(`/api/vendor/shops/${shopId}/name`, {
+    method: "PATCH",
+    body: JSON.stringify({ name }),
+  });
+}
+
 /** Longest storefront description the API accepts. */
 export const MAX_SHOP_DESCRIPTION_LENGTH = 1000;
 
