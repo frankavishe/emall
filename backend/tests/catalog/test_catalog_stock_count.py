@@ -11,7 +11,9 @@ pytestmark = pytest.mark.django_db
 )
 def test_list_shows_stock_count_and_low_stock_flag(api_client, settings, stock, low_stock):
     settings.LOW_STOCK_THRESHOLD = 5
-    product = ProductFactory(shop=ShopFactory(status=Shop.Status.APPROVED), is_published=True, stock_quantity=stock)
+    product = ProductFactory(
+        shop=ShopFactory(status=Shop.Status.APPROVED), is_published=True, stock_quantity=stock
+    )
 
     response = api_client.get("/api/catalog/products")
 

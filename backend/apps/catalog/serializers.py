@@ -323,8 +323,8 @@ class CatalogShopListSerializer(CatalogShopProfileSerializer):
 
 class CatalogProductListSerializer(ReviewAggregateMixin, serializers.ModelSerializer):
     """Public list shape (contracts/catalog-api.md). Shows the `stock_quantity` count on the card
-    alongside the derived `in_stock` and `low_stock` flags. Carries the aggregate rating (FR-006) but not
-    the full `reviews` list, which is detail-only (contracts/feedback-api.md)."""
+    alongside the derived `in_stock` and `low_stock` flags. Carries the aggregate rating (FR-006)
+    but not the full `reviews` list, which is detail-only (contracts/feedback-api.md)."""
 
     category = serializers.SlugRelatedField(slug_field="slug", read_only=True)
     in_stock = serializers.SerializerMethodField()

@@ -35,7 +35,9 @@ def test_sale_crossing_threshold_emails_the_vendor_once(
     api_client, customer, django_capture_on_commit_callbacks, settings
 ):
     settings.LOW_STOCK_THRESHOLD = 5
-    product = ProductFactory(shop=ShopFactory(status=Shop.Status.APPROVED), is_published=True, stock_quantity=6)
+    product = ProductFactory(
+        shop=ShopFactory(status=Shop.Status.APPROVED), is_published=True, stock_quantity=6
+    )
 
     with django_capture_on_commit_callbacks(execute=True):
         response = _checkout(api_client, product, 1)
@@ -52,7 +54,9 @@ def test_sale_of_already_low_product_sends_no_email(
     api_client, customer, django_capture_on_commit_callbacks, settings
 ):
     settings.LOW_STOCK_THRESHOLD = 5
-    product = ProductFactory(shop=ShopFactory(status=Shop.Status.APPROVED), is_published=True, stock_quantity=5)
+    product = ProductFactory(
+        shop=ShopFactory(status=Shop.Status.APPROVED), is_published=True, stock_quantity=5
+    )
 
     with django_capture_on_commit_callbacks(execute=True):
         _checkout(api_client, product, 1)
@@ -64,7 +68,9 @@ def test_selling_out_sends_out_of_stock_email(
     api_client, customer, django_capture_on_commit_callbacks, settings
 ):
     settings.LOW_STOCK_THRESHOLD = 5
-    product = ProductFactory(shop=ShopFactory(status=Shop.Status.APPROVED), is_published=True, stock_quantity=3)
+    product = ProductFactory(
+        shop=ShopFactory(status=Shop.Status.APPROVED), is_published=True, stock_quantity=3
+    )
 
     with django_capture_on_commit_callbacks(execute=True):
         _checkout(api_client, product, 3)
@@ -78,7 +84,9 @@ def test_email_failure_does_not_fail_checkout(
     api_client, customer, django_capture_on_commit_callbacks, settings
 ):
     settings.LOW_STOCK_THRESHOLD = 5
-    product = ProductFactory(shop=ShopFactory(status=Shop.Status.APPROVED), is_published=True, stock_quantity=6)
+    product = ProductFactory(
+        shop=ShopFactory(status=Shop.Status.APPROVED), is_published=True, stock_quantity=6
+    )
 
     with mock.patch(
         "apps.core.email.DjangoEmailService.send_low_stock_email", side_effect=RuntimeError
