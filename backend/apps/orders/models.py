@@ -3,6 +3,11 @@ from decimal import Decimal
 from django.conf import settings
 from django.db import models
 
+# MangiMall delivers only within Dar es Salaam for now (checkout no longer asks for these).
+DEFAULT_CITY = "Dar es Salaam"
+DEFAULT_REGION = "Dar es Salaam"
+DEFAULT_COUNTRY = "Tanzania"
+
 
 class Order(models.Model):
     """Created only by `orders.services.place_order()` inside the atomic checkout transaction
@@ -37,10 +42,10 @@ class Order(models.Model):
     )
     recipient_name = models.CharField(max_length=255)
     address_line = models.CharField(max_length=255)
-    city = models.CharField(max_length=255)
-    region = models.CharField(max_length=255)
-    postal_code = models.CharField(max_length=32)
-    country = models.CharField(max_length=255)
+    city = models.CharField(max_length=255, default=DEFAULT_CITY)
+    region = models.CharField(max_length=255, default=DEFAULT_REGION)
+    postal_code = models.CharField(max_length=32, blank=True, default="")
+    country = models.CharField(max_length=255, default=DEFAULT_COUNTRY)
     phone = models.CharField(max_length=32)
     # Delivery pin and fee (007-delivery-fee). Null/zero only on orders placed before delivery
     # pricing existed; `place_order()` always sets them.

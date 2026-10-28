@@ -169,11 +169,16 @@ export async function apiFetchBlob(path: string, _isRetry = false): Promise<Blob
 export type ShippingAddress = {
   recipient_name: string;
   address_line: string;
+  phone: string;
+};
+
+/** The rest of an order's address as the API returns it. Checkout no longer sends these: the
+ * server defaults them to Dar es Salaam, Tanzania. */
+type ShippingLocality = {
   city: string;
   region: string;
   postal_code: string;
   country: string;
-  phone: string;
 };
 
 /** A map pin, in decimal degrees. */
@@ -181,7 +186,8 @@ export type LatLng = { latitude: number; longitude: number };
 
 /** An order's delivery address as returned by the API. The pin is null only on orders placed
  * before delivery pricing existed (007-delivery-fee). */
-export type ShippingDetails = ShippingAddress & {
+export type ShippingDetails = ShippingAddress &
+  ShippingLocality & {
   latitude: string | null;
   longitude: string | null;
 };

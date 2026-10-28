@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Pill, statusToTone } from "@/components/ui/pill";
 import { ErrorText, LoadingText, EmptyText } from "@/components/ui/status-text";
 import { formatCurrency } from "@/lib/currency";
+import { formatLocality } from "@/lib/geo";
 
 // Mirrors backend/apps/orders/services.py's _VALID_TRANSITIONS — server-validated regardless,
 // this only constrains which buttons are offered (plan.md T016).
@@ -151,9 +152,7 @@ export default function VendorOrdersPage() {
                     <div className="mt-2 text-sm text-text-muted">
                       <p>{item.shipping.recipient_name}</p>
                       <p>{item.shipping.address_line}</p>
-                      <p>
-                        {item.shipping.city}, {item.shipping.region} {item.shipping.postal_code}
-                      </p>
+                      <p>{formatLocality(item.shipping)}</p>
                       <p>{item.shipping.country}</p>
                       <p>{item.shipping.phone}</p>
                     </div>

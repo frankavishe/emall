@@ -13,6 +13,7 @@ import { Card } from "@/components/ui/card";
 import { Pill, statusToTone } from "@/components/ui/pill";
 import { ErrorText, LoadingText } from "@/components/ui/status-text";
 import { formatCurrency } from "@/lib/currency";
+import { formatLocality } from "@/lib/geo";
 import { DeliverySummary } from "@/components/delivery-summary";
 import { MapLink } from "@/components/map-link";
 import { useRealtime, type RealtimeWatch } from "@/lib/realtime";
@@ -137,9 +138,7 @@ export function OrderDetailScreen({
             <h2 className="text-sm font-semibold text-text-muted">Delivery address</h2>
             <p className="mt-2 text-sm text-text-primary">{order.shipping.recipient_name}</p>
             <p className="text-sm text-text-primary">{order.shipping.address_line}</p>
-            <p className="text-sm text-text-primary">
-              {order.shipping.city}, {order.shipping.region} {order.shipping.postal_code}
-            </p>
+            <p className="text-sm text-text-primary">{formatLocality(order.shipping)}</p>
             <p className="text-sm text-text-primary">{order.shipping.country}</p>
             <p className="text-sm text-text-primary">{order.shipping.phone}</p>
             <MapLink

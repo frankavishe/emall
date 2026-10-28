@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { formatLatLng, mapsUrl, requestCurrentPosition, toLatLng } from "./geo";
+import {
+  formatLatLng,
+  formatLocality,
+  mapsUrl,
+  requestCurrentPosition,
+  searchPlaces,
+  toLatLng,
+} from "./geo";
 
 function stubGeolocation(getCurrentPosition: Geolocation["getCurrentPosition"] | undefined) {
   vi.stubGlobal("navigator", {
@@ -65,5 +72,49 @@ describe("requestCurrentPosition", () => {
     stubGeolocation(undefined);
 
     await expect(requestCurrentPosition()).rejects.toThrow(/drop the pin/i);
+  });
+});
+
+describe("searchPlaces", () => {
+  it("queries within Dar es Salaam and maps results to labelled pins", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        features: [
+          {
+            geometry: { coordinates: [39.2735, -6.8162] },
+            properties: { name: "Kariakoo Market", district: "Kariakoo", city: "Dar es Salaam" },
+          },
+          { geometry: { coordinates: [39.2, -6.8] }, properties: {} },
+        ],
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const places = await searchPlaces("Kariakoo");
+
+    expect(fetchMock.mock.calls[0][0]).toContain("bbox=38.95%2C-7.25%2C39.65%2C-6.55");
+    expect(places).toEqual([
+      {
+        label: "Kariakoo Market, Kariakoo, Dar es Salaam",
+        pin: { latitude: -6.8162, longitude: 39.2735 },
+      },
+    ]);
+  });
+
+  it("throws when the geocoder is down", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false }));
+    await expect(searchPlaces("Kariakoo")).rejects.toThrow();
+  });
+});
+
+describe("formatLocality", () => {
+  it("doesn't repeat a region equal to the city or show a blank postcode", () => {
+    expect(
+      formatLocality({ city: "Dar es Salaam", region: "Dar es Salaam", postal_code: "" }),
+    ).toBe("Dar es Salaam");
+    expect(formatLocality({ city: "Accra", region: "Greater Accra", postal_code: "GA-1" })).toBe(
+      "Accra, Greater Accra GA-1",
+    );
   });
 });

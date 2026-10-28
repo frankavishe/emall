@@ -3,7 +3,15 @@ from decimal import Decimal
 from rest_framework import serializers
 
 from apps.catalog.models import Product
-from apps.orders.models import Order, OrderDelivery, OrderItem, OrderItemStatusEvent
+from apps.orders.models import (
+    DEFAULT_CITY,
+    DEFAULT_COUNTRY,
+    DEFAULT_REGION,
+    Order,
+    OrderDelivery,
+    OrderItem,
+    OrderItemStatusEvent,
+)
 from apps.payments.models import PaymentRecord
 from apps.payments.services import (
     LIPA_NAMBA_METHOD,
@@ -36,10 +44,12 @@ class DeliveryPinSerializer(serializers.Serializer):
 class ShippingSerializer(DeliveryPinSerializer):
     recipient_name = serializers.CharField()
     address_line = serializers.CharField()
-    city = serializers.CharField()
-    region = serializers.CharField()
-    postal_code = serializers.CharField()
-    country = serializers.CharField()
+    # MangiMall delivers only within Dar es Salaam for now, so checkout no longer asks for these;
+    # the delivery pin locates the customer. Still accepted if a client sends them.
+    city = serializers.CharField(required=False, default=DEFAULT_CITY)
+    region = serializers.CharField(required=False, default=DEFAULT_REGION)
+    postal_code = serializers.CharField(required=False, allow_blank=True, default="")
+    country = serializers.CharField(required=False, default=DEFAULT_COUNTRY)
     phone = serializers.CharField()
 
 
