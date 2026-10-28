@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { FormField, inputClassName } from "@/components/ui/form-field";
 import { ErrorText } from "@/components/ui/status-text";
 import { LocationPicker } from "@/components/location-picker";
+import { PlaceSearch } from "@/components/place-search";
 import { errorMessage, type LatLng, type ShopLocation } from "@/lib/api-client";
-import { sameLatLng, toLatLng } from "@/lib/geo";
+import { reverseGeocode, sameLatLng, toLatLng, type Place } from "@/lib/geo";
 
 /** Edit a shop's pickup location: the pin delivery fees are measured from, plus a typed address
  * for riders. Used by the shop owner (account page) and by Administrators (shop detail). */
@@ -30,6 +30,35 @@ export function ShopLocationEditor({
   const [error, setError] = useState<string | null>(null);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  // Whether the owner typed the address this session; if not, a pin dropped on the map (or
+  // found by GPS) fills it in with the place's name, replacing any previously saved text.
+  const addressTypedRef = useRef(false);
+  const reverseRef = useRef<AbortController | null>(null);
+
+  useEffect(() => () => reverseRef.current?.abort(), []);
+
+  /** A pin from tapping/dragging the map or "Use my location". */
+  function changePinFromMap(next: LatLng) {
+    setPin(next);
+    reverseRef.current?.abort();
+    if (addressTypedRef.current) return;
+    const controller = new AbortController();
+    reverseRef.current = controller;
+    reverseGeocode(next, controller.signal)
+      .then((label) => {
+        if (label && !controller.signal.aborted && !addressTypedRef.current) {
+          setAddressText(label);
+        }
+      })
+      .catch(() => {});
+  }
+
+  function selectPlace(place: Place) {
+    reverseRef.current?.abort();
+    addressTypedRef.current = false;
+    setAddressText(place.label);
+    setPin(place.pin);
+  }
 
   const isDirty =
     addressText.trim() !== (address ?? "") ||
@@ -61,17 +90,16 @@ export function ShopLocationEditor({
           until you do, because the delivery fee is measured from here.
         </div>
       )}
-      <FormField label="Pickup address">
-        <input
-          type="text"
-          value={addressText}
-          onChange={(e) => setAddressText(e.target.value)}
-          placeholder="e.g. Shop 14, Kariakoo Market, Dar es Salaam"
-          className={inputClassName}
-          maxLength={255}
-        />
-      </FormField>
-      <LocationPicker value={pin} onChange={setPin} label="Pickup location" />
+      <PlaceSearch
+        label="Pickup address"
+        value={addressText}
+        onChange={(text) => {
+          addressTypedRef.current = text.trim() !== "";
+          setAddressText(text);
+        }}
+        onSelect={selectPlace}
+      />
+      <LocationPicker value={pin} onChange={changePinFromMap} label="Pickup location" />
       {error && <ErrorText>{error}</ErrorText>}
       {savedMessage && !isDirty && <p className="text-sm text-text-muted">{savedMessage}</p>}
       <div>
