@@ -4,9 +4,22 @@ import {
   formatLocality,
   mapsUrl,
   requestCurrentPosition,
+  sameLatLng,
   searchPlaces,
   toLatLng,
 } from "./geo";
+
+describe("sameLatLng", () => {
+  it("treats pins equal at the 6 decimals the API stores as the same spot", () => {
+    const saved = { latitude: -6.818252, longitude: 39.288613 };
+    expect(sameLatLng({ latitude: -6.8182523456, longitude: 39.2886129876 }, saved)).toBe(true);
+  });
+
+  it("tells pins apart at the 6th decimal", () => {
+    const saved = { latitude: -6.818252, longitude: 39.288613 };
+    expect(sameLatLng({ latitude: -6.818262, longitude: 39.288613 }, saved)).toBe(false);
+  });
+});
 
 function stubGeolocation(getCurrentPosition: Geolocation["getCurrentPosition"] | undefined) {
   vi.stubGlobal("navigator", {

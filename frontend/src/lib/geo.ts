@@ -15,6 +15,14 @@ export function toLatLng(
   return Number.isFinite(lat) && Number.isFinite(lng) ? { latitude: lat, longitude: lng } : null;
 }
 
+/** Whether two pins are the same spot at the 6-decimal precision the API stores. */
+export function sameLatLng(a: LatLng, b: LatLng): boolean {
+  return (
+    a.latitude.toFixed(6) === b.latitude.toFixed(6) &&
+    a.longitude.toFixed(6) === b.longitude.toFixed(6)
+  );
+}
+
 /** A link that opens the spot in the device's maps app (or Google Maps on the web). */
 export function mapsUrl(pin: LatLng): string {
   return `https://www.google.com/maps/search/?api=1&query=${pin.latitude},${pin.longitude}`;

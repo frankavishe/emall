@@ -6,7 +6,7 @@ import { FormField, inputClassName } from "@/components/ui/form-field";
 import { ErrorText } from "@/components/ui/status-text";
 import { LocationPicker } from "@/components/location-picker";
 import { errorMessage, type LatLng, type ShopLocation } from "@/lib/api-client";
-import { toLatLng } from "@/lib/geo";
+import { sameLatLng, toLatLng } from "@/lib/geo";
 
 /** Edit a shop's pickup location: the pin delivery fees are measured from, plus a typed address
  * for riders. Used by the shop owner (account page) and by Administrators (shop detail). */
@@ -33,8 +33,7 @@ export function ShopLocationEditor({
 
   const isDirty =
     addressText.trim() !== (address ?? "") ||
-    (pin !== null &&
-      (saved === null || pin.latitude !== saved.latitude || pin.longitude !== saved.longitude));
+    (pin !== null && (saved === null || !sameLatLng(pin, saved)));
 
   async function save() {
     if (!pin) return;
