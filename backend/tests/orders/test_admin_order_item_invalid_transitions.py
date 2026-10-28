@@ -40,17 +40,18 @@ def _place_order_line(api_client, customer, vendor, quantity=1):
 
     _authenticate(api_client, vendor)
     item_id = api_client.get("/api/vendor/order-items").data["results"][0]["id"]
+    _authenticate(api_client, UserFactory(role=User.Role.ADMINISTRATOR))
     return item_id
 
 
 def _advance(api_client, item_id, new_status):
     return api_client.patch(
-        f"/api/vendor/order-items/{item_id}/status", {"status": new_status}, format="json"
+        f"/api/admin/order-items/{item_id}/status", {"status": new_status}, format="json"
     )
 
 
 def _current_status(api_client, item_id):
-    results = api_client.get("/api/vendor/order-items").data["results"]
+    results = api_client.get("/api/admin/order-items").data["results"]
     return next(row for row in results if row["id"] == item_id)["status"]
 
 

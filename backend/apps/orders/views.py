@@ -4,7 +4,7 @@ from django.db import transaction
 from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404
 from rest_framework import status
-from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.exceptions import ValidationError
 from rest_framework.generics import ListAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -39,7 +39,6 @@ from apps.orders.services import (
 )
 from apps.payments.models import PaymentRecord
 from apps.payments.outcomes import expire_stale_payments
-from apps.vendors.models import Shop
 
 
 class CheckoutView(APIView):
@@ -245,7 +244,8 @@ class GuestOrderPaymentStatusView(_GuestOrderView):
 
 class VendorOrderItemListView(ListAPIView):
     """Lists only order lines whose product belongs to one of the requester's own shops, across
-    every Customer's order (FR-001, FR-004)."""
+    every Customer's order (FR-001, FR-004). Read-only: vendors see fulfillment status, while
+    administrators (and the assigned rider) change it."""
 
     permission_classes = [IsVendor]
     serializer_class = VendorOrderItemSerializer
@@ -261,50 +261,9 @@ class VendorOrderItemListView(ListAPIView):
         )
 
 
-class VendorOrderItemStatusUpdateView(APIView):
-    """Scoped to the requester's own shops at the queryset level, so another vendor's line ID
-    404s rather than 403ing (FR-004); additionally requires the owning shop to be APPROVED
-    (FR-010) before any transition is attempted."""
-
-    permission_classes = [IsVendor]
-
-    def patch(self, request, item_id):
-        order_item = get_object_or_404(
-            OrderItem.objects.select_related("product", "product__shop", "order"),
-            pk=item_id,
-            product__shop__owner=request.user,
-            order__status=Order.Status.PLACED,
-        )
-        if order_item.product.shop.status != Shop.Status.APPROVED:
-            raise PermissionDenied(
-                "Your shop must be approved to update fulfillment status."
-            )
-
-        serializer = OrderItemStatusUpdateSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        previous = order_item.status
-        try:
-            with transaction.atomic():
-                advance_order_item_status(
-                    order_item=order_item, new_status=serializer.validated_data["status"]
-                )
-                record(
-                    AuditAction.ORDER_ITEM_STATUS_CHANGED,
-                    request=request,
-                    target=order_item,
-                    target_repr=order_item_repr(order_item),
-                    metadata={"from": previous, "to": order_item.status},
-                )
-        except TransitionError as error:
-            return Response({"status": [str(error)]}, status=status.HTTP_400_BAD_REQUEST)
-
-        return Response(VendorOrderItemSerializer(order_item).data)
-
-
 class AdminOrderItemListView(ListAPIView):
-    """Read-only oversight across every shop/vendor's order lines, each with its full
-    status-change history (FR-007, FR-008, FR-009)."""
+    """Oversight across every shop/vendor's order lines, each with its full status-change
+    history (FR-007, FR-009). Lines are changed via the per-line status and rider endpoints."""
 
     permission_classes = [AdminArea("orders")]
     serializer_class = AdminOrderItemSerializer
@@ -375,16 +334,55 @@ class AdminOrderItemAssignRiderView(APIView):
         except AssignmentError as error:
             return Response({"detail": error.detail}, status=status.HTTP_400_BAD_REQUEST)
 
-        order_item = (
-            OrderItem.objects.select_related(
-                "product", "product__shop", "order", "rider__rider_profile"
-            )
-            .prefetch_related(
-                Prefetch(
-                    "status_events",
-                    queryset=OrderItemStatusEvent.objects.order_by("changed_at"),
-                )
-            )
-            .get(pk=order_item.pk)
+        return Response(AdminOrderItemSerializer(_admin_order_item(order_item.pk)).data)
+
+
+class AdminOrderItemStatusUpdateView(APIView):
+    """Moves an order line to its next fulfillment status (or cancels it). Administrators own
+    fulfillment status; vendors only see it."""
+
+    permission_classes = [AdminArea("orders")]
+
+    def patch(self, request, item_id):
+        order_item = get_object_or_404(
+            OrderItem.objects.select_related("product", "product__shop", "order"),
+            pk=item_id,
+            order__status=Order.Status.PLACED,
         )
-        return Response(AdminOrderItemSerializer(order_item).data)
+        serializer = OrderItemStatusUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        previous = order_item.status
+        try:
+            with transaction.atomic():
+                advance_order_item_status(
+                    order_item=order_item, new_status=serializer.validated_data["status"]
+                )
+                record(
+                    AuditAction.ORDER_ITEM_STATUS_CHANGED,
+                    request=request,
+                    target=order_item,
+                    target_repr=order_item_repr(order_item),
+                    metadata={"from": previous, "to": order_item.status},
+                )
+        except TransitionError as error:
+            return Response({"status": [str(error)]}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(AdminOrderItemSerializer(_admin_order_item(order_item.pk)).data)
+
+
+def _admin_order_item(pk):
+    """An order line as the admin oversight row renders it, history included."""
+
+    return (
+        OrderItem.objects.select_related(
+            "product", "product__shop", "order", "rider__rider_profile"
+        )
+        .prefetch_related(
+            Prefetch(
+                "status_events",
+                queryset=OrderItemStatusEvent.objects.order_by("changed_at"),
+            )
+        )
+        .get(pk=pk)
+    )

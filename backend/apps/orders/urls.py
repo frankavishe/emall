@@ -37,11 +37,6 @@ vendor_urlpatterns = [
         views.VendorOrderItemListView.as_view(),
         name="vendor-order-item-list",
     ),
-    path(
-        "order-items/<int:item_id>/status",
-        views.VendorOrderItemStatusUpdateView.as_view(),
-        name="vendor-order-item-status-update",
-    ),
 ]
 
 admin_urlpatterns = [
@@ -54,5 +49,10 @@ admin_urlpatterns = [
         "order-items/<int:item_id>/rider",
         views.AdminOrderItemAssignRiderView.as_view(),
         name="admin-order-item-assign-rider",
+    ),
+    path(
+        "order-items/<int:item_id>/status",
+        views.AdminOrderItemStatusUpdateView.as_view(),
+        name="admin-order-item-status-update",
     ),
 ]

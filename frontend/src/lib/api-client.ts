@@ -522,8 +522,8 @@ export async function listVendorOrderItems(
 export async function updateOrderItemStatus(
   itemId: number,
   newStatus: string,
-): Promise<VendorOrderItem> {
-  return apiFetch<VendorOrderItem>(`/api/vendor/order-items/${itemId}/status`, {
+): Promise<AdminOrderItem> {
+  return apiFetch<AdminOrderItem>(`/api/admin/order-items/${itemId}/status`, {
     method: "PATCH",
     body: JSON.stringify({ status: newStatus }),
   });

@@ -13,6 +13,7 @@ import {
   type AdminOrderItem,
   type AdminRider,
   type PaginatedResponse,
+  updateOrderItemStatus,
 } from "@/lib/api-client";
 import { PageShell } from "@/components/ui/page-shell";
 import { Card } from "@/components/ui/card";
@@ -25,6 +26,16 @@ import { formatCurrency } from "@/lib/currency";
 // Lines a rider can be assigned to (mirrors `orders.services.ASSIGNABLE_STATUSES`).
 const ASSIGNABLE_STATUSES = new Set(["PROCESSING", "SHIPPED"]);
 const RIDER_LIST_SIZE = 100;
+
+// Mirrors backend/apps/orders/services.py's _VALID_TRANSITIONS — server-validated regardless,
+// this only constrains which buttons are offered.
+const NEXT_STATUSES: Record<string, string[]> = {
+  PENDING: ["PROCESSING", "CANCELLED"],
+  PROCESSING: ["SHIPPED", "CANCELLED"],
+  SHIPPED: ["DELIVERED"],
+  DELIVERED: [],
+  CANCELLED: [],
+};
 
 function RiderAssignment({
   item,
@@ -90,6 +101,7 @@ export default function AdminOrdersPage() {
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [riders, setRiders] = useState<AdminRider[]>([]);
   const [assigningId, setAssigningId] = useState<number | null>(null);
+  const [statusPendingId, setStatusPendingId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!isLoading && (!user || !hasRole(user, "ADMINISTRATOR"))) {
@@ -154,20 +166,35 @@ export default function AdminOrdersPage() {
     };
   }, [user]);
 
+  function replaceItem(updated: AdminOrderItem) {
+    setItems((prev) =>
+      prev
+        ? { ...prev, results: prev.results.map((i) => (i.id === updated.id ? updated : i)) }
+        : prev,
+    );
+  }
+
   async function handleAssign(item: AdminOrderItem, riderId: number | null) {
     setAssigningId(item.id);
     setError(null);
     try {
-      const updated = await assignOrderItemRider(item.id, riderId);
-      setItems((prev) =>
-        prev
-          ? { ...prev, results: prev.results.map((i) => (i.id === updated.id ? updated : i)) }
-          : prev,
-      );
+      replaceItem(await assignOrderItemRider(item.id, riderId));
     } catch (err) {
       setError(errorMessage(err));
     } finally {
       setAssigningId(null);
+    }
+  }
+
+  async function handleStatus(item: AdminOrderItem, newStatus: string) {
+    setStatusPendingId(item.id);
+    setError(null);
+    try {
+      replaceItem(await updateOrderItemStatus(item.id, newStatus));
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setStatusPendingId(null);
     }
   }
 
@@ -215,13 +242,26 @@ export default function AdminOrdersPage() {
                     </div>
                   </div>
 
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setExpandedId((prev) => (prev === item.id ? null : item.id))}
-                  >
-                    {expandedId === item.id ? "Hide history" : "Show history"}
-                  </Button>
+                  <div className="flex flex-col items-end gap-2">
+                    {(NEXT_STATUSES[item.status] ?? []).map((nextStatus) => (
+                      <Button
+                        key={nextStatus}
+                        variant={nextStatus === "CANCELLED" ? "danger" : "secondary"}
+                        size="sm"
+                        disabled={statusPendingId === item.id}
+                        onClick={() => handleStatus(item, nextStatus)}
+                      >
+                        Mark {nextStatus.charAt(0) + nextStatus.slice(1).toLowerCase()}
+                      </Button>
+                    ))}
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setExpandedId((prev) => (prev === item.id ? null : item.id))}
+                    >
+                      {expandedId === item.id ? "Hide history" : "Show history"}
+                    </Button>
+                  </div>
                 </div>
 
                 {expandedId === item.id && (

@@ -47,8 +47,9 @@ def test_advancing_to_processing_sends_one_email(api_client):
 
     _authenticate(api_client, vendor)
     item_id = api_client.get("/api/vendor/order-items").data["results"][0]["id"]
+    _authenticate(api_client, UserFactory(role=User.Role.ADMINISTRATOR))
     response = api_client.patch(
-        f"/api/vendor/order-items/{item_id}/status", {"status": "PROCESSING"}, format="json"
+        f"/api/admin/order-items/{item_id}/status", {"status": "PROCESSING"}, format="json"
     )
     assert response.status_code == 200
 

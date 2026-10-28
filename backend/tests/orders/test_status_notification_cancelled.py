@@ -44,6 +44,7 @@ def _place_order_line(api_client, customer, vendor):
 
     _authenticate(api_client, vendor)
     item_id = api_client.get("/api/vendor/order-items").data["results"][0]["id"]
+    _authenticate(api_client, UserFactory(role=User.Role.ADMINISTRATOR))
     return item_id, product
 
 
@@ -53,7 +54,7 @@ def test_cancelling_from_pending_sends_cancellation_email_without_refund_languag
     item_id, product = _place_order_line(api_client, customer, vendor)
 
     response = api_client.patch(
-        f"/api/vendor/order-items/{item_id}/status", {"status": "CANCELLED"}, format="json"
+        f"/api/admin/order-items/{item_id}/status", {"status": "CANCELLED"}, format="json"
     )
     assert response.status_code == 200
 
@@ -73,10 +74,10 @@ def test_cancelling_from_processing_sends_cancellation_email(api_client):
     item_id, product = _place_order_line(api_client, customer, vendor)
 
     api_client.patch(
-        f"/api/vendor/order-items/{item_id}/status", {"status": "PROCESSING"}, format="json"
+        f"/api/admin/order-items/{item_id}/status", {"status": "PROCESSING"}, format="json"
     )
     response = api_client.patch(
-        f"/api/vendor/order-items/{item_id}/status", {"status": "CANCELLED"}, format="json"
+        f"/api/admin/order-items/{item_id}/status", {"status": "CANCELLED"}, format="json"
     )
     assert response.status_code == 200
 

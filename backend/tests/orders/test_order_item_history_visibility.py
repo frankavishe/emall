@@ -44,13 +44,13 @@ def test_status_history_only_appears_in_admin_response(api_client):
     order_item = OrderItem.objects.get(product=product)
     advance_order_item_status(order_item=order_item, new_status=OrderItem.Status.PROCESSING)
 
-    _authenticate(api_client, vendor)
-    vendor_response = api_client.patch(
-        f"/api/vendor/order-items/{order_item.id}/status", {"status": "SHIPPED"}, format="json"
+    _authenticate(api_client, admin)
+    advance_response = api_client.patch(
+        f"/api/admin/order-items/{order_item.id}/status", {"status": "SHIPPED"}, format="json"
     )
-    assert vendor_response.status_code == 200
-    assert "status_history" not in vendor_response.data
+    assert advance_response.status_code == 200
 
+    _authenticate(api_client, vendor)
     vendor_list_response = api_client.get("/api/vendor/order-items")
     assert vendor_list_response.status_code == 200
     assert all("status_history" not in row for row in vendor_list_response.data["results"])

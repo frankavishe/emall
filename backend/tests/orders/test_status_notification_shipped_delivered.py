@@ -46,6 +46,7 @@ def _place_order_line(api_client, customer, vendor, product=None):
     _authenticate(api_client, vendor)
     results = api_client.get("/api/vendor/order-items").data["results"]
     item_id = next(r["id"] for r in results if r["product"]["id"] == product.id)
+    _authenticate(api_client, UserFactory(role=User.Role.ADMINISTRATOR))
     return item_id, product
 
 
@@ -55,13 +56,13 @@ def test_shipped_and_delivered_each_send_one_correctly_addressed_email(api_clien
     item_id, product = _place_order_line(api_client, customer, vendor)
 
     response = api_client.patch(
-        f"/api/vendor/order-items/{item_id}/status", {"status": "PROCESSING"}, format="json"
+        f"/api/admin/order-items/{item_id}/status", {"status": "PROCESSING"}, format="json"
     )
     assert response.status_code == 200
     order_id = response.data["order_id"]
 
     response = api_client.patch(
-        f"/api/vendor/order-items/{item_id}/status", {"status": "SHIPPED"}, format="json"
+        f"/api/admin/order-items/{item_id}/status", {"status": "SHIPPED"}, format="json"
     )
     assert response.status_code == 200
 
@@ -73,7 +74,7 @@ def test_shipped_and_delivered_each_send_one_correctly_addressed_email(api_clien
     assert product.name in shipped_email.body
 
     response = api_client.patch(
-        f"/api/vendor/order-items/{item_id}/status", {"status": "DELIVERED"}, format="json"
+        f"/api/admin/order-items/{item_id}/status", {"status": "DELIVERED"}, format="json"
     )
     assert response.status_code == 200
 
@@ -116,11 +117,12 @@ def test_two_vendors_on_one_order_each_get_notified_only_for_their_own_item(api_
         for r in api_client.get("/api/vendor/order-items").data["results"]
         if r["product"]["id"] == product_a.id
     )
+    _authenticate(api_client, UserFactory(role=User.Role.ADMINISTRATOR))
     api_client.patch(
-        f"/api/vendor/order-items/{item_a_id}/status", {"status": "PROCESSING"}, format="json"
+        f"/api/admin/order-items/{item_a_id}/status", {"status": "PROCESSING"}, format="json"
     )
     api_client.patch(
-        f"/api/vendor/order-items/{item_a_id}/status", {"status": "SHIPPED"}, format="json"
+        f"/api/admin/order-items/{item_a_id}/status", {"status": "SHIPPED"}, format="json"
     )
 
     _authenticate(api_client, vendor_b)
@@ -129,14 +131,15 @@ def test_two_vendors_on_one_order_each_get_notified_only_for_their_own_item(api_
         for r in api_client.get("/api/vendor/order-items").data["results"]
         if r["product"]["id"] == product_b.id
     )
+    _authenticate(api_client, UserFactory(role=User.Role.ADMINISTRATOR))
     api_client.patch(
-        f"/api/vendor/order-items/{item_b_id}/status", {"status": "PROCESSING"}, format="json"
+        f"/api/admin/order-items/{item_b_id}/status", {"status": "PROCESSING"}, format="json"
     )
     api_client.patch(
-        f"/api/vendor/order-items/{item_b_id}/status", {"status": "SHIPPED"}, format="json"
+        f"/api/admin/order-items/{item_b_id}/status", {"status": "SHIPPED"}, format="json"
     )
     response = api_client.patch(
-        f"/api/vendor/order-items/{item_b_id}/status", {"status": "DELIVERED"}, format="json"
+        f"/api/admin/order-items/{item_b_id}/status", {"status": "DELIVERED"}, format="json"
     )
     assert response.status_code == 200
 
