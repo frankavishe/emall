@@ -188,9 +188,9 @@ export type LatLng = { latitude: number; longitude: number };
  * before delivery pricing existed (007-delivery-fee). */
 export type ShippingDetails = ShippingAddress &
   ShippingLocality & {
-  latitude: string | null;
-  longitude: string | null;
-};
+    latitude: string | null;
+    longitude: string | null;
+  };
 
 /** One shop's delivery leg: the distance from the shop to the pin and the fee for it. */
 export type DeliveryLeg = {
