@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/error-state";
 
 export const metadata: Metadata = {
-  title: "Access denied · E-Mall",
+  title: "Access denied · MangiMall",
 };
 
 export default function ForbiddenPage() {

@@ -37,14 +37,14 @@ export default function GlobalError({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <head>
-        <title>Something went wrong · E-Mall</title>
+        <title>Something went wrong · MangiMall</title>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body className="flex min-h-full flex-col bg-canvas">
         <ErrorState
           code="500"
           title="Something went wrong"
-          description="We couldn't load E-Mall right now. Please try again in a moment."
+          description="We couldn't load MangiMall right now. Please try again in a moment."
           actions={
             <>
               <Button onClick={() => retry()}>Try again</Button>

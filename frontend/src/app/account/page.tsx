@@ -155,7 +155,7 @@ export default function AccountPage() {
         hasRole(user, "CUSTOMER") && (
           <Card className="flex flex-col gap-3">
             <div className="flex flex-col gap-1">
-              <h2 className="text-lg font-semibold text-text-primary">Sell on E-Mall</h2>
+              <h2 className="text-lg font-semibold text-text-primary">Sell on MangiMall</h2>
               <p className="text-sm text-text-muted">
                 Open a shop on this same account — you&apos;ll keep shopping as a customer too. New
                 shops are reviewed by an administrator before you can sell.

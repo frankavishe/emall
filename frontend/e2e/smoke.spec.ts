@@ -5,7 +5,7 @@ import { test, expect } from "@playwright/test";
 // the E2E suite grows.
 test("homepage loads and guest nav reaches the product catalog", async ({ page }) => {
   await page.goto("/");
-  await expect(page).toHaveTitle(/E-Mall/);
+  await expect(page).toHaveTitle(/MangiMall/);
 
   await page.getByRole("link", { name: "Products", exact: true }).click();
   await expect(page).toHaveURL(/\/products$/);

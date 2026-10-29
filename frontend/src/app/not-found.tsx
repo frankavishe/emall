@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ErrorState } from "@/components/ui/error-state";
 
 export const metadata: Metadata = {
-  title: "Page not found · E-Mall",
+  title: "Page not found · MangiMall",
 };
 
 export default function NotFound() {
