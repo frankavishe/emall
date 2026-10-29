@@ -52,6 +52,8 @@ export function LocationPicker({
       const map = L.map(containerRef.current, {
         center: [start.latitude, start.longitude],
         zoom: initial ? 16 : 12,
+        // Always embedded in a scrolling page: the wheel scrolls the page, +/− and pinch zoom.
+        scrollWheelZoom: false,
       });
       L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19,

@@ -85,15 +85,16 @@ def test_vendor_publishes_product(api_client):
     assert event.target_repr == product.name
 
 
-def test_vendor_order_item_status_change(api_client):
+def test_admin_order_item_status_change(api_client):
     item = OrderItemFactory(status=OrderItem.Status.PROCESSING)
-    api_client.force_authenticate(item.product.shop.owner)
+    api_client.force_authenticate(UserFactory(role=User.Role.ADMINISTRATOR))
 
     api_client.patch(
-        f"/api/vendor/order-items/{item.id}/status", {"status": "SHIPPED"}, format="json"
+        f"/api/admin/order-items/{item.id}/status", {"status": "SHIPPED"}, format="json"
     )
 
     event = _event(AuditAction.ORDER_ITEM_STATUS_CHANGED)
+    assert event.actor_role == "ADMINISTRATOR"
     assert event.metadata == {"from": "PROCESSING", "to": "SHIPPED"}
     assert event.target_repr == f"Order #{item.order_id} · {item.product.name}"
 

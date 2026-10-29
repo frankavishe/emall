@@ -45,9 +45,10 @@ def test_cancelling_a_line_restores_exact_quantity_to_stock(api_client):
 
     _authenticate(api_client, vendor)
     item_id = api_client.get("/api/vendor/order-items").data["results"][0]["id"]
+    _authenticate(api_client, UserFactory(role=User.Role.ADMINISTRATOR))
 
     response = api_client.patch(
-        f"/api/vendor/order-items/{item_id}/status", {"status": "CANCELLED"}, format="json"
+        f"/api/admin/order-items/{item_id}/status", {"status": "CANCELLED"}, format="json"
     )
 
     assert response.status_code == 200
@@ -84,16 +85,17 @@ def test_concurrent_cancellations_of_different_lines_for_same_product_both_resto
     ]
     assert len(item_ids) == 2
 
+    admin = UserFactory(role=User.Role.ADMINISTRATOR)
     results = {}
     barrier = threading.Barrier(2)
 
     def cancel(name, item_id):
         client = APIClient()
-        _authenticate(client, vendor)
+        _authenticate(client, admin)
         barrier.wait()
         try:
             response = client.patch(
-                f"/api/vendor/order-items/{item_id}/status",
+                f"/api/admin/order-items/{item_id}/status",
                 {"status": "CANCELLED"},
                 format="json",
             )

@@ -15,6 +15,14 @@ export function toLatLng(
   return Number.isFinite(lat) && Number.isFinite(lng) ? { latitude: lat, longitude: lng } : null;
 }
 
+/** Whether two pins are the same spot at the 6-decimal precision the API stores. */
+export function sameLatLng(a: LatLng, b: LatLng): boolean {
+  return (
+    a.latitude.toFixed(6) === b.latitude.toFixed(6) &&
+    a.longitude.toFixed(6) === b.longitude.toFixed(6)
+  );
+}
+
 /** A link that opens the spot in the device's maps app (or Google Maps on the web). */
 export function mapsUrl(pin: LatLng): string {
   return `https://www.google.com/maps/search/?api=1&query=${pin.latitude},${pin.longitude}`;
@@ -45,4 +53,80 @@ export function requestCurrentPosition(timeoutMs = 15000): Promise<LatLng> {
       { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 60000 },
     );
   });
+}
+
+/** Checkout only delivers within Dar es Salaam for now; place search is limited to this box
+ * (west, south, east, north). */
+export const DAR_ES_SALAAM_BBOX = [38.95, -7.25, 39.65, -6.55] as const;
+
+// Photon: a free OpenStreetMap geocoder (no API key) built for search-as-you-type, which
+// Nominatim's usage policy forbids.
+const PHOTON_URL = "https://photon.komoot.io";
+
+export type Place = { label: string; pin: LatLng };
+
+type PhotonFeature = {
+  geometry: { coordinates: [number, number] };
+  properties: Record<string, string | undefined>;
+};
+
+/** A short, readable label for a geocoder result, e.g. "Kariakoo Market, Kariakoo, Ilala". */
+function placeLabel(properties: PhotonFeature["properties"]): string {
+  const street = [properties.housenumber, properties.street].filter(Boolean).join(" ");
+  const parts = [
+    properties.name,
+    street,
+    properties.locality,
+    properties.district,
+    properties.city ?? properties.county,
+  ].filter((part): part is string => !!part);
+  return [...new Set(parts)].join(", ");
+}
+
+function toPlaces(body: { features?: PhotonFeature[] }): Place[] {
+  return (body.features ?? [])
+    .map((feature) => ({
+      label: placeLabel(feature.properties),
+      pin: {
+        latitude: feature.geometry.coordinates[1],
+        longitude: feature.geometry.coordinates[0],
+      },
+    }))
+    .filter((place) => place.label);
+}
+
+/** Places in Dar es Salaam matching what the customer typed. */
+export async function searchPlaces(query: string, signal?: AbortSignal): Promise<Place[]> {
+  const params = new URLSearchParams({
+    q: query,
+    bbox: DAR_ES_SALAAM_BBOX.join(","),
+    limit: "5",
+    lang: "en",
+  });
+  const response = await fetch(`${PHOTON_URL}/api/?${params}`, { signal });
+  if (!response.ok) throw new Error("Place search is unavailable right now.");
+  return toPlaces(await response.json());
+}
+
+/** A readable address for a pin, or null if the geocoder knows nothing there. */
+export async function reverseGeocode(pin: LatLng, signal?: AbortSignal): Promise<string | null> {
+  const params = new URLSearchParams({
+    lat: String(pin.latitude),
+    lon: String(pin.longitude),
+    lang: "en",
+  });
+  const response = await fetch(`${PHOTON_URL}/reverse?${params}`, { signal });
+  if (!response.ok) return null;
+  return toPlaces(await response.json())[0]?.label ?? null;
+}
+
+/** "City, Region Postcode" for an order's address, without repeating a region that matches
+ * the city (Dar es Salaam is both) or a trailing blank postcode. */
+export function formatLocality(address: {
+  city: string;
+  region: string;
+  postal_code: string;
+}): string {
+  const area = [...new Set([address.city, address.region].filter(Boolean))].join(", ");
+  return [area, address.postal_code].filter(Boolean).join(" ");
 }

@@ -24,19 +24,44 @@ def test_checkout_rejects_missing_shipping_field(api_client):
     shipping = {
         "recipient_name": "Ama Owusu",
         "address_line": "12 Ring Road",
-        "city": "Accra",
-        "region": "Greater Accra",
-        "country": "Ghana",
-        "phone": "+233201234567",
-    }  # postal_code omitted
+        "latitude": -6.7924,
+        "longitude": 39.2083,
+    }  # phone omitted
 
     response = api_client.post(
         "/api/checkout", {"shipping": shipping, "payment_method": "card"}, format="json"
     )
 
     assert response.status_code == 400
-    assert "postal_code" in response.data["shipping"]
+    assert "phone" in response.data["shipping"]
     assert Order.objects.count() == 0
+
+
+def test_checkout_defaults_address_to_dar_es_salaam(api_client):
+    customer = UserFactory(role=User.Role.CUSTOMER)
+    product = ProductFactory(is_published=True, price="9.99", stock_quantity=5)
+    _authenticate(api_client, customer)
+    api_client.post(
+        "/api/cart/items", {"product_id": product.id, "quantity": 1}, format="json"
+    )
+    shipping = {
+        "recipient_name": "Ama Owusu",
+        "address_line": "Kariakoo, Ilala",
+        "phone": "+255712345678",
+        "latitude": -6.7924,
+        "longitude": 39.2083,
+    }  # city, region, postal_code and country omitted
+
+    response = api_client.post(
+        "/api/checkout", {"shipping": shipping, "payment_method": "card"}, format="json"
+    )
+
+    assert response.status_code == 201, response.data
+    order = Order.objects.get()
+    assert order.city == "Dar es Salaam"
+    assert order.region == "Dar es Salaam"
+    assert order.postal_code == ""
+    assert order.country == "Tanzania"
 
 
 def test_checkout_rejects_blank_shipping_field(api_client):

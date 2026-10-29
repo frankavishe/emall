@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { hasRole, useAuth } from "@/lib/auth-context";
@@ -19,34 +19,24 @@ import {
   type ShippingAddress,
 } from "@/lib/api-client";
 import { formatCurrency } from "@/lib/currency";
+import { reverseGeocode, type Place } from "@/lib/geo";
 import { PageShell } from "@/components/ui/page-shell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FormField, inputClassName } from "@/components/ui/form-field";
 import { ErrorText, LoadingText } from "@/components/ui/status-text";
 import { LocationPicker } from "@/components/location-picker";
+import { PlaceSearch } from "@/components/place-search";
 import { DeliverySummary } from "@/components/delivery-summary";
 
 type FieldErrors = Partial<Record<keyof ShippingAddress, string>>;
 
+// We deliver only within Dar es Salaam for now, so the address is just a description of the
+// spot plus the map pin; the server fills in city, region and country.
 const EMPTY_SHIPPING: ShippingAddress = {
   recipient_name: "",
   address_line: "",
-  city: "",
-  region: "",
-  postal_code: "",
-  country: "",
   phone: "",
-};
-
-const FIELD_LABELS: Record<keyof ShippingAddress, string> = {
-  recipient_name: "Recipient name",
-  address_line: "Address",
-  city: "City",
-  region: "Region",
-  postal_code: "Postal code",
-  country: "Country",
-  phone: "Phone",
 };
 
 const QUOTE_DEBOUNCE_MS = 400;
@@ -81,6 +71,12 @@ export default function CheckoutPage() {
 
   const [guestEmail, setGuestEmail] = useState("");
   const [guestEmailError, setGuestEmailError] = useState<string | null>(null);
+  // Whether the customer typed the address themselves; if not, a pin dropped on the map (or
+  // found by GPS) fills it in with the place's name.
+  const addressTypedRef = useRef(false);
+  const reverseRef = useRef<AbortController | null>(null);
+
+  useEffect(() => () => reverseRef.current?.abort(), []);
 
   // Guests can check out too (guest checkout); only a signed-in non-customer is turned away.
   const isGuest = !user;
@@ -133,6 +129,29 @@ export default function CheckoutPage() {
   function changePin(next: LatLng) {
     setPin(next);
     setIsQuoting(true);
+  }
+
+  /** A pin from tapping/dragging the map or "Use my location". */
+  function changePinFromMap(next: LatLng) {
+    changePin(next);
+    reverseRef.current?.abort();
+    if (addressTypedRef.current) return;
+    const controller = new AbortController();
+    reverseRef.current = controller;
+    reverseGeocode(next, controller.signal)
+      .then((label) => {
+        if (label && !controller.signal.aborted && !addressTypedRef.current) {
+          updateField("address_line", label);
+        }
+      })
+      .catch(() => {});
+  }
+
+  function selectPlace(place: Place) {
+    reverseRef.current?.abort();
+    addressTypedRef.current = false;
+    updateField("address_line", place.label);
+    changePin(place.pin);
   }
 
   function updateField(field: keyof ShippingAddress, value: string) {
@@ -283,22 +302,48 @@ export default function CheckoutPage() {
             </div>
           )}
 
-          {(Object.keys(EMPTY_SHIPPING) as (keyof ShippingAddress)[]).map((field) => (
-            <FormField key={field} label={FIELD_LABELS[field]}>
-              <input
-                type="text"
-                required
-                value={shipping[field]}
-                onChange={(e) => updateField(field, e.target.value)}
-                className={inputClassName}
-              />
-              {fieldErrors[field] && (
-                <span className="text-xs text-status-cancelled">{fieldErrors[field]}</span>
-              )}
-            </FormField>
-          ))}
+          <FormField label="Recipient name">
+            <input
+              type="text"
+              required
+              autoComplete="name"
+              value={shipping.recipient_name}
+              onChange={(e) => updateField("recipient_name", e.target.value)}
+              className={inputClassName}
+            />
+            {fieldErrors.recipient_name && (
+              <span className="text-xs text-status-cancelled">{fieldErrors.recipient_name}</span>
+            )}
+          </FormField>
 
-          <LocationPicker value={pin} onChange={changePin} />
+          <FormField label="Phone">
+            <input
+              type="tel"
+              required
+              inputMode="tel"
+              autoComplete="tel"
+              placeholder="0712 345 678"
+              value={shipping.phone}
+              onChange={(e) => updateField("phone", e.target.value)}
+              className={inputClassName}
+            />
+            {fieldErrors.phone && (
+              <span className="text-xs text-status-cancelled">{fieldErrors.phone}</span>
+            )}
+          </FormField>
+
+          <PlaceSearch
+            label="Delivery address (Dar es Salaam)"
+            value={shipping.address_line}
+            onChange={(text) => {
+              addressTypedRef.current = text.trim() !== "";
+              updateField("address_line", text);
+            }}
+            onSelect={selectPlace}
+            error={fieldErrors.address_line}
+          />
+
+          <LocationPicker value={pin} onChange={changePinFromMap} />
 
           <section
             aria-label="Order summary"

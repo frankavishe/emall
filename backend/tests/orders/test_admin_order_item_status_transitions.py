@@ -40,17 +40,18 @@ def _place_order_line(api_client, customer, vendor, quantity=1):
 
     _authenticate(api_client, vendor)
     item_id = api_client.get("/api/vendor/order-items").data["results"][0]["id"]
+    _authenticate(api_client, UserFactory(role=User.Role.ADMINISTRATOR))
     return item_id, product
 
 
-def test_vendor_advances_line_through_full_lifecycle(api_client):
+def test_admin_advances_line_through_full_lifecycle(api_client):
     customer = UserFactory(role=User.Role.CUSTOMER)
     vendor = UserFactory(role=User.Role.VENDOR)
     item_id, _product = _place_order_line(api_client, customer, vendor)
 
     for expected_status in ["PROCESSING", "SHIPPED", "DELIVERED"]:
         response = api_client.patch(
-            f"/api/vendor/order-items/{item_id}/status",
+            f"/api/admin/order-items/{item_id}/status",
             {"status": expected_status},
             format="json",
         )

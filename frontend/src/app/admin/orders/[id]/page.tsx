@@ -11,6 +11,7 @@ import {
   type AdminOrderDetail,
 } from "@/lib/api-client";
 import { formatCurrency } from "@/lib/currency";
+import { formatLocality } from "@/lib/geo";
 import { formatRate, payoutStatusTone } from "@/lib/finance";
 import { useApi, useRequireRole } from "@/lib/use-api";
 import { useRealtime } from "@/lib/realtime";
@@ -85,9 +86,7 @@ export default function AdminOrderDetailPage() {
           <h3 className="mt-2 font-medium text-text-primary">Ship to</h3>
           <p className="text-text-muted">{data.recipient_name}</p>
           <p className="text-text-muted">{data.address_line}</p>
-          <p className="text-text-muted">
-            {data.city}, {data.region} {data.postal_code}
-          </p>
+          <p className="text-text-muted">{formatLocality(data)}</p>
           <p className="text-text-muted">{data.country}</p>
           <p className="text-text-muted">{data.phone}</p>
           <MapLink latitude={data.latitude} longitude={data.longitude}>
