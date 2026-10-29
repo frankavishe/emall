@@ -212,7 +212,7 @@ export function PromoSlideshow() {
                   Shop {slide.category.name}
                 </h2>
                 <p className="text-sm leading-relaxed text-text-muted sm:text-base">
-                  Fresh picks from independent sellers on E-Mall.
+                  Fresh picks from independent sellers on MangiMall.
                 </p>
                 <div className="pt-2">
                   <Link

@@ -8,6 +8,7 @@ import { useCart } from "@/lib/cart-context";
 import type { AuthUser, Role } from "@/lib/auth-context";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { BrandLogo } from "@/components/brand-logo";
 import { cn } from "@/lib/cn";
 import { useTheme } from "@/lib/theme";
 import { AdminNavSections, isLinkActive, visibleAdminSections } from "@/components/admin-sidebar";
@@ -183,17 +184,7 @@ export function Nav() {
           href="/"
           className="flex items-center gap-2 whitespace-nowrap pl-2 pr-4 text-base font-semibold text-brand-text"
         >
-          {isAdmin ? (
-            <span
-              aria-hidden
-              className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-400 text-xs font-bold text-navy-900"
-            >
-              E
-            </span>
-          ) : (
-            <span aria-hidden className="h-2.5 w-2.5 rounded-sm bg-teal-400" />
-          )}
-          E-Mall
+          <BrandLogo className="h-7" important />
           {isAdmin && (
             <span className="rounded-pill bg-hover px-2 py-0.5 text-[10px] font-semibold tracking-wider text-text-muted">
               ADMIN

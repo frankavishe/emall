@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { BrandLogo } from "@/components/brand-logo";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/cn";
 
@@ -32,10 +33,7 @@ export function ErrorState({
     >
       {/* Width lives on the card: the admin frame overrides max-width on direct <main> children. */}
       <Card className="flex w-full max-w-lg flex-col items-center gap-4 text-center sm:p-10">
-        <span className="flex items-center gap-2 text-sm font-semibold text-brand-text">
-          <span aria-hidden className="h-2.5 w-2.5 rounded-sm bg-teal-400" />
-          E-Mall
-        </span>
+        <BrandLogo className="h-8" />
         {code && (
           <p className="font-mono text-6xl font-bold tracking-tight text-brand-text sm:text-7xl">
             {code}

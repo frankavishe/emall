@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/cn";
+import { BrandLogo } from "@/components/brand-logo";
 import { hasAdminPermission, useAuth, type AuthUser } from "@/lib/auth-context";
 import { listAdminShops } from "@/lib/api-client";
 import { useApi } from "@/lib/use-api";
@@ -297,13 +298,7 @@ export function AdminSidebar() {
       className="fixed inset-y-0 left-0 z-20 hidden w-64 flex-col bg-sidebar text-white lg:flex"
     >
       <Link href="/" className="flex items-center gap-3 px-6 py-5">
-        <span
-          aria-hidden
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-teal-400 text-sm font-bold text-navy-900"
-        >
-          E
-        </span>
-        <span className="text-lg font-semibold">E-Mall</span>
+        <BrandLogo variant="light" className="h-8" />
         <span className="ml-auto rounded-pill bg-white/10 px-2 py-0.5 text-[10px] font-semibold tracking-wider text-white/70">
           ADMIN
         </span>

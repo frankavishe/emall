@@ -18,8 +18,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "E-Mall",
-  description: "Multi-vendor marketplace",
+  title: "MangiMall",
+  description: "Tanzania's online mall — every shop under one trusted roof.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

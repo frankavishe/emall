@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { BrandLogo } from "@/components/brand-logo";
 import { NewsletterForm } from "@/components/newsletter-form";
 
 type FooterLink = { label: string; href: string };
@@ -99,10 +100,7 @@ export function Footer() {
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="grid grid-cols-1 gap-10 border-b border-white/10 pb-12 md:grid-cols-2 lg:grid-cols-5">
           <div className="flex flex-col gap-4 lg:col-span-2">
-            <div className="flex items-center gap-2">
-              <span aria-hidden className="h-2.5 w-2.5 rounded-sm bg-teal-400" />
-              <span className="text-2xl font-extrabold tracking-tight text-white">MangiMall</span>
-            </div>
+            <BrandLogo variant="light" className="h-10 self-start" />
             <p className="max-w-sm text-sm leading-relaxed text-slate-400">
               MangiMall is Tanzania&apos;s premier online mall — every shop under one trusted roof.
               We connect shoppers with verified local vendors to guarantee genuine products,
