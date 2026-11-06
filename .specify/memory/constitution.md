@@ -1,5 +1,20 @@
 <!--
 Sync Impact Report
+- Version change: 1.1.0 → 1.2.0 (MINOR: materially expanded guidance)
+- Modified principles:
+  - I. Role Separation & Least Privilege — records the existing Rider role, so the system now
+    recognizes exactly four roles
+  - II. Vendor Approval Gate — also covers service listings and bookings
+- Modified sections: Security & Non-Functional Requirements — app boundaries add delivery, finance,
+  audit, realtime and bookings
+- Added sections: none
+- Removed sections: none
+- Deliberately unchanged: VI. keeps protecting the Customer / Vendor / Administrator model. The
+  Rider role is a later addition that is not one of VI's protected structures.
+- Deferred TODOs: none
+- Templates requiring follow-up: none
+
+Previous report (1.1.0):
 - Version change: 1.0.0 → 1.1.0 (MINOR: Principle I expanded with Administrator tiers)
 - Modified principles: I. Role Separation & Least Privilege — Administrators now hold a tier
   (Super Admin, Support Admin) whose code-defined permission set scopes each admin area
@@ -25,9 +40,11 @@ Previous report (1.0.0):
 ## Core Principles
 
 ### I. Role Separation & Least Privilege
-The system MUST recognize exactly three roles — Customer, Vendor, Administrator — and every
+The system MUST recognize exactly four roles — Customer, Vendor, Administrator, Rider — and every
 capability MUST be scoped to the role(s) the source requirements grant it to (per the SRS use-case
-diagram and the project's confirmed addition of the Vendor role). Role checks MUST be enforced
+diagram and the project's confirmed additions of the Vendor and Rider roles). Rider accounts MUST
+be created by an Administrator, never self-registered, and MUST be limited to the delivery and ride
+work assigned to them. Role checks MUST be enforced
 server-side on every request; any client-side role check (route guards, hidden UI) is a UX
 convenience only and MUST NOT be relied upon for authorization. Administrators MUST additionally
 hold a tier (Super Admin or Support Admin), and every admin endpoint MUST check the tier's
@@ -39,8 +56,8 @@ cosmetic issues.
 
 ### II. Vendor Approval Gate (NON-NEGOTIABLE)
 A Vendor's shop MUST carry an explicit status (PENDING / APPROVED / REJECTED, set only by an
-Administrator) and MUST NOT be able to create, publish, or modify catalog listings, nor receive
-orders, while not APPROVED. This gate MUST be enforced in the same server-side authorization layer
+Administrator) and MUST NOT be able to create, publish, or modify catalog or service listings, nor
+receive orders, nor receive or accept bookings, while not APPROVED. This gate MUST be enforced in the same server-side authorization layer
 as Principle I, not as a UI-only restriction, a seed-data convenience, or a default left open
 during development. Rationale: unapproved-seller gating is the one requirement the original SRS
 calls out explicitly ("approve/reject shop creation requests") — it is the feature, not an
@@ -98,7 +115,8 @@ actual product, not just its polish.
   approval, stock decrement) MUST be wrapped in database transactions so partial failures cannot
   leave inconsistent state (e.g. stock decremented without an Order row, or vice versa).
 - **Maintainability**: the backend MUST stay organized as the Django app boundaries established in
-  planning (accounts, vendors, catalog, cart, orders, payments, feedback, core) — cross-app logic
+  planning (accounts, vendors, catalog, cart, orders, payments, feedback, delivery, finance, audit,
+  realtime, bookings, core) — cross-app logic
   belongs in a shared `core` app, not duplicated per-app.
 - **Portability / Compatibility**: configuration (database, secrets, CORS origins, email backend)
   MUST be environment-driven so the same codebase runs in local dev and any future deployment
@@ -132,4 +150,4 @@ guidance; PATCH: wording/clarification only), and MUST update `Last Amended`. Ev
 and `/speckit-implement` stage MUST be checked against these principles as part of its own review
 step described in Principle V, rather than deferring compliance review to a separate audit.
 
-**Version**: 1.1.0 | **Ratified**: 2026-09-14 | **Last Amended**: 2026-10-21
+**Version**: 1.2.0 | **Ratified**: 2026-09-14 | **Last Amended**: 2026-11-06
