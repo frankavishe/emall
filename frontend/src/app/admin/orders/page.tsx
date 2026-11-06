@@ -219,8 +219,8 @@ export default function AdminOrdersPage() {
           <ul className="flex flex-col gap-4">
             {items.results.map((item) => (
               <Card as="li" key={item.id} padding="sm">
-                <div className="flex items-start justify-between">
-                  <div>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
                     <p className="font-medium text-text-primary">{item.product.name}</p>
                     <p className="text-sm text-text-muted">
                       Order #{item.order_id} &middot; Sold by {item.shop.name}
@@ -242,7 +242,7 @@ export default function AdminOrdersPage() {
                     </div>
                   </div>
 
-                  <div className="flex flex-col items-end gap-2">
+                  <div className="flex shrink-0 flex-wrap gap-2 sm:flex-col sm:items-end">
                     {(NEXT_STATUSES[item.status] ?? []).map((nextStatus) => (
                       <Button
                         key={nextStatus}

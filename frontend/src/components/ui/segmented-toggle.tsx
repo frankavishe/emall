@@ -16,7 +16,12 @@ export function SegmentedToggle<T extends string>({
   className,
 }: SegmentedToggleProps<T>) {
   return (
-    <div className={cn("inline-flex items-center gap-1 rounded-pill bg-card-muted p-1", className)}>
+    <div
+      className={cn(
+        "inline-flex max-w-full flex-wrap items-center gap-1 rounded-control bg-card-muted p-1 sm:rounded-pill",
+        className,
+      )}
+    >
       {options.map((option) => (
         <button
           key={option.value}

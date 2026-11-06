@@ -176,15 +176,18 @@ export function Nav() {
     <div className={cn("sticky top-0 z-10 bg-canvas px-4 pt-4", isAdmin && "lg:hidden")}>
       <nav
         className={cn(
-          "mx-auto flex items-center justify-between rounded-pill bg-card px-3 py-2 shadow-nav",
-          isAdmin ? "max-w-none" : "max-w-6xl",
+          "mx-auto flex items-center justify-between gap-2 rounded-pill bg-card py-2 shadow-nav",
+          isAdmin ? "max-w-none px-2 sm:px-3" : "max-w-6xl px-3",
         )}
       >
         <Link
           href="/"
-          className="flex items-center gap-2 whitespace-nowrap pl-2 pr-4 text-base font-semibold text-brand-text"
+          className={cn(
+            "flex items-center gap-2 whitespace-nowrap pl-2 text-base font-semibold text-brand-text",
+            isAdmin ? "sm:pr-4" : "pr-4",
+          )}
         >
-          <BrandLogo className="h-7" important />
+          <BrandLogo className={isAdmin ? "h-6 sm:h-7" : "h-7"} important />
           {isAdmin && (
             <span className="rounded-pill bg-hover px-2 py-0.5 text-[10px] font-semibold tracking-wider text-text-muted">
               ADMIN
@@ -210,32 +213,38 @@ export function Nav() {
           })}
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className={cn("flex items-center", isAdmin ? "gap-1 sm:gap-3" : "gap-3")}>
           {user ? (
-            <>
-              {canSwitch && (
-                <div className="hidden sm:block">
-                  <RoleSwitch roles={user.roles} activeRole={activeRole} onSwitch={handleSwitch} />
-                </div>
-              )}
-              <Link href="/account" className="hidden items-center gap-2 sm:flex">
-                <Avatar name={user.name} src={user.avatar_url} size="sm" />
-                <span className="flex flex-col leading-tight">
-                  <span className="text-sm font-medium text-text-primary">{user.name}</span>
-                  <span className="text-xs capitalize text-text-muted">
-                    {activeRole?.toLowerCase()}
+            // An admin's account details and logout live in the menu: this row can't fit them
+            // alongside the ADMIN pill on narrow screens.
+            !isAdmin && (
+              <>
+                {canSwitch && (
+                  <div className="hidden sm:block">
+                    <RoleSwitch
+                      roles={user.roles}
+                      activeRole={activeRole}
+                      onSwitch={handleSwitch}
+                    />
+                  </div>
+                )}
+                <Link href="/account" className="hidden items-center gap-2 sm:flex">
+                  <Avatar name={user.name} src={user.avatar_url} size="sm" />
+                  <span className="flex flex-col leading-tight">
+                    <span className="text-sm font-medium text-text-primary">{user.name}</span>
+                    <span className="text-xs capitalize text-text-muted">
+                      {activeRole?.toLowerCase()}
+                    </span>
                   </span>
-                </span>
-              </Link>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleLogout}
-                className="hidden sm:inline-flex"
-              >
-                Logout
-              </Button>
-            </>
+                </Link>
+                {/* Hidden on the wrapper: Button's own `inline-flex` would beat `hidden` on it. */}
+                <div className="hidden sm:block">
+                  <Button variant="ghost" size="sm" onClick={handleLogout}>
+                    Logout
+                  </Button>
+                </div>
+              </>
+            )
           ) : (
             <div className="hidden items-center gap-2 sm:flex">
               <Button variant="secondary" size="sm" asChild>
@@ -287,7 +296,7 @@ export function Nav() {
           )}
         >
           {canSwitch && user && (
-            <div className="mb-1 flex justify-center sm:hidden">
+            <div className={cn("mb-1 flex justify-center", !isAdmin && "sm:hidden")}>
               <RoleSwitch roles={user.roles} activeRole={activeRole} onSwitch={handleSwitch} />
             </div>
           )}
@@ -313,8 +322,10 @@ export function Nav() {
             {user ? (
               <>
                 <Avatar name={user.name} src={user.avatar_url} size="sm" />
-                <span className="flex flex-1 flex-col leading-tight">
-                  <span className="text-sm font-medium text-text-primary">{user.name}</span>
+                <span className="flex min-w-0 flex-1 flex-col leading-tight">
+                  <span className="truncate text-sm font-medium text-text-primary">
+                    {user.name}
+                  </span>
                   <span className="text-xs capitalize text-text-muted">
                     {activeRole?.toLowerCase()}
                   </span>

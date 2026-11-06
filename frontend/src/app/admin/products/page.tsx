@@ -72,7 +72,7 @@ function AdminProducts() {
     >
       <div className="flex flex-wrap items-end gap-3">
         <form
-          className="flex items-end gap-2"
+          className="flex flex-wrap items-end gap-2"
           onSubmit={(e) => {
             e.preventDefault();
             setSearch(searchDraft.trim());
