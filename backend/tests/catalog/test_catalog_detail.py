@@ -22,6 +22,7 @@ def test_detail_returns_full_shape(api_client):
     assert body["shop"] == {
         "id": shop.id,
         "name": "Kofi's Electronics",
+        "business_type": "GOODS",
         "logo_url": None,
         "primary_color": "",
         "accent_color": "",

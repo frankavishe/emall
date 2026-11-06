@@ -15,6 +15,7 @@ def test_approved_shop_is_public_with_theme(api_client):
     assert response.data == {
         "id": shop.id,
         "name": shop.name,
+        "business_type": "GOODS",
         "logo_url": None,
         "primary_color": "#aa3300",
         "accent_color": "#ffcc00",
