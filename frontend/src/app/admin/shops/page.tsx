@@ -158,7 +158,8 @@ export default function AdminShopsPage() {
                       {shop.owner_name} &middot; {shop.owner_email}
                     </p>
                     <div className="mt-1">
-                      <Pill tone={statusToTone(shop.status)}>{shop.status}</Pill>
+                      <Pill tone={statusToTone(shop.status)}>{shop.status}</Pill>{" "}
+                      <Pill>{shop.business_type === "SERVICES" ? "Services" : "Goods"}</Pill>
                     </div>
                     {shop.status_reason && (
                       <p className="mt-1 text-sm text-text-muted">Reason: {shop.status_reason}</p>

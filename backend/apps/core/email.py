@@ -8,6 +8,7 @@ changes to `accounts` view/service code.
 """
 
 from abc import ABC, abstractmethod
+from zoneinfo import ZoneInfo
 
 from django.conf import settings
 from django.core.mail import send_mail
@@ -36,6 +37,10 @@ class EmailService(ABC):
 
     @abstractmethod
     def send_low_stock_email(self, product):
+        ...
+
+    @abstractmethod
+    def send_booking_status_email(self, booking, status):
         ...
 
 
@@ -164,6 +169,81 @@ class DjangoEmailService(EmailService):
             from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[owner.email],
         )
+
+    def send_booking_status_email(self, booking, status):
+        """`status` is the one the booking just moved to; see `_booking_email` for who hears."""
+
+        email = _booking_email(booking, status)
+        if email is None:
+            return
+        user, path, subject, body = email
+        send_mail(
+            subject=subject,
+            message=(
+                f"Hi {user.name},\n\n"
+                f"{body}\n\n"
+                f"View it here: {settings.FRONTEND_BASE_URL.rstrip('/')}{path}\n"
+            ),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
+        )
+
+
+def _market_time(value):
+    local = value.astimezone(ZoneInfo(settings.MARKET_TIME_ZONE))
+    return f"{local:%a %d %b %Y at %H:%M} (Dar es Salaam time)"
+
+
+def _booking_email(booking, status):
+    """Who hears about a status change and what they read (FR-032), as `(recipient, link path,
+    subject, body)`. None for a status that notifies nobody."""
+
+    service = booking.service.name
+    when = _market_time(booking.starts_at)
+    customer_path = f"/bookings/{booking.id}"
+    reason = f"\n\nReason: {booking.status_reason}" if booking.status_reason else ""
+
+    if status == "REQUESTED":
+        return (
+            booking.shop.owner,
+            "/vendor/bookings",
+            f'New booking request: "{service}"',
+            f'{booking.customer.name} asked to book "{service}" on {when}. Please accept or '
+            f"decline by {_market_time(booking.respond_by)}.",
+        )
+    if status == "AWAITING_PAYMENT":
+        return (
+            booking.customer,
+            customer_path,
+            f'Your booking for "{service}" was accepted',
+            f"{booking.shop.name} accepted your booking on {when}. Please pay by "
+            f"{_market_time(booking.pay_by)} to confirm it.",
+        )
+    if status == "DECLINED":
+        return (
+            booking.customer,
+            customer_path,
+            f'Your booking for "{service}" was declined',
+            f"{booking.shop.name} can't take your booking on {when}, and you haven't been "
+            f"charged.{reason}",
+        )
+    if status == "EXPIRED":
+        return (
+            booking.customer,
+            customer_path,
+            f'Your booking for "{service}" expired',
+            f"Your booking on {when} expired before it was confirmed, and you haven't been "
+            "charged. You're welcome to book another time.",
+        )
+    if status == "CANCELLED":
+        return (
+            booking.shop.owner,
+            "/vendor/bookings",
+            f'A booking for "{service}" was cancelled',
+            f"{booking.customer.name} cancelled their booking on {when}, so the time is open "
+            "again.",
+        )
+    return None
 
 
 def get_email_service() -> EmailService:

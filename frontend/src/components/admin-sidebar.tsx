@@ -143,6 +143,16 @@ export const ADMIN_SECTIONS: AdminSection[] = [
         ),
       },
       {
+        label: "Bookings",
+        href: "/admin/bookings",
+        permission: "bookings.view",
+        icon: (
+          <Icon>
+            <path d="M5 4.5h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-10a1 1 0 0 1 1-1zM4 8.5h12M7.5 3v3M12.5 3v3" />
+          </Icon>
+        ),
+      },
+      {
         label: "Review Moderation",
         href: "/admin/reviews",
         permission: "reviews.view",

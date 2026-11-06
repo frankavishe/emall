@@ -3,6 +3,7 @@ from django.utils.text import slugify
 from rest_framework import serializers, status
 from rest_framework.exceptions import APIException, PermissionDenied
 
+from apps.bookings.models import Service
 from apps.catalog.models import Category, Product, ProductImage
 from apps.feedback.serializers import ReviewDisplaySerializer
 from apps.vendors.models import Shop
@@ -50,22 +51,33 @@ class CategoryConflict(APIException):
 
 
 class AdminCategorySerializer(serializers.ModelSerializer):
-    """`product_count` counts live products; `can_delete` also accounts for soft-deleted ones,
-    which still reference the category (Product.category is PROTECT). Both come from
-    annotations on catalog.views._admin_categories()."""
+    """`product_count` and `service_count` count live listings; `can_delete` also accounts for
+    soft-deleted products and archived services, which still reference the category (both are
+    PROTECT). All come from annotations on catalog.views._admin_categories()."""
 
     parent = serializers.PrimaryKeyRelatedField(read_only=True)
     product_count = serializers.IntegerField(read_only=True)
+    service_count = serializers.IntegerField(read_only=True)
     can_delete = serializers.SerializerMethodField()
     children = serializers.SerializerMethodField()
 
     class Meta:
         model = Category
-        fields = ["id", "name", "slug", "parent", "product_count", "can_delete", "children"]
+        fields = [
+            "id",
+            "name",
+            "slug",
+            "parent",
+            "kind",
+            "product_count",
+            "service_count",
+            "can_delete",
+            "children",
+        ]
         read_only_fields = fields
 
     def get_can_delete(self, obj):
-        return obj.all_product_count == 0 and obj.child_count == 0
+        return obj.all_product_count == 0 and obj.all_service_count == 0 and obj.child_count == 0
 
     def get_children(self, obj):
         children = self.context.get("children", {}).get(obj.id, [])
@@ -94,7 +106,11 @@ class AdminCategoryWriteSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Category
-        fields = ["name", "parent"]
+        fields = ["name", "parent", "kind"]
+        extra_kwargs = {"kind": {"required": False}}
+        # `validate` checks duplicate names itself. The validator DRF would generate from the
+        # per-kind constraint makes `kind` required, which breaks callers that don't send it.
+        validators = []
 
     def validate_name(self, value):
         value = value.strip()
@@ -119,13 +135,31 @@ class AdminCategoryWriteSerializer(serializers.ModelSerializer):
                     {"parent": f"{instance.name} has subcategories, so it must stay top-level."}
                 )
             gains_child = instance is None or instance.parent_id != parent.pk
-            if gains_child and Product.all_objects.filter(category=parent).exists():
+            if gains_child and (
+                Product.all_objects.filter(category=parent).exists()
+                or Service.objects.filter(category=parent).exists()
+            ):
                 raise CategoryConflict(
-                    f"Products are listed directly under {parent.name}. Move them to another "
+                    f"Listings sit directly under {parent.name}. Move them to another "
                     "category before adding subcategories to it."
                 )
 
+        # A subcategory always takes its parent's kind, whatever was sent.
+        current_kind = getattr(instance, "kind", Category.Kind.PRODUCT)
+        kind = parent.kind if parent is not None else attrs.get("kind", current_kind)
+        if instance is not None and kind != instance.kind and (
+            instance.children.exists()
+            or Product.all_objects.filter(category=instance).exists()
+            or Service.objects.filter(category=instance).exists()
+        ):
+            raise CategoryConflict(
+                f"{instance.name} is in use, so it can't change between products and services."
+            )
+        attrs["kind"] = kind
+
         siblings = Category.objects.filter(parent=parent, name__iexact=name)
+        if parent is None:
+            siblings = siblings.filter(kind=kind)
         if instance is not None:
             siblings = siblings.exclude(pk=instance.pk)
         if siblings.exists():
@@ -202,6 +236,8 @@ class VendorProductWriteSerializer(serializers.ModelSerializer):
         }
 
     def validate_category(self, value):
+        if value is not None and value.kind != Category.Kind.PRODUCT:
+            raise serializers.ValidationError(f"{value.name} is a service category.")
         if value is not None and value.children.exists():
             raise serializers.ValidationError(f"Choose a subcategory of {value.name}.")
         return value
@@ -234,6 +270,8 @@ class VendorProductWriteSerializer(serializers.ModelSerializer):
                 raise PermissionDenied(
                     "You can only create products under an approved shop you own."
                 )
+            if shop.business_type != Shop.BusinessType.GOODS:
+                raise PermissionDenied("A services shop lists services, not products.")
         else:
             # shop is immutable after creation — silently ignore if a caller sends it anyway.
             attrs.pop("shop", None)
@@ -297,7 +335,7 @@ class CatalogShopSerializer(ShopLogoUrlMixin, serializers.ModelSerializer):
 
     class Meta:
         model = Shop
-        fields = ["id", "name", "logo_url", "primary_color", "accent_color"]
+        fields = ["id", "name", "business_type", "logo_url", "primary_color", "accent_color"]
         read_only_fields = fields
 
 
@@ -311,13 +349,14 @@ class CatalogShopProfileSerializer(CatalogShopSerializer):
 
 
 class CatalogShopListSerializer(CatalogShopProfileSerializer):
-    """One card on the public merchants directory: the profile plus its published product
-    count (annotated by the view)."""
+    """One card on the public merchants directory: the profile plus its published product and
+    service counts (annotated by the view)."""
 
     product_count = serializers.IntegerField(read_only=True)
+    service_count = serializers.IntegerField(read_only=True)
 
     class Meta(CatalogShopProfileSerializer.Meta):
-        fields = [*CatalogShopProfileSerializer.Meta.fields, "product_count"]
+        fields = [*CatalogShopProfileSerializer.Meta.fields, "product_count", "service_count"]
         read_only_fields = fields
 
 

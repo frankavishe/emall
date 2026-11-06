@@ -140,6 +140,14 @@ Add this line:
 
 Also enable snapshots in the Contabo panel, and copy `~/backups` off the server now and then.
 
+## 8. Scheduled jobs
+
+Service bookings expire when nobody responds or pays in time. Times free up on their own at the deadline, but this job updates each booking's status and emails the customer. Add it with `crontab -e`:
+
+```
+*/5 * * * * cd ~/emall && docker compose -f docker-compose.prod.yml exec -T backend python manage.py expire_bookings
+```
+
 ## Troubleshooting
 
 - **HTTPS certificate fails**: DNS isn't pointing at the VPS yet, or ports 80/443 are blocked.

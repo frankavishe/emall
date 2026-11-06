@@ -8,10 +8,16 @@ class Category(models.Model):
     """Global, Administrator-owned classification list, two levels deep: top-level categories
     (`parent` is null) and their subcategories. Managed through `/api/admin/categories`.
     Vendors list a product under a subcategory, or directly under a top-level category only
-    while it has no subcategories (VendorProductWriteSerializer.validate_category).
+    while it has no subcategories (VendorProductWriteSerializer.validate_category). A category
+    classifies either products or services, and a subcategory takes its parent's kind.
     """
 
+    class Kind(models.TextChoices):
+        PRODUCT = "PRODUCT", "Products"
+        SERVICE = "SERVICE", "Services"
+
     name = models.CharField(max_length=100)
+    kind = models.CharField(max_length=20, choices=Kind.choices, default=Kind.PRODUCT)
     # Globally unique (not per parent): public catalog filters address a category by slug alone.
     slug = models.SlugField(unique=True)
     parent = models.ForeignKey(
@@ -25,11 +31,12 @@ class Category(models.Model):
             models.UniqueConstraint(
                 fields=["parent", "name"], name="unique_category_name_per_parent"
             ),
-            # NULLs are distinct in the constraint above, so top-level names need their own.
+            # NULLs are distinct in the constraint above, so top-level names need their own. The
+            # same name can exist once per kind (Beauty products, Beauty services).
             models.UniqueConstraint(
-                fields=["name"],
+                fields=["name", "kind"],
                 condition=models.Q(parent__isnull=True),
-                name="unique_top_level_category_name",
+                name="unique_top_level_category_name_per_kind",
             ),
         ]
 

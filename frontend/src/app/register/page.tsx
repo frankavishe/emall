@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import { errorMessage } from "@/lib/api-client";
+import { errorMessage, type BusinessType } from "@/lib/api-client";
 import { PageShell } from "@/components/ui/page-shell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [shopName, setShopName] = useState("");
+  const [businessType, setBusinessType] = useState<BusinessType>("GOODS");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -33,7 +34,7 @@ export default function RegisterPage() {
       if (accountType === "vendor") {
         // An existing customer account (same email + password) gets the shop added to it,
         // and may already be verified.
-        const user = await registerVendor(name, email, password, shopName);
+        const user = await registerVendor(name, email, password, shopName, businessType);
         router.push(user.is_email_verified ? "/" : "/verify-email");
         return;
       }
@@ -98,6 +99,19 @@ export default function RegisterPage() {
                   className={inputClassName}
                 />
               </FormField>
+              <FormField label="What will this shop offer?">
+                <select
+                  value={businessType}
+                  onChange={(e) => setBusinessType(e.target.value as BusinessType)}
+                  className={inputClassName}
+                >
+                  <option value="GOODS">Goods that customers buy</option>
+                  <option value="SERVICES">Services that customers book</option>
+                </select>
+              </FormField>
+              <p className="text-xs text-text-muted">
+                You can&apos;t change this later. To offer both, open a separate shop for each.
+              </p>
               <p className="text-xs text-text-muted">
                 Already shopping here as a customer? Use the same email and password — the shop is
                 added to your existing account.

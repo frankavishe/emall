@@ -16,6 +16,7 @@ READS = [
     ("get", "/api/admin/categories", "catalog.view"),
     ("get", "/api/admin/customers", "customers.view"),
     ("get", "/api/admin/order-items", "orders.view"),
+    ("get", "/api/admin/bookings", "bookings.view"),
     ("get", "/api/admin/riders", "riders.view"),
     ("get", "/api/admin/finance/summary", "finance.view"),
     ("get", "/api/admin/payouts", "finance.view"),

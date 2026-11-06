@@ -8,6 +8,7 @@ import {
   listAdminCategories,
   updateCategory,
   type AdminCategory,
+  type CategoryKind,
 } from "@/lib/api-client";
 import { useApi, useRequireRole } from "@/lib/use-api";
 import { PageShell } from "@/components/ui/page-shell";
@@ -17,8 +18,10 @@ import { Pill } from "@/components/ui/pill";
 import { ErrorText, LoadingText, EmptyText } from "@/components/ui/status-text";
 import { FormField, inputClassName } from "@/components/ui/form-field";
 
-function productLabel(count: number): string {
-  return `${count} ${count === 1 ? "product" : "products"}`;
+function usageLabel(category: AdminCategory): string {
+  return category.kind === "SERVICE"
+    ? `${category.service_count} ${category.service_count === 1 ? "service" : "services"}`
+    : `${category.product_count} ${category.product_count === 1 ? "product" : "products"}`;
 }
 
 function NewCategoryForm({
@@ -35,6 +38,7 @@ function NewCategoryForm({
 }) {
   const [name, setName] = useState("");
   const [parent, setParent] = useState<string>("");
+  const [kind, setKind] = useState<CategoryKind>("PRODUCT");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -46,6 +50,7 @@ function NewCategoryForm({
       const category = await createCategory({
         name,
         parent: parentId ?? (parent ? Number(parent) : null),
+        kind,
       });
       setName("");
       onCreated(category);
@@ -81,9 +86,23 @@ function NewCategoryForm({
                 <option value="">None (top-level)</option>
                 {topLevel.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.name}
+                    {c.name} ({c.kind === "SERVICE" ? "services" : "products"})
                   </option>
                 ))}
+              </select>
+            </FormField>
+          </div>
+        )}
+        {parentId === undefined && !parent && (
+          <div className="min-w-0 flex-1">
+            <FormField label="Used for">
+              <select
+                value={kind}
+                onChange={(e) => setKind(e.target.value as CategoryKind)}
+                className={inputClassName}
+              >
+                <option value="PRODUCT">Products</option>
+                <option value="SERVICE">Services</option>
               </select>
             </FormField>
           </div>
@@ -136,7 +155,7 @@ function CategoryRow({
     ? undefined
     : category.children.length > 0
       ? "Delete or move its subcategories first"
-      : "Products are listed under this category";
+      : `${category.kind === "SERVICE" ? "Services" : "Products"} are listed under this category`;
 
   return (
     <div className="flex flex-col gap-2">
@@ -177,7 +196,7 @@ function CategoryRow({
           <div className="min-w-0">
             <p className="font-medium text-text-primary">{category.name}</p>
             <p className="text-sm text-text-muted">
-              {category.slug} &middot; {productLabel(category.product_count)}
+              {category.slug} &middot; {usageLabel(category)}
             </p>
           </div>
         )}
@@ -214,10 +233,16 @@ function TopLevelCard({
   onChanged: () => void;
 }) {
   const [isAdding, setIsAdding] = useState(false);
-  const hasDirectProducts = category.children.length === 0 && category.product_count > 0;
+  const hasDirectListings =
+    category.children.length === 0 && category.product_count + category.service_count > 0;
 
   return (
     <Card as="li" padding="sm" className="flex flex-col gap-3">
+      <div>
+        <Pill tone={category.kind === "SERVICE" ? "processing" : "neutral"}>
+          {category.kind === "SERVICE" ? "Services" : "Products"}
+        </Pill>
+      </div>
       <CategoryRow
         category={category}
         onChanged={onChanged}
@@ -225,10 +250,10 @@ function TopLevelCard({
           <Button
             variant="secondary"
             size="sm"
-            disabled={hasDirectProducts}
+            disabled={hasDirectListings}
             title={
-              hasDirectProducts
-                ? "Products are listed directly under this category. Move them before adding subcategories."
+              hasDirectListings
+                ? "Listings sit directly under this category. Move them before adding subcategories."
                 : undefined
             }
             onClick={() => setIsAdding(true)}
@@ -285,7 +310,7 @@ export default function AdminCategoriesPage() {
     <PageShell
       size="md"
       title="Categories"
-      description="Vendors list products under a subcategory, or directly under a category that has none."
+      description="Vendors list products and services under a subcategory, or directly under a category that has none."
       actions={
         <>
           <Pill>{topLevel.length} categories</Pill>

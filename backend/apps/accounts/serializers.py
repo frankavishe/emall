@@ -120,6 +120,9 @@ class RegisterVendorSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True, style={"input_type": "password"})
     shop_name = serializers.CharField(max_length=255)
+    business_type = serializers.ChoiceField(
+        choices=Shop.BusinessType.choices, default=Shop.BusinessType.GOODS
+    )
 
     existing_user = None
 
@@ -166,6 +169,7 @@ class RegisterVendorSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         shop_name = validated_data.pop("shop_name")
+        business_type = validated_data.pop("business_type")
         if self.existing_user is not None:
             user = self.existing_user
             user.is_vendor = True
@@ -174,7 +178,7 @@ class RegisterVendorSerializer(serializers.Serializer):
             user = User.objects.create_user(
                 role=User.Role.CUSTOMER, is_vendor=True, **validated_data
             )
-        shop = Shop.objects.create(owner=user, name=shop_name)
+        shop = Shop.objects.create(owner=user, name=shop_name, business_type=business_type)
         return user, shop
 
 

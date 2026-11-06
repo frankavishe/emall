@@ -1,9 +1,12 @@
+from datetime import date, time, timedelta
 from decimal import Decimal
 
 import factory
+from django.utils import timezone
 from factory.django import DjangoModelFactory
 
 from apps.accounts.models import User
+from apps.bookings.models import Booking, OpeningHours, Service, ShopClosure
 from apps.cart.models import Cart, CartItem
 from apps.catalog.models import Category, Product
 from apps.core.admin_permissions import AdminRole
@@ -72,6 +75,67 @@ class CategoryFactory(DjangoModelFactory):
 
     name = factory.Sequence(lambda n: f"Category {n}")
     slug = factory.Sequence(lambda n: f"category-{n}")
+
+
+class ServicesShopFactory(ShopFactory):
+    status = Shop.Status.APPROVED
+    business_type = Shop.BusinessType.SERVICES
+
+
+class ServiceCategoryFactory(CategoryFactory):
+    name = factory.Sequence(lambda n: f"Service category {n}")
+    slug = factory.Sequence(lambda n: f"service-category-{n}")
+    kind = Category.Kind.SERVICE
+
+
+class ServiceFactory(DjangoModelFactory):
+    class Meta:
+        model = Service
+
+    shop = factory.SubFactory(ServicesShopFactory)
+    category = factory.SubFactory(ServiceCategoryFactory)
+    name = factory.Sequence(lambda n: f"Service {n}")
+    description = "A test service."
+    price = Decimal("20000.00")
+    duration_minutes = 60
+    is_published = True
+
+
+class OpeningHoursFactory(DjangoModelFactory):
+    class Meta:
+        model = OpeningHours
+
+    shop = factory.SubFactory(ServicesShopFactory)
+    weekday = 0
+    opens_at = time(9, 0)
+    closes_at = time(17, 0)
+
+
+class ShopClosureFactory(DjangoModelFactory):
+    class Meta:
+        model = ShopClosure
+
+    shop = factory.SubFactory(ServicesShopFactory)
+    date = date(2030, 1, 7)
+
+
+class BookingFactory(DjangoModelFactory):
+    class Meta:
+        model = Booking
+
+    customer = factory.SubFactory(UserFactory, role=User.Role.CUSTOMER, is_email_verified=True)
+    service = factory.SubFactory(ServiceFactory)
+    shop = factory.SelfAttribute("service.shop")
+    starts_at = factory.LazyFunction(lambda: timezone.now() + timedelta(days=7))
+    ends_at = factory.LazyAttribute(
+        lambda o: o.starts_at + timedelta(minutes=o.service.duration_minutes)
+    )
+    respond_by = factory.LazyFunction(lambda: timezone.now() + timedelta(hours=12))
+    contact_phone = "+255712345678"
+    price = factory.SelfAttribute("service.price")
+    commission_rate = Decimal("10.00")
+    commission_amount = factory.LazyAttribute(lambda o: o.price * Decimal("0.10"))
+    vendor_earning = factory.LazyAttribute(lambda o: o.price - o.commission_amount)
 
 
 class ProductFactory(DjangoModelFactory):

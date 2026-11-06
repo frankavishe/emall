@@ -1,8 +1,8 @@
 """Channel-layer group names: who hears about what.
 
 - `order.<id>`: whoever is watching that one order (a guest holding its token, or its customer).
-- `user.<id>`: one signed-in account's own sockets: a customer's orders, a vendor's or rider's
-  lines, a vendor's shop approval.
+- `user.<id>`: one signed-in account's own sockets: a customer's orders and bookings, a vendor's
+  or rider's lines, a vendor's shop approval and bookings.
 - `admins`: every signed-in Administrator.
 """
 
@@ -47,6 +47,13 @@ def rider_groups(order_id):
         .distinct()
     )
     return [user_group(rider_id) for rider_id in rider_ids]
+
+
+def booking_audience(booking):
+    """Everyone who sees a service booking: its customer, the shop's owner and the
+    administrators."""
+
+    return [user_group(booking.customer_id), user_group(booking.shop.owner_id), ADMINS]
 
 
 def order_audience(order_id):

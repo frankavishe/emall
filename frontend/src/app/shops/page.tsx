@@ -81,7 +81,9 @@ export default function ShopsPage() {
                     <div className="min-w-0">
                       <h2 className="truncate font-semibold text-text-primary">{shop.name}</h2>
                       <p className="text-xs text-text-muted">
-                        {shop.product_count} {shop.product_count === 1 ? "product" : "products"}
+                        {shop.business_type === "SERVICES"
+                          ? `${shop.service_count} ${shop.service_count === 1 ? "service" : "services"}`
+                          : `${shop.product_count} ${shop.product_count === 1 ? "product" : "products"}`}
                       </p>
                     </div>
                   </div>

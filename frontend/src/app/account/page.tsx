@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { hasRole, useAuth, type Shop } from "@/lib/auth-context";
-import { errorMessage, updateShopLocation } from "@/lib/api-client";
+import { errorMessage, updateShopLocation, type BusinessType } from "@/lib/api-client";
 import { PageShell } from "@/components/ui/page-shell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,7 @@ export default function AccountPage() {
   const router = useRouter();
   const { user, isLoading, logout, requestShop } = useAuth();
   const [newShopName, setNewShopName] = useState("");
+  const [newShopType, setNewShopType] = useState<BusinessType>("GOODS");
   const [shopError, setShopError] = useState<string | null>(null);
   const [isRequestingShop, setIsRequestingShop] = useState(false);
 
@@ -49,7 +50,7 @@ export default function AccountPage() {
     setShopError(null);
     setIsRequestingShop(true);
     try {
-      await requestShop(newShopName);
+      await requestShop(newShopName, newShopType);
       setNewShopName("");
     } catch (err) {
       setShopError(errorMessage(err));
@@ -85,10 +86,22 @@ export default function AccountPage() {
           aria-label="Shop name"
           className={`${inputClassName} sm:flex-1`}
         />
+        <select
+          value={newShopType}
+          onChange={(e) => setNewShopType(e.target.value as BusinessType)}
+          aria-label="What this shop will offer"
+          className={`${inputClassName} sm:w-auto`}
+        >
+          <option value="GOODS">Sells goods</option>
+          <option value="SERVICES">Offers services</option>
+        </select>
         <Button type="submit" disabled={isRequestingShop}>
           {isRequestingShop ? "Sending…" : isVendor ? "Request shop" : "Open a shop"}
         </Button>
       </div>
+      <p className="text-xs text-text-muted">
+        You can&apos;t change this later. To offer both, open a separate shop for each.
+      </p>
       {shopError && <ErrorText>{shopError}</ErrorText>}
     </form>
   );
@@ -181,7 +194,9 @@ function ShopSettingsCard({ shop }: { shop: Shop }) {
           <ShopLogo url={shop.logo_url} name={shop.name} size="md" />
           <div className="flex min-w-0 flex-1 flex-col">
             <h2 className="truncate text-lg font-semibold text-text-primary">{shop.name}</h2>
-            <span className="text-xs text-text-muted">Shop settings</span>
+            <span className="text-xs text-text-muted">
+              {shop.business_type === "SERVICES" ? "Services shop" : "Goods shop"} settings
+            </span>
           </div>
           <Pill tone={statusToTone(shop.status)}>
             <span className="capitalize">{shop.status.toLowerCase()}</span>
@@ -206,8 +221,12 @@ function ShopSettingsCard({ shop }: { shop: Shop }) {
       </Section>
 
       <Section
-        title="Pickup & delivery"
-        hint="Where riders collect orders. Delivery fees are calculated from this pin."
+        title={shop.business_type === "SERVICES" ? "Location" : "Pickup & delivery"}
+        hint={
+          shop.business_type === "SERVICES"
+            ? "Where customers come for their visit. You need this before you can publish a service."
+            : "Where riders collect orders. Delivery fees are calculated from this pin."
+        }
       >
         <ShopLocationEditor
           ownerView
