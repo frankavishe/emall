@@ -26,6 +26,12 @@ const TONE_CLASSES: Record<PillTone, string> = {
 const STATUS_ALIASES: Record<string, PillTone> = {
   awaiting_payment: "pending",
   payment_failed: "cancelled",
+  requested: "pending",
+  confirmed: "approved",
+  completed: "delivered",
+  no_show: "cancelled",
+  declined: "rejected",
+  expired: "cancelled",
 };
 
 export function statusToTone(status: string): PillTone {

@@ -7,7 +7,7 @@ import { formatCurrency } from "@/lib/currency";
 import { shopThemeStyle } from "@/lib/shop-theme";
 import { useApi } from "@/lib/use-api";
 import { formatDuration } from "@/components/booking/service-card";
-import { SlotPicker } from "@/components/booking/slot-picker";
+import { BookingRequest } from "@/components/booking/booking-request";
 import { ShopLogo } from "@/components/shop-logo";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -77,8 +77,8 @@ export default function ServiceDetailPage() {
         </Card>
 
         <Card className="flex flex-col gap-4">
-          <h2 className="text-lg font-semibold text-text-primary">When it&apos;s open</h2>
-          <SlotPicker serviceId={details.id} />
+          <h2 className="text-lg font-semibold text-text-primary">Book a time</h2>
+          <BookingRequest service={service.data} />
         </Card>
       </PageShell>
     </div>

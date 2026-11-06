@@ -1,11 +1,12 @@
-from datetime import date, time
+from datetime import date, time, timedelta
 from decimal import Decimal
 
 import factory
+from django.utils import timezone
 from factory.django import DjangoModelFactory
 
 from apps.accounts.models import User
-from apps.bookings.models import OpeningHours, Service, ShopClosure
+from apps.bookings.models import Booking, OpeningHours, Service, ShopClosure
 from apps.cart.models import Cart, CartItem
 from apps.catalog.models import Category, Product
 from apps.core.admin_permissions import AdminRole
@@ -116,6 +117,25 @@ class ShopClosureFactory(DjangoModelFactory):
 
     shop = factory.SubFactory(ServicesShopFactory)
     date = date(2030, 1, 7)
+
+
+class BookingFactory(DjangoModelFactory):
+    class Meta:
+        model = Booking
+
+    customer = factory.SubFactory(UserFactory, role=User.Role.CUSTOMER, is_email_verified=True)
+    service = factory.SubFactory(ServiceFactory)
+    shop = factory.SelfAttribute("service.shop")
+    starts_at = factory.LazyFunction(lambda: timezone.now() + timedelta(days=7))
+    ends_at = factory.LazyAttribute(
+        lambda o: o.starts_at + timedelta(minutes=o.service.duration_minutes)
+    )
+    respond_by = factory.LazyFunction(lambda: timezone.now() + timedelta(hours=12))
+    contact_phone = "+255712345678"
+    price = factory.SelfAttribute("service.price")
+    commission_rate = Decimal("10.00")
+    commission_amount = factory.LazyAttribute(lambda o: o.price * Decimal("0.10"))
+    vendor_earning = factory.LazyAttribute(lambda o: o.price - o.commission_amount)
 
 
 class ProductFactory(DjangoModelFactory):

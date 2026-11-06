@@ -29,6 +29,7 @@ const CUSTOMER_LINKS: NavLink[] = [
   { label: "Services", href: "/services" },
   { label: "Cart", href: "/cart" },
   { label: "Orders", href: "/orders" },
+  { label: "Bookings", href: "/bookings" },
   { label: "Account", href: "/account" },
 ];
 
@@ -39,6 +40,7 @@ const GOODS_VENDOR_LINKS: NavLink[] = [
 
 const SERVICE_VENDOR_LINKS: NavLink[] = [
   { label: "My Services", href: "/vendor/services" },
+  { label: "Bookings", href: "/vendor/bookings" },
   { label: "Hours", href: "/vendor/schedule" },
 ];
 

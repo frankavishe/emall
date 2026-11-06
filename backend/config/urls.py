@@ -21,7 +21,9 @@ from django.urls import include, path
 
 from apps.accounts.urls import admin_urlpatterns as accounts_admin_urlpatterns
 from apps.audit.urls import admin_urlpatterns as audit_admin_urlpatterns
+from apps.bookings.urls import admin_urlpatterns as bookings_admin_urlpatterns
 from apps.bookings.urls import catalog_urlpatterns as bookings_catalog_urlpatterns
+from apps.bookings.urls import customer_urlpatterns as bookings_customer_urlpatterns
 from apps.bookings.urls import vendor_urlpatterns as bookings_vendor_urlpatterns
 from apps.catalog.urls import admin_urlpatterns as catalog_admin_urlpatterns
 from apps.catalog.urls import vendor_urlpatterns as catalog_vendor_urlpatterns
@@ -54,6 +56,7 @@ urlpatterns = [
     path("api/admin/", include(catalog_admin_urlpatterns)),
     path("api/admin/", include(vendor_admin_urlpatterns)),
     path("api/admin/", include(orders_admin_urlpatterns)),
+    path("api/admin/", include(bookings_admin_urlpatterns)),
     path("api/admin/", include(feedback_admin_urlpatterns)),
     path("api/admin/", include(delivery_admin_urlpatterns)),
     path("api/admin/", include(finance_admin_urlpatterns)),
@@ -63,6 +66,7 @@ urlpatterns = [
     path("api/", include(checkout_urlpatterns)),
     path("api/", include(order_urlpatterns)),
     path("api/", include(feedback_urlpatterns)),
+    path("api/", include(bookings_customer_urlpatterns)),
     path("api/payments/", include("apps.payments.urls")),
     # 404s unless PAYMENT_BACKEND=azampay_simulator.
     path("api/dev/azampay-sim/", include(payments_simulator_urlpatterns)),

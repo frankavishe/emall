@@ -48,4 +48,39 @@ vendor_urlpatterns = [
         views.VendorShopClosureDetailView.as_view(),
         name="vendor-shop-closure",
     ),
+    path("bookings", views.VendorBookingListView.as_view(), name="vendor-bookings"),
+    path(
+        "bookings/<int:booking_id>",
+        views.VendorBookingDetailView.as_view(),
+        name="vendor-booking-detail",
+    ),
+    path(
+        "bookings/<int:booking_id>/accept",
+        views.VendorBookingAcceptView.as_view(),
+        name="vendor-booking-accept",
+    ),
+    path(
+        "bookings/<int:booking_id>/decline",
+        views.VendorBookingDeclineView.as_view(),
+        name="vendor-booking-decline",
+    ),
+]
+
+customer_urlpatterns = [
+    path("bookings", views.BookingListCreateView.as_view(), name="bookings"),
+    path("bookings/<int:booking_id>", views.BookingDetailView.as_view(), name="booking-detail"),
+    path(
+        "bookings/<int:booking_id>/cancel",
+        views.BookingCancelView.as_view(),
+        name="booking-cancel",
+    ),
+]
+
+admin_urlpatterns = [
+    path("bookings", views.AdminBookingListView.as_view(), name="admin-bookings"),
+    path(
+        "bookings/<int:booking_id>",
+        views.AdminBookingDetailView.as_view(),
+        name="admin-booking-detail",
+    ),
 ]

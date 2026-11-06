@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import {
   addShopClosure,
@@ -9,10 +10,16 @@ import {
   listShopClosures,
   removeShopClosure,
   saveShopSchedule,
+  type AddedShopClosure,
   type OpeningPeriod,
   type ShopSchedule,
 } from "@/lib/api-client";
-import { formatMarketDate, MARKET_TIME_LABEL, marketToday } from "@/lib/market-time";
+import {
+  formatMarketDate,
+  formatMarketTime,
+  MARKET_TIME_LABEL,
+  marketToday,
+} from "@/lib/market-time";
 import { useApi, useRequireRole } from "@/lib/use-api";
 import { Pager } from "@/components/pager";
 import { Button } from "@/components/ui/button";
@@ -153,10 +160,12 @@ function Closures({ shopId }: { shopId: string }) {
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
+  const [warning, setWarning] = useState<AddedShopClosure | null>(null);
 
   async function run(action: () => Promise<unknown>) {
     setIsPending(true);
     setError(null);
+    setWarning(null);
     try {
       await action();
       closures.reload();
@@ -171,7 +180,8 @@ function Closures({ shopId }: { shopId: string }) {
 
   async function handleAdd(event: React.FormEvent) {
     event.preventDefault();
-    if (await run(() => addShopClosure(shopId, { date, note }))) {
+    const saved = await run(async () => setWarning(await addShopClosure(shopId, { date, note })));
+    if (saved) {
       setDate("");
       setNote("");
     }
@@ -215,6 +225,26 @@ function Closures({ shopId }: { shopId: string }) {
 
       {error && <ErrorText>{error}</ErrorText>}
       {closures.error && <ErrorText>{closures.error}</ErrorText>}
+      {warning && warning.active_bookings.length > 0 && (
+        <div className="flex flex-col gap-2 rounded-lg bg-status-pending/15 p-3 text-sm text-text-primary">
+          <p className="font-medium">
+            {formatMarketDate(warning.date)} still has bookings. Closing the day doesn&apos;t cancel
+            them, so please deal with each one in{" "}
+            <Link href="/vendor/bookings" className="underline">
+              Bookings
+            </Link>
+            .
+          </p>
+          <ul className="flex flex-col gap-1">
+            {warning.active_bookings.map((booking) => (
+              <li key={booking.id}>
+                {formatMarketTime(booking.starts_at)} &middot; {booking.service.name} &middot;{" "}
+                {booking.customer_name}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {closures.isLoading && !closures.data ? (
         <LoadingText>Loading closed days…</LoadingText>

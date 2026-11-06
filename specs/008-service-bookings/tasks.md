@@ -25,12 +25,12 @@ description: "Task list for service bookings"
 
 **Purpose**: Create the app and shared configuration
 
-- [ ] T001 Read the relevant guides in `frontend/node_modules/next/dist/docs/` before any frontend work, as `frontend/AGENTS.md` requires, and note anything that affects the new pages in `specs/008-service-bookings/research.md`
-- [ ] T002 Add `tzdata` to `backend/requirements.txt` and install it into `backend/.venv`
-- [ ] T003 Create the empty `apps.bookings` app (`backend/apps/bookings/__init__.py`, `apps.py`, `models.py`, `urls.py`, `migrations/__init__.py`) and register it in `backend/config/settings.py`
-- [ ] T004 Add `MARKET_TIME_ZONE = "Africa/Dar_es_Salaam"` and env-driven settings to `backend/config/settings.py`, with these defaults: `BOOKING_RESPONSE_HOURS` 12, `BOOKING_RESPONSE_BUFFER_MINUTES` 90, `BOOKING_PAYMENT_HOURS` 6, `BOOKING_PAYMENT_BUFFER_MINUTES` 60, `BOOKING_MIN_NOTICE_HOURS` 3, `BOOKING_MAX_ADVANCE_DAYS` 60, `BOOKING_SLOT_MINUTES` 30, `BOOKING_MAX_ACTIVE_UNPAID` 3, `BOOKING_CUSTOMER_CANCEL_HOURS` 24, `BOOKING_LIPA_MIN_HOURS` 3; document them in `backend/.env.example`
-- [ ] T005 [P] Create `backend/tests/bookings/__init__.py` and add service, hours and booking factories to `backend/tests/factories.py`
-- [ ] T006 [P] Create `frontend/src/lib/market-time.ts`, formatting dates and times with `Intl` and a fixed `timeZone: "Africa/Dar_es_Salaam"`, and test it in `frontend/src/lib/market-time.test.ts`
+- [x] T001 Read the relevant guides in `frontend/node_modules/next/dist/docs/` before any frontend work, as `frontend/AGENTS.md` requires, and note anything that affects the new pages in `specs/008-service-bookings/research.md`
+- [x] T002 Add `tzdata` to `backend/requirements.txt` and install it into `backend/.venv`
+- [x] T003 Create the empty `apps.bookings` app (`backend/apps/bookings/__init__.py`, `apps.py`, `models.py`, `urls.py`, `migrations/__init__.py`) and register it in `backend/config/settings.py`
+- [x] T004 Add `MARKET_TIME_ZONE = "Africa/Dar_es_Salaam"` and env-driven settings to `backend/config/settings.py`, with these defaults: `BOOKING_RESPONSE_HOURS` 12, `BOOKING_RESPONSE_BUFFER_MINUTES` 90, `BOOKING_PAYMENT_HOURS` 6, `BOOKING_PAYMENT_BUFFER_MINUTES` 60, `BOOKING_MIN_NOTICE_HOURS` 3, `BOOKING_MAX_ADVANCE_DAYS` 60, `BOOKING_SLOT_MINUTES` 30, `BOOKING_MAX_ACTIVE_UNPAID` 3, `BOOKING_CUSTOMER_CANCEL_HOURS` 24, `BOOKING_LIPA_MIN_HOURS` 3; document them in `backend/.env.example`
+- [x] T005 [P] Create `backend/tests/bookings/__init__.py` and add service, hours and booking factories to `backend/tests/factories.py`
+- [x] T006 [P] Create `frontend/src/lib/market-time.ts`, formatting dates and times with `Intl` and a fixed `timeZone: "Africa/Dar_es_Salaam"`, and test it in `frontend/src/lib/market-time.test.ts`
 
 ---
 
@@ -40,9 +40,9 @@ description: "Task list for service bookings"
 
 **⚠️ CRITICAL**: Complete this before any user story
 
-- [ ] T007 Add `bookings.view` and `bookings.manage` to `AdminPermission`, `PERMISSION_DESCRIPTIONS` and both tiers in `backend/apps/core/admin_permissions.py`; add their labels to `frontend/src/app/admin/profile/page.tsx`
-- [ ] T008 Add `service.*`, `booking.*` and `refund.*` actions to `AuditAction` in `backend/apps/audit/models.py`, generate the migration, and add labels to `frontend/src/app/admin/audit-log/page.tsx`
-- [ ] T009 Add `booking.created`, `booking.updated` and `refund.updated` to the event types in `frontend/src/lib/realtime.ts`, and add a `booking_audience(booking)` helper returning the customer's group, the owner's group and `ADMINS` in `backend/apps/realtime/groups.py`
+- [x] T007 Add `bookings.view` and `bookings.manage` to `AdminPermission`, `PERMISSION_DESCRIPTIONS` and both tiers in `backend/apps/core/admin_permissions.py`; add their labels to `frontend/src/app/admin/profile/page.tsx`
+- [x] T008 Add `service.*`, `booking.*` and `refund.*` actions to `AuditAction` in `backend/apps/audit/models.py`, generate the migration, and add labels to `frontend/src/app/admin/audit-log/page.tsx`
+- [x] T009 Add `booking.created`, `booking.updated` and `refund.updated` to the event types in `frontend/src/lib/realtime.ts`, and add a `booking_audience(booking)` helper returning the customer's group, the owner's group and `ADMINS` in `backend/apps/realtime/groups.py`
 
 **Checkpoint**: Run `python manage.py migrate` and the existing test suite. All existing tests still pass.
 
@@ -58,31 +58,31 @@ description: "Task list for service bookings"
 
 > Write these first and confirm they fail.
 
-- [ ] T010 [P] [US1] Test open times in `backend/tests/bookings/test_slots.py`: UTC+3 around midnight, multiple daily periods, closures, last start fits before closing, 3-hour notice, 60-day limit, mixed durations
-- [ ] T011 [P] [US1] Test the service rules in `backend/tests/bookings/test_services_catalogue.py`: unapproved shop refused, service in goods shop refused, product in services shop refused, publishing without a location refused, wrong category kind refused, archived services hidden, other owners get 404
-- [ ] T012 [P] [US1] Test shop type and categories in `backend/tests/vendors/test_shop_business_type.py` and `backend/tests/catalog/test_category_kind.py`: existing shops are GOODS, the type can't change after the request, and the default category list still returns only product categories
+- [x] T010 [P] [US1] Test open times in `backend/tests/bookings/test_slots.py`: UTC+3 around midnight, multiple daily periods, closures, last start fits before closing, 3-hour notice, 60-day limit, mixed durations
+- [x] T011 [P] [US1] Test the service rules in `backend/tests/bookings/test_services_catalogue.py`: unapproved shop refused, service in goods shop refused, product in services shop refused, publishing without a location refused, wrong category kind refused, archived services hidden, other owners get 404
+- [x] T012 [P] [US1] Test shop type and categories in `backend/tests/vendors/test_shop_business_type.py` and `backend/tests/catalog/test_category_kind.py`: existing shops are GOODS, the type can't change after the request, and the default category list still returns only product categories
 
 ### Implementation for User Story 1
 
-- [ ] T013 [US1] Add `Shop.business_type` (GOODS or SERVICES, default GOODS) and `Shop.booking_capacity` (positive integer, default 1, minimum 1) with a migration in `backend/apps/vendors/models.py`
-- [ ] T014 [US1] Accept `business_type` on shop requests, make it read-only afterwards, and return both new fields from the shop serializers in `backend/apps/vendors/serializers.py` and `backend/apps/vendors/views.py`
-- [ ] T015 [US1] Add `Category.kind` (PRODUCT or SERVICE, default PRODUCT; "A subcategory takes its parent's kind"; "Can't change while in use") with a migration in `backend/apps/catalog/models.py`
-- [ ] T016 [US1] Make `validate_category` refuse service categories, refuse product creation in SERVICES shops, and add `kind` to the admin category serializers in `backend/apps/catalog/serializers.py`; add `?kind=` with a PRODUCT default to `CategoryListView` and extend the category delete guard in `backend/apps/catalog/views.py`
-- [ ] T017 [US1] Create `Service` in `backend/apps/bookings/models.py` per `data-model.md`: `name` unique per shop, `price` "Above 0", `duration_minutes` "Multiple of the slot step; 30 to 1440", `is_published` and `is_archived` default false
-- [ ] T018 [US1] Create `OpeningHours` and `ShopClosure` in `backend/apps/bookings/models.py` per `data-model.md`: `weekday` 0 to 6, `closes_at` after `opens_at`, "periods on one day can't overlap", closure `date` "Unique per shop"; generate the migration
-- [ ] T019 [US1] Implement `open_slots(service, local_date, now)` in `backend/apps/bookings/slots.py`. Capacity arrives with T038, since no bookings exist yet
-- [ ] T020 [US1] Add service, schedule and closure serializers in `backend/apps/bookings/serializers.py`, with a shop-owner, APPROVED and SERVICES permission in `backend/apps/bookings/permissions.py`
-- [ ] T021 [US1] Add the provider service, schedule and closure endpoints from `contracts/bookings-api.md` in `backend/apps/bookings/views.py`, with `record()` audit calls
-- [ ] T022 [US1] Add the public service list, detail and slots endpoints in `backend/apps/bookings/views.py`, limited to published, unarchived services of APPROVED shops and paginated
-- [ ] T023 [US1] Export the bookings URL lists in `backend/apps/bookings/urls.py` and mount them in `backend/config/urls.py`
-- [ ] T024 [P] [US1] Add service, schedule and catalogue types and functions to `frontend/src/lib/api-client.ts`, and add `kind` to the category types
-- [ ] T025 [US1] Add the goods or services choice to shop requests in `frontend/src/app/register/page.tsx` and `frontend/src/app/account/page.tsx`
-- [ ] T026 [US1] Add the kind choice to `frontend/src/app/admin/categories/page.tsx`
-- [ ] T027 [P] [US1] Create `frontend/src/app/vendor/services/page.tsx` and its new and edit pages, following `frontend/src/app/vendor/products/`
-- [ ] T028 [P] [US1] Create `frontend/src/app/vendor/schedule/page.tsx` for weekly hours, closures and capacity
-- [ ] T029 [P] [US1] Create `frontend/src/app/services/page.tsx`, with search and category filters and a pager
-- [ ] T030 [US1] Create `frontend/src/components/booking/slot-picker.tsx` and `frontend/src/app/services/[id]/page.tsx`, labelling times in Dar es Salaam time via `lib/market-time.ts`, with booking action left for US2
-- [ ] T031 [US1] Add a services section to `frontend/src/app/shops/[id]/page.tsx`, and Services links to `frontend/src/components/nav.tsx`; show service links instead of product links for services shops
+- [x] T013 [US1] Add `Shop.business_type` (GOODS or SERVICES, default GOODS) and `Shop.booking_capacity` (positive integer, default 1, minimum 1) with a migration in `backend/apps/vendors/models.py`
+- [x] T014 [US1] Accept `business_type` on shop requests, make it read-only afterwards, and return both new fields from the shop serializers in `backend/apps/vendors/serializers.py` and `backend/apps/vendors/views.py`
+- [x] T015 [US1] Add `Category.kind` (PRODUCT or SERVICE, default PRODUCT; "A subcategory takes its parent's kind"; "Can't change while in use") with a migration in `backend/apps/catalog/models.py`
+- [x] T016 [US1] Make `validate_category` refuse service categories, refuse product creation in SERVICES shops, and add `kind` to the admin category serializers in `backend/apps/catalog/serializers.py`; add `?kind=` with a PRODUCT default to `CategoryListView` and extend the category delete guard in `backend/apps/catalog/views.py`
+- [x] T017 [US1] Create `Service` in `backend/apps/bookings/models.py` per `data-model.md`: `name` unique per shop, `price` "Above 0", `duration_minutes` "Multiple of the slot step; 30 to 1440", `is_published` and `is_archived` default false
+- [x] T018 [US1] Create `OpeningHours` and `ShopClosure` in `backend/apps/bookings/models.py` per `data-model.md`: `weekday` 0 to 6, `closes_at` after `opens_at`, "periods on one day can't overlap", closure `date` "Unique per shop"; generate the migration
+- [x] T019 [US1] Implement `open_slots(service, local_date, now)` in `backend/apps/bookings/slots.py`. Capacity arrives with T038, since no bookings exist yet
+- [x] T020 [US1] Add service, schedule and closure serializers in `backend/apps/bookings/serializers.py`, with a shop-owner, APPROVED and SERVICES permission in `backend/apps/bookings/permissions.py`
+- [x] T021 [US1] Add the provider service, schedule and closure endpoints from `contracts/bookings-api.md` in `backend/apps/bookings/views.py`, with `record()` audit calls
+- [x] T022 [US1] Add the public service list, detail and slots endpoints in `backend/apps/bookings/views.py`, limited to published, unarchived services of APPROVED shops and paginated
+- [x] T023 [US1] Export the bookings URL lists in `backend/apps/bookings/urls.py` and mount them in `backend/config/urls.py`
+- [x] T024 [P] [US1] Add service, schedule and catalogue types and functions to `frontend/src/lib/api-client.ts`, and add `kind` to the category types
+- [x] T025 [US1] Add the goods or services choice to shop requests in `frontend/src/app/register/page.tsx` and `frontend/src/app/account/page.tsx`
+- [x] T026 [US1] Add the kind choice to `frontend/src/app/admin/categories/page.tsx`
+- [x] T027 [P] [US1] Create `frontend/src/app/vendor/services/page.tsx` and its new and edit pages, following `frontend/src/app/vendor/products/`
+- [x] T028 [P] [US1] Create `frontend/src/app/vendor/schedule/page.tsx` for weekly hours, closures and capacity
+- [x] T029 [P] [US1] Create `frontend/src/app/services/page.tsx`, with search and category filters and a pager
+- [x] T030 [US1] Create `frontend/src/components/booking/slot-picker.tsx` and `frontend/src/app/services/[id]/page.tsx`, labelling times in Dar es Salaam time via `lib/market-time.ts`, with booking action left for US2
+- [x] T031 [US1] Add a services section to `frontend/src/app/shops/[id]/page.tsx`, and Services links to `frontend/src/components/nav.tsx`; show service links instead of product links for services shops
 
 **Checkpoint**: Run tests, migrations and the "US1" walkthrough in a browser. Stop for review.
 
@@ -98,29 +98,29 @@ description: "Task list for service bookings"
 
 > Write these first and confirm they fail.
 
-- [ ] T032 [P] [US2] Add threaded tests in `backend/tests/bookings/test_booking_concurrency.py`, modelled on `backend/tests/orders/test_checkout_concurrency.py`: same time at capacity 1 gives one success, capacity 2 gives two, overlapping services count together
-- [ ] T033 [P] [US2] Test every allowed and refused transition in `backend/tests/bookings/test_lifecycle.py`: accept, decline, customer cancel, deadlines shortened near the visit, late accept refused, unapproved shop refused
-- [ ] T034 [P] [US2] Test expiry in `backend/tests/bookings/test_expiry.py`: a time frees when its deadline passes before cleanup runs, `expire_bookings` updates status, and a second run changes nothing
-- [ ] T035 [P] [US2] Test access in `backend/tests/bookings/test_permissions.py`: guest, unverified email, own shop, 3 active unpaid bookings, other users get 404, and each admin tier; extend `READS` and `WRITES` in `backend/tests/core/test_admin_permissions.py`
+- [x] T032 [P] [US2] Add threaded tests in `backend/tests/bookings/test_booking_concurrency.py`, modelled on `backend/tests/orders/test_checkout_concurrency.py`: same time at capacity 1 gives one success, capacity 2 gives two, overlapping services count together
+- [x] T033 [P] [US2] Test every allowed and refused transition in `backend/tests/bookings/test_lifecycle.py`: accept, decline, customer cancel, deadlines shortened near the visit, late accept refused, unapproved shop refused
+- [x] T034 [P] [US2] Test expiry in `backend/tests/bookings/test_expiry.py`: a time frees when its deadline passes before cleanup runs, `expire_bookings` updates status, and a second run changes nothing
+- [x] T035 [P] [US2] Test access in `backend/tests/bookings/test_permissions.py`: guest, unverified email, own shop, 3 active unpaid bookings, other users get 404, and each admin tier; extend `READS` and `WRITES` in `backend/tests/core/test_admin_permissions.py`
 
 ### Implementation for User Story 2
 
-- [ ] T036 [US2] Create `Booking` and `BookingStatusEvent` in `backend/apps/bookings/models.py` per `data-model.md`, including `contact_phone` "Required; existing phone validator", `pay_by` nullable, `payout` FK SET_NULL with `related_name="bookings"`, the four listed indexes, and `amount_due()` returning `price`; generate the migration
-- [ ] T037 [US2] Add `BookingQuerySet.holding(now)` in `backend/apps/bookings/models.py`: REQUESTED with `respond_by` after now, AWAITING_PAYMENT with `pay_by` after now, and CONFIRMED (US3 adds the PENDING payment rule)
-- [ ] T038 [US2] Use peak overlap of `holding(now)` against `Shop.booking_capacity` in `backend/apps/bookings/slots.py`
-- [ ] T039 [US2] Implement `request_booking` in `backend/apps/bookings/services.py`: lock the shop with `select_for_update(no_key=True)`, recheck the time and 3-booking limit, set `respond_by`, freeze the price and split with `split_line()`, and write the status event in one transaction
-- [ ] T040 [US2] Implement `accept_booking`, `decline_booking`, `cancel_unpaid_booking` and `expire_due_bookings` in `backend/apps/bookings/services.py`, locking the booking row, setting `pay_by` on accept, and running expiry before reads and provider actions
-- [ ] T041 [US2] Create `backend/apps/bookings/management/commands/expire_bookings.py`, which prints how many bookings it changed
-- [ ] T042 [US2] Add `send_booking_status_email(booking, event)` to `EmailService` and `DjangoEmailService` in `backend/apps/core/email.py`, sent on commit and best-effort
-- [ ] T043 [US2] Publish `booking.created` and `booking.updated` on commit from `backend/apps/bookings/services.py`
-- [ ] T044 [US2] Add the customer create, list, detail and cancel endpoints, provider list, detail, accept and decline endpoints, and admin list and detail endpoints in `backend/apps/bookings/views.py` and `serializers.py`, with querysets filtered by owner, a throttle on booking requests, and audit calls
-- [ ] T045 [P] [US2] Add booking types and functions to `frontend/src/lib/api-client.ts`, and booking statuses to `STATUS_ALIASES` in `frontend/src/components/ui/pill.tsx`
-- [ ] T046 [US2] Add the request form (contact phone, note, sign-in and verification prompts) to `frontend/src/app/services/[id]/page.tsx`
-- [ ] T047 [P] [US2] Create `frontend/src/app/bookings/page.tsx` and `frontend/src/app/bookings/[id]/page.tsx` with status, deadlines, history, cancel and live refresh
-- [ ] T048 [P] [US2] Create `frontend/src/app/vendor/bookings/page.tsx` with accept and decline, and add it to `frontend/src/components/nav.tsx`
-- [ ] T049 [P] [US2] Create `frontend/src/app/admin/bookings/page.tsx` and `frontend/src/app/admin/bookings/[id]/page.tsx`, and add them to `frontend/src/components/admin-sidebar.tsx`
-- [ ] T050 [US2] Make `POST /api/vendor/shops/{id}/closures` return active bookings on that date, and show them as a warning in `frontend/src/app/vendor/schedule/page.tsx`
-- [ ] T051 [P] [US2] Add the `*/5` `expire_bookings` cron line next to the backup entry in `docs/deploy-contabo.md`
+- [x] T036 [US2] Create `Booking` and `BookingStatusEvent` in `backend/apps/bookings/models.py` per `data-model.md`, including `contact_phone` "Required; existing phone validator", `pay_by` nullable, `payout` FK SET_NULL with `related_name="bookings"`, the four listed indexes, and `amount_due()` returning `price`; generate the migration
+- [x] T037 [US2] Add `BookingQuerySet.holding(now)` in `backend/apps/bookings/models.py`: REQUESTED with `respond_by` after now, AWAITING_PAYMENT with `pay_by` after now, and CONFIRMED (US3 adds the PENDING payment rule)
+- [x] T038 [US2] Use peak overlap of `holding(now)` against `Shop.booking_capacity` in `backend/apps/bookings/slots.py`
+- [x] T039 [US2] Implement `request_booking` in `backend/apps/bookings/services.py`: lock the shop with `select_for_update(no_key=True)`, recheck the time and 3-booking limit, set `respond_by`, freeze the price and split with `split_line()`, and write the status event in one transaction
+- [x] T040 [US2] Implement `accept_booking`, `decline_booking`, `cancel_unpaid_booking` and `expire_due_bookings` in `backend/apps/bookings/services.py`, locking the booking row, setting `pay_by` on accept, and running expiry before reads and provider actions
+- [x] T041 [US2] Create `backend/apps/bookings/management/commands/expire_bookings.py`, which prints how many bookings it changed
+- [x] T042 [US2] Add `send_booking_status_email(booking, event)` to `EmailService` and `DjangoEmailService` in `backend/apps/core/email.py`, sent on commit and best-effort
+- [x] T043 [US2] Publish `booking.created` and `booking.updated` on commit from `backend/apps/bookings/services.py`
+- [x] T044 [US2] Add the customer create, list, detail and cancel endpoints, provider list, detail, accept and decline endpoints, and admin list and detail endpoints in `backend/apps/bookings/views.py` and `serializers.py`, with querysets filtered by owner, a throttle on booking requests, and audit calls
+- [x] T045 [P] [US2] Add booking types and functions to `frontend/src/lib/api-client.ts`, and booking statuses to `STATUS_ALIASES` in `frontend/src/components/ui/pill.tsx`
+- [x] T046 [US2] Add the request form (contact phone, note, sign-in and verification prompts) to `frontend/src/app/services/[id]/page.tsx`
+- [x] T047 [P] [US2] Create `frontend/src/app/bookings/page.tsx` and `frontend/src/app/bookings/[id]/page.tsx` with status, deadlines, history, cancel and live refresh
+- [x] T048 [P] [US2] Create `frontend/src/app/vendor/bookings/page.tsx` with accept and decline, and add it to `frontend/src/components/nav.tsx`
+- [x] T049 [P] [US2] Create `frontend/src/app/admin/bookings/page.tsx` and `frontend/src/app/admin/bookings/[id]/page.tsx`, and add them to `frontend/src/components/admin-sidebar.tsx`
+- [x] T050 [US2] Make `POST /api/vendor/shops/{id}/closures` return active bookings on that date, and show them as a warning in `frontend/src/app/vendor/schedule/page.tsx`
+- [x] T051 [P] [US2] Add the `*/5` `expire_bookings` cron line next to the backup entry in `docs/deploy-contabo.md`
 
 **Checkpoint**: Run tests and the "US2" walkthrough. Don't deploy to production until US3 is done. Stop for review.
 

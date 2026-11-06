@@ -7,6 +7,7 @@ import pytest
 
 from apps.bookings.slots import open_slots
 from tests.factories import (
+    BookingFactory,
     OpeningHoursFactory,
     ServiceFactory,
     ServicesShopFactory,
@@ -133,6 +134,76 @@ def test_opening_hours_near_midnight_stay_on_the_local_date():
 
     # 00:00 on Monday in Dar es Salaam is 21:00 on Sunday in UTC.
     assert slots[0].starts_at == datetime(2030, 1, 6, 21, 0, tzinfo=UTC)
+
+
+def _hold(service, start_hour, start_minute=0, minutes=60):
+    starts_at = datetime.combine(MONDAY, time(start_hour, start_minute), tzinfo=DAR)
+    return BookingFactory(
+        service=service,
+        starts_at=starts_at,
+        ends_at=starts_at + timedelta(minutes=minutes),
+        respond_by=NOW + timedelta(hours=12),
+    )
+
+
+def test_capacity_one_hides_every_time_that_overlaps_a_hold():
+    service = _service(duration=60, capacity=1)
+    OpeningHoursFactory(shop=service.shop, weekday=0, opens_at=time(9), closes_at=time(12))
+    _hold(service, 10)
+
+    assert _local_times(open_slots(service, MONDAY, now=NOW)) == ["09:00", "11:00"]
+
+
+def test_capacity_two_counts_only_bookings_that_overlap_each_other():
+    """Two holds overlap the 10:00 to 12:00 window but not each other, so one place stays free."""
+
+    service = _service(duration=120, capacity=2)
+    OpeningHoursFactory(shop=service.shop, weekday=0, opens_at=time(10), closes_at=time(12))
+    _hold(service, 10)
+    _hold(service, 11)
+
+    assert _local_times(open_slots(service, MONDAY, now=NOW)) == ["10:00"]
+
+
+def test_capacity_two_is_full_where_two_holds_overlap_each_other():
+    service = _service(duration=60, capacity=2)
+    OpeningHoursFactory(shop=service.shop, weekday=0, opens_at=time(9), closes_at=time(13))
+    _hold(service, 10, minutes=120)
+    _hold(service, 11, minutes=60)
+
+    # Both holds run from 11:00 to 12:00, so anything touching that hour is full.
+    assert _local_times(open_slots(service, MONDAY, now=NOW)) == [
+        "09:00",
+        "09:30",
+        "10:00",
+        "12:00",
+    ]
+
+
+def test_a_hold_on_another_service_with_a_different_duration_counts():
+    short = _service(duration=30, capacity=1)
+    long = ServiceFactory(shop=short.shop, duration_minutes=120)
+    OpeningHoursFactory(shop=short.shop, weekday=0, opens_at=time(9), closes_at=time(12))
+    _hold(long, 9, minutes=120)
+
+    assert _local_times(open_slots(short, MONDAY, now=NOW)) == ["11:00", "11:30"]
+
+
+def test_a_hold_in_another_shop_doesnt_count():
+    service = _service(duration=60, capacity=1)
+    OpeningHoursFactory(shop=service.shop, weekday=0, opens_at=time(9), closes_at=time(10))
+    _hold(_service(duration=60), 9)
+
+    assert _local_times(open_slots(service, MONDAY, now=NOW)) == ["09:00"]
+
+
+def test_a_hold_past_its_deadline_frees_the_time():
+    service = _service(duration=60, capacity=1)
+    OpeningHoursFactory(shop=service.shop, weekday=0, opens_at=time(9), closes_at=time(10))
+    _hold(service, 9)
+
+    assert open_slots(service, MONDAY, now=NOW) == []
+    assert _local_times(open_slots(service, MONDAY, now=NOW + timedelta(hours=13))) == ["09:00"]
 
 
 def test_endpoint_returns_times_with_the_market_offset(api_client):

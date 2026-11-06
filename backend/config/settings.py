@@ -200,6 +200,7 @@ REST_FRAMEWORK = {
         "guest_cart": "60/min",
         "guest_checkout": "10/min",
         "guest_order": "30/min",
+        "booking_request": "10/min",
     },
 }
 

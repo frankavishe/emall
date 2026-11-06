@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { addMarketDays, formatMarketDate, formatMarketTime, marketToday } from "./market-time";
+import {
+  addMarketDays,
+  formatMarketDate,
+  formatMarketDateTime,
+  formatMarketTime,
+  marketToday,
+} from "./market-time";
 
 describe("market time", () => {
   it("shows Dar es Salaam time whatever offset the timestamp carries", () => {
@@ -17,6 +23,12 @@ describe("market time", () => {
 
   it("formats a plain date without shifting it", () => {
     expect(formatMarketDate("2026-11-20")).toContain("20 Nov 2026");
+  });
+
+  it("formats a date and time together in Dar es Salaam time", () => {
+    const formatted = formatMarketDateTime("2026-11-19T22:30:00Z");
+    expect(formatted).toContain("20 Nov 2026");
+    expect(formatted).toContain("at 01:30");
   });
 
   it("adds days across month and year ends", () => {

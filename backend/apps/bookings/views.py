@@ -7,27 +7,44 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.generics import ListAPIView, ListCreateAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from apps.audit.models import AuditAction
 from apps.audit.services import changed_fields, record
-from apps.bookings.models import OpeningHours, Service, ShopClosure
+from apps.bookings.models import Booking, OpeningHours, Service, ShopClosure
 from apps.bookings.permissions import (
     owned_bookable_shop,
     owned_services_shop,
     require_bookable_shop,
 )
 from apps.bookings.serializers import (
+    AdminBookingDetailSerializer,
+    AdminBookingSerializer,
+    BookingDetailSerializer,
+    BookingReasonSerializer,
+    BookingRequestSerializer,
+    BookingSerializer,
+    ClosureBookingSerializer,
     OpeningPeriodSerializer,
     PublicServiceSerializer,
     ShopClosureSerializer,
     ShopScheduleSerializer,
+    VendorBookingDetailSerializer,
+    VendorBookingSerializer,
     VendorServiceSerializer,
     VendorServiceWriteSerializer,
 )
-from apps.bookings.slots import market_today, open_slots
+from apps.bookings.services import (
+    accept_booking,
+    cancel_unpaid_booking,
+    decline_booking,
+    expire_due_bookings,
+    request_booking,
+)
+from apps.bookings.slots import market_day_bounds, market_today, open_slots
 from apps.core.pagination import LimitedPageNumberPagination
-from apps.core.permissions import IsVendor
+from apps.core.permissions import AdminArea, IsCustomer, IsVendor, require_verified_email
 from apps.vendors.models import Shop
 
 # --- Public --------------------------------------------------------------------
@@ -74,13 +91,13 @@ class CatalogServiceDetailView(APIView):
         return Response(PublicServiceSerializer(service, context={"request": request}).data)
 
 
-def _parse_local_date(value):
+def _parse_local_date(value, field="date"):
     try:
         parsed = parse_date(value or "")
     except ValueError:
         parsed = None
     if parsed is None:
-        raise ValidationError({"date": "Enter a date as YYYY-MM-DD."})
+        raise ValidationError({field: "Enter a date as YYYY-MM-DD."})
     return parsed
 
 
@@ -264,7 +281,18 @@ class VendorShopClosureListCreateView(ListCreateAPIView):
             target=shop,
             metadata={"closure_added": closure.date},
         )
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        # Existing bookings stand: the provider is warned and deals with each one themselves.
+        active = (
+            Booking.objects.holding()
+            .filter(shop=shop)
+            .overlapping(*market_day_bounds(closure.date))
+            .select_related("service", "customer")
+            .order_by("starts_at")
+        )
+        warnings = ClosureBookingSerializer(active, many=True).data
+        return Response(
+            {**serializer.data, "active_bookings": warnings}, status=status.HTTP_201_CREATED
+        )
 
 
 class VendorShopClosureDetailView(APIView):
@@ -281,3 +309,183 @@ class VendorShopClosureDetailView(APIView):
         )
         closure.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# --- Bookings ------------------------------------------------------------------
+
+
+def _with_status(queryset, params):
+    wanted = params.get("status")
+    return queryset.filter(status=wanted) if wanted else queryset
+
+
+def _with_shop(queryset, params):
+    shop = params.get("shop")
+    if not shop:
+        return queryset
+    return queryset.filter(shop_id=shop) if shop.isdigit() else queryset.none()
+
+
+def _booking_rows():
+    return Booking.objects.select_related("service", "shop")
+
+
+# --- Customer: bookings --------------------------------------------------------
+
+
+class BookingListCreateView(ListCreateAPIView):
+    permission_classes = [IsCustomer]
+    pagination_class = LimitedPageNumberPagination
+    serializer_class = BookingSerializer
+    throttle_scope = "booking_request"
+
+    def get_throttles(self):
+        return [ScopedRateThrottle()] if self.request.method == "POST" else []
+
+    def get_queryset(self):
+        return _with_status(
+            _booking_rows().filter(customer=self.request.user), self.request.query_params
+        )
+
+    def list(self, request, *args, **kwargs):
+        expire_due_bookings(Booking.objects.filter(customer=request.user))
+        return super().list(request, *args, **kwargs)
+
+    def create(self, request, *args, **kwargs):
+        require_verified_email(request.user)
+        serializer = BookingRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        booking = request_booking(
+            customer=request.user,
+            service_id=data["service"],
+            starts_at=data["starts_at"],
+            contact_phone=data["contact_phone"],
+            customer_note=data["customer_note"],
+            request=request,
+        )
+        return Response(BookingSerializer(booking).data, status=status.HTTP_201_CREATED)
+
+
+class BookingDetailView(APIView):
+    permission_classes = [IsCustomer]
+
+    def get(self, request, booking_id):
+        expire_due_bookings(Booking.objects.filter(pk=booking_id, customer=request.user))
+        booking = get_object_or_404(
+            _booking_rows().prefetch_related("status_events"),
+            pk=booking_id,
+            customer=request.user,
+        )
+        return Response(BookingDetailSerializer(booking).data)
+
+
+class BookingCancelView(APIView):
+    permission_classes = [IsCustomer]
+
+    def post(self, request, booking_id):
+        booking = cancel_unpaid_booking(
+            booking_id=booking_id, customer=request.user, request=request
+        )
+        return Response(BookingSerializer(booking).data)
+
+
+# --- Provider: bookings --------------------------------------------------------
+
+
+class VendorBookingListView(ListAPIView):
+    permission_classes = [IsVendor]
+    pagination_class = LimitedPageNumberPagination
+    serializer_class = VendorBookingSerializer
+
+    def get_queryset(self):
+        queryset = _booking_rows().select_related("customer").filter(shop__owner=self.request.user)
+        params = self.request.query_params
+        return _with_shop(_with_status(queryset, params), params)
+
+    def list(self, request, *args, **kwargs):
+        expire_due_bookings(Booking.objects.filter(shop__owner=request.user))
+        return super().list(request, *args, **kwargs)
+
+
+class VendorBookingDetailView(APIView):
+    permission_classes = [IsVendor]
+
+    def get(self, request, booking_id):
+        expire_due_bookings(Booking.objects.filter(pk=booking_id, shop__owner=request.user))
+        booking = get_object_or_404(
+            _booking_rows().select_related("customer").prefetch_related("status_events"),
+            pk=booking_id,
+            shop__owner=request.user,
+        )
+        return Response(VendorBookingDetailSerializer(booking).data)
+
+
+class VendorBookingAcceptView(APIView):
+    permission_classes = [IsVendor]
+
+    def post(self, request, booking_id):
+        booking = accept_booking(booking_id=booking_id, owner=request.user, request=request)
+        return Response(VendorBookingSerializer(booking).data)
+
+
+class VendorBookingDeclineView(APIView):
+    permission_classes = [IsVendor]
+
+    def post(self, request, booking_id):
+        serializer = BookingReasonSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        booking = decline_booking(
+            booking_id=booking_id,
+            owner=request.user,
+            reason=serializer.validated_data["reason"],
+            request=request,
+        )
+        return Response(VendorBookingSerializer(booking).data)
+
+
+# --- Administrator: bookings ---------------------------------------------------
+
+
+class AdminBookingListView(ListAPIView):
+    permission_classes = [AdminArea("bookings")]
+    pagination_class = LimitedPageNumberPagination
+    serializer_class = AdminBookingSerializer
+
+    def get_queryset(self):
+        params = self.request.query_params
+        queryset = _booking_rows().select_related("customer")
+        queryset = _with_shop(_with_status(queryset, params), params)
+        search = (params.get("search") or "").strip()
+        if search:
+            queryset = queryset.filter(
+                models.Q(customer__email__icontains=search)
+                | models.Q(customer__name__icontains=search)
+                | models.Q(shop__name__icontains=search)
+                | models.Q(service__name__icontains=search)
+            )
+        if params.get("date_from"):
+            start, _ = market_day_bounds(_parse_local_date(params["date_from"], "date_from"))
+            queryset = queryset.filter(starts_at__gte=start)
+        if params.get("date_to"):
+            _, end = market_day_bounds(_parse_local_date(params["date_to"], "date_to"))
+            queryset = queryset.filter(starts_at__lt=end)
+        return queryset
+
+    def list(self, request, *args, **kwargs):
+        expire_due_bookings()
+        return super().list(request, *args, **kwargs)
+
+
+class AdminBookingDetailView(APIView):
+    permission_classes = [AdminArea("bookings")]
+
+    def get(self, request, booking_id):
+        expire_due_bookings(Booking.objects.filter(pk=booking_id))
+        booking = get_object_or_404(
+            _booking_rows()
+            .select_related("customer")
+            .prefetch_related("status_events__actor"),
+            pk=booking_id,
+        )
+        return Response(AdminBookingDetailSerializer(booking).data)

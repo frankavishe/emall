@@ -438,6 +438,134 @@ export async function getServiceSlots(
   );
 }
 
+export type BookingStatus =
+  | "REQUESTED"
+  | "AWAITING_PAYMENT"
+  | "CONFIRMED"
+  | "COMPLETED"
+  | "NO_SHOW"
+  | "DECLINED"
+  | "EXPIRED"
+  | "CANCELLED";
+
+export type BookingHistoryEvent = {
+  status: BookingStatus;
+  reason: string;
+  created_at: string;
+  /** Administrators only. Null means the system made the change. */
+  actor_email?: string | null;
+};
+
+export type Booking = {
+  id: number;
+  status: BookingStatus;
+  service: { id: number; name: string; duration_minutes: number };
+  shop: { id: number; name: string };
+  starts_at: string;
+  ends_at: string;
+  respond_by: string;
+  /** Null until the provider accepts. */
+  pay_by: string | null;
+  contact_phone: string;
+  customer_note: string;
+  status_reason: string;
+  price: string;
+  created_at: string;
+  accepted_at: string | null;
+  confirmed_at: string | null;
+  completed_at: string | null;
+  cancelled_at: string | null;
+};
+
+export type BookingDetail = Booking & { history: BookingHistoryEvent[] };
+
+export type VendorBooking = Booking & {
+  customer_name: string;
+  commission_amount: string;
+  vendor_earning: string;
+};
+
+export type AdminBooking = Booking & {
+  customer: { id: number; name: string; email: string };
+  commission_rate: string;
+  commission_amount: string;
+  vendor_earning: string;
+};
+
+export type AdminBookingDetail = AdminBooking & { history: BookingHistoryEvent[] };
+
+export type BookingRequest = {
+  service: number;
+  starts_at: string;
+  contact_phone: string;
+  customer_note: string;
+};
+
+function bookingQuery(options: Record<string, string | number | undefined>): string {
+  const params = new URLSearchParams();
+  for (const [name, value] of Object.entries(options)) {
+    if (value && !(name === "page" && value === 1)) params.set(name, String(value));
+  }
+  const query = params.toString();
+  return query ? `?${query}` : "";
+}
+
+/** `POST /api/bookings`: holds an open time. The server sets the price and deadlines. */
+export async function requestBooking(data: BookingRequest): Promise<Booking> {
+  return apiFetch<Booking>("/api/bookings", { method: "POST", body: JSON.stringify(data) });
+}
+
+export async function listBookings(
+  options: { status?: string; page?: number } = {},
+): Promise<PaginatedResponse<Booking>> {
+  return apiFetch<PaginatedResponse<Booking>>(`/api/bookings${bookingQuery(options)}`);
+}
+
+export async function getBooking(bookingId: number | string): Promise<BookingDetail> {
+  return apiFetch<BookingDetail>(`/api/bookings/${bookingId}`);
+}
+
+export async function cancelBooking(bookingId: number | string): Promise<Booking> {
+  return apiFetch<Booking>(`/api/bookings/${bookingId}/cancel`, { method: "POST" });
+}
+
+export async function listVendorBookings(
+  options: { status?: string; shop?: string | number; page?: number } = {},
+): Promise<PaginatedResponse<VendorBooking>> {
+  return apiFetch<PaginatedResponse<VendorBooking>>(`/api/vendor/bookings${bookingQuery(options)}`);
+}
+
+export async function acceptBooking(bookingId: number | string): Promise<VendorBooking> {
+  return apiFetch<VendorBooking>(`/api/vendor/bookings/${bookingId}/accept`, { method: "POST" });
+}
+
+export async function declineBooking(
+  bookingId: number | string,
+  reason: string,
+): Promise<VendorBooking> {
+  return apiFetch<VendorBooking>(`/api/vendor/bookings/${bookingId}/decline`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  });
+}
+
+export async function listAdminBookings(
+  options: {
+    status?: string;
+    shop?: string | number;
+    search?: string;
+    date_from?: string;
+    date_to?: string;
+    page?: number;
+  } = {},
+): Promise<PaginatedResponse<AdminBooking>> {
+  return apiFetch<PaginatedResponse<AdminBooking>>(`/api/admin/bookings${bookingQuery(options)}`);
+}
+
+export async function getAdminBooking(bookingId: number | string): Promise<AdminBookingDetail> {
+  return apiFetch<AdminBookingDetail>(`/api/admin/bookings/${bookingId}`);
+}
+
 export type VendorService = {
   id: number;
   shop: { id: number; name: string; status: string };
@@ -536,11 +664,22 @@ export async function listShopClosures(
   );
 }
 
+/** A closure just added, with any active bookings on that date. They aren't cancelled for you. */
+export type AddedShopClosure = ShopClosure & {
+  active_bookings: {
+    id: number;
+    status: BookingStatus;
+    service: { name: string };
+    starts_at: string;
+    customer_name: string;
+  }[];
+};
+
 export async function addShopClosure(
   shopId: number | string,
   data: { date: string; note: string },
-): Promise<ShopClosure> {
-  return apiFetch<ShopClosure>(`/api/vendor/shops/${shopId}/closures`, {
+): Promise<AddedShopClosure> {
+  return apiFetch<AddedShopClosure>(`/api/vendor/shops/${shopId}/closures`, {
     method: "POST",
     body: JSON.stringify(data),
   });

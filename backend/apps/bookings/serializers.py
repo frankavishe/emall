@@ -4,11 +4,12 @@ from django.conf import settings
 from rest_framework import serializers
 from rest_framework.exceptions import PermissionDenied
 
-from apps.bookings.models import OpeningHours, Service, ShopClosure
+from apps.bookings.models import Booking, BookingStatusEvent, OpeningHours, Service, ShopClosure
 from apps.bookings.permissions import require_bookable_shop
-from apps.bookings.slots import market_today
+from apps.bookings.slots import market_today, market_zone
 from apps.catalog.models import Category
 from apps.catalog.serializers import CatalogShopSerializer
+from apps.core.validators import PHONE_REGEX
 from apps.vendors.models import Shop
 
 MAX_BOOKING_CAPACITY = 1000
@@ -161,3 +162,164 @@ class ShopClosureSerializer(serializers.ModelSerializer):
         if ShopClosure.objects.filter(shop=self.context["shop"], date=value).exists():
             raise serializers.ValidationError("This date is already marked as closed.")
         return value
+
+
+class MarketDateTimeField(serializers.DateTimeField):
+    """Booking times go out with the market's `+03:00` offset, as open times do."""
+
+    def __init__(self, **kwargs):
+        kwargs.setdefault("default_timezone", market_zone())
+        kwargs.setdefault("read_only", True)
+        super().__init__(**kwargs)
+
+
+class BookingRequestSerializer(serializers.Serializer):
+    service = serializers.IntegerField(min_value=1)
+    starts_at = serializers.DateTimeField()
+    contact_phone = serializers.RegexField(
+        PHONE_REGEX, error_messages={"invalid": "Enter a valid phone number."}
+    )
+    customer_note = serializers.CharField(
+        required=False, allow_blank=True, default="", max_length=1000
+    )
+
+
+class BookingReasonSerializer(serializers.Serializer):
+    reason = serializers.CharField(required=False, allow_blank=True, default="", max_length=1000)
+
+
+class BookingServiceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Service
+        fields = ["id", "name", "duration_minutes"]
+        read_only_fields = fields
+
+
+class BookingShopSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Shop
+        fields = ["id", "name"]
+        read_only_fields = fields
+
+
+class BookingHistorySerializer(serializers.ModelSerializer):
+    created_at = MarketDateTimeField()
+
+    class Meta:
+        model = BookingStatusEvent
+        fields = ["status", "reason", "created_at"]
+        read_only_fields = fields
+
+
+class AdminBookingHistorySerializer(BookingHistorySerializer):
+    actor_email = serializers.EmailField(source="actor.email", read_only=True, default=None)
+
+    class Meta(BookingHistorySerializer.Meta):
+        fields = [*BookingHistorySerializer.Meta.fields, "actor_email"]
+        read_only_fields = fields
+
+
+class BookingSerializer(serializers.ModelSerializer):
+    """What the customer sees. Providers and Administrators add to it below."""
+
+    service = BookingServiceSerializer(read_only=True)
+    shop = BookingShopSerializer(read_only=True)
+    starts_at = MarketDateTimeField()
+    ends_at = MarketDateTimeField()
+    respond_by = MarketDateTimeField()
+    pay_by = MarketDateTimeField()
+    created_at = MarketDateTimeField()
+    accepted_at = MarketDateTimeField()
+    confirmed_at = MarketDateTimeField()
+    completed_at = MarketDateTimeField()
+    cancelled_at = MarketDateTimeField()
+
+    class Meta:
+        model = Booking
+        fields = [
+            "id",
+            "status",
+            "service",
+            "shop",
+            "starts_at",
+            "ends_at",
+            "respond_by",
+            "pay_by",
+            "contact_phone",
+            "customer_note",
+            "status_reason",
+            "price",
+            "created_at",
+            "accepted_at",
+            "confirmed_at",
+            "completed_at",
+            "cancelled_at",
+        ]
+        read_only_fields = fields
+
+
+class BookingDetailSerializer(BookingSerializer):
+    history = BookingHistorySerializer(source="status_events", many=True, read_only=True)
+
+    class Meta(BookingSerializer.Meta):
+        fields = [*BookingSerializer.Meta.fields, "history"]
+        read_only_fields = fields
+
+
+class VendorBookingSerializer(BookingSerializer):
+    customer_name = serializers.CharField(source="customer.name", read_only=True)
+
+    class Meta(BookingSerializer.Meta):
+        fields = [
+            *BookingSerializer.Meta.fields,
+            "customer_name",
+            "commission_amount",
+            "vendor_earning",
+        ]
+        read_only_fields = fields
+
+
+class VendorBookingDetailSerializer(VendorBookingSerializer):
+    history = BookingHistorySerializer(source="status_events", many=True, read_only=True)
+
+    class Meta(VendorBookingSerializer.Meta):
+        fields = [*VendorBookingSerializer.Meta.fields, "history"]
+        read_only_fields = fields
+
+
+class BookingCustomerSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
+    name = serializers.CharField()
+    email = serializers.EmailField()
+
+
+class AdminBookingSerializer(BookingSerializer):
+    customer = BookingCustomerSerializer(read_only=True)
+
+    class Meta(BookingSerializer.Meta):
+        fields = [
+            *BookingSerializer.Meta.fields,
+            "customer",
+            "commission_rate",
+            "commission_amount",
+            "vendor_earning",
+        ]
+        read_only_fields = fields
+
+
+class AdminBookingDetailSerializer(AdminBookingSerializer):
+    history = AdminBookingHistorySerializer(source="status_events", many=True, read_only=True)
+
+    class Meta(AdminBookingSerializer.Meta):
+        fields = [*AdminBookingSerializer.Meta.fields, "history"]
+        read_only_fields = fields
+
+
+class ClosureBookingSerializer(BookingSerializer):
+    """An active booking on a date the provider just closed, as a warning."""
+
+    customer_name = serializers.CharField(source="customer.name", read_only=True)
+
+    class Meta(BookingSerializer.Meta):
+        fields = ["id", "status", "service", "starts_at", "customer_name"]
+        read_only_fields = fields

@@ -44,9 +44,9 @@ Reverse access through `order.payment` is unaffected.
 
 ## 5. Availability and double booking
 
-**Decision**: `request_booking` runs in one transaction: lock the shop row with `select_for_update(no_key=True)`, regenerate the open times, check that the start time is offered, compute peak overlap against capacity, and insert. Capacity and hours are per shop.
+**Decision**: `request_booking` runs in one transaction: lock the customer row, then the shop row, both with `select_for_update(no_key=True)`, regenerate the open times, check that the start time is offered, compute peak overlap against capacity, and insert. Capacity and hours are per shop.
 
-**Rationale**: One salon chair is shared by all services. `no_key` doesn't block rows that only reference the shop. It follows the locking approach of checkout.
+**Rationale**: One salon chair is shared by all services. `no_key` doesn't block rows that only reference the shop. It follows the locking approach of checkout. The customer lock exists because the limit on active unpaid bookings spans shops, so the shop lock alone can't protect it.
 
 **Alternatives considered**: An exclusion constraint can't express capacity above 1. Pre-built slot rows can't handle mixed durations well.
 
@@ -121,3 +121,7 @@ Because it compares deadlines, times free up on schedule even if cron stops.
 **Decision**: Providers can also cancel an AWAITING_PAYMENT booking with no payment in progress, giving a reason. No money is owed.
 
 **Rationale**: The spec tells providers to cancel bookings on a day they later close. Requests can be declined and confirmed bookings cancelled, so this closes the remaining gap.
+
+## 12. Next.js guides (T001)
+
+**Checked**: `use-client` and `use-params` in `frontend/node_modules/next/dist/docs/`. Booking pages are client components that read the id with `useParams`, as the existing service and order pages do. Nothing in these guides changes that approach.

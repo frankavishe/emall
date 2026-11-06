@@ -43,6 +43,11 @@ export function formatMarketDate(value: string | Date): string {
   return dateFormat.format(new Date(value));
 }
 
+/** `2026-11-20T09:00:00+03:00` -> `Fri, 20 Nov 2026 at 09:00`. */
+export function formatMarketDateTime(value: string | Date): string {
+  return `${dateFormat.format(new Date(value))} at ${formatMarketTime(value)}`;
+}
+
 /** Today's date in Dar es Salaam, as `YYYY-MM-DD`. */
 export function marketToday(now: Date = new Date()): string {
   return isoDateFormat.format(now);
