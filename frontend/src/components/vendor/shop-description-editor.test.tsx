@@ -12,7 +12,13 @@ vi.mock("@/lib/api-client", async (importOriginal) => ({
   updateShopDescription: (...args: unknown[]) => updateShopDescription(...args),
 }));
 
-const SHOP: Shop = { id: "7", name: "Mlimani Books", status: "APPROVED", logo_url: null };
+const SHOP: Shop = {
+  id: "7",
+  name: "Mlimani Books",
+  status: "APPROVED",
+  business_type: "GOODS",
+  logo_url: null,
+};
 
 beforeEach(() => {
   refreshUser.mockResolvedValue(undefined);

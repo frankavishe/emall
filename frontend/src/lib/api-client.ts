@@ -350,12 +350,17 @@ export type CatalogShop = {
   logo_url: string | null;
   primary_color: string;
   accent_color: string;
+  business_type: BusinessType;
   /** Only on `GET /api/catalog/shops/:id`, not on the shop nested in product payloads. */
   description?: string;
 };
 
 /** One card on the public merchants directory. */
-export type CatalogShopListItem = CatalogShop & { description: string; product_count: number };
+export type CatalogShopListItem = CatalogShop & {
+  description: string;
+  product_count: number;
+  service_count: number;
+};
 
 /** `GET /api/catalog/shops` — approved shops, alphabetically, paginated. */
 export async function listPublicShops(page = 1): Promise<PaginatedResponse<CatalogShopListItem>> {
@@ -368,9 +373,181 @@ export async function getPublicShop(shopId: number | string): Promise<CatalogSho
   return apiFetch<CatalogShop>(`/api/catalog/shops/${shopId}`);
 }
 
-/** `GET /api/catalog/categories`. */
-export async function listCategories(): Promise<Category[]> {
-  return apiFetch<Category[]>("/api/catalog/categories");
+/** `GET /api/catalog/categories`: product categories unless `kind` asks for service ones. */
+export async function listCategories(kind: CategoryKind = "PRODUCT"): Promise<Category[]> {
+  return apiFetch<Category[]>(
+    kind === "PRODUCT" ? "/api/catalog/categories" : `/api/catalog/categories?kind=${kind}`,
+  );
+}
+
+// --- Services and open times (008-service-bookings) ---------------------------------------------
+
+export type BusinessType = "GOODS" | "SERVICES";
+export type CategoryKind = "PRODUCT" | "SERVICE";
+
+export type CatalogService = {
+  id: number;
+  name: string;
+  description: string;
+  price: string;
+  duration_minutes: number;
+  /** Category display name. */
+  category: string;
+  category_slug: string;
+  shop: CatalogShop;
+};
+
+export type ServiceSlot = { starts_at: string; ends_at: string };
+
+export type ServiceSlots = { date: string; time_zone: string; slots: ServiceSlot[] };
+
+export type ListServicesOptions = {
+  search?: string;
+  category?: string;
+  shop?: string | number;
+  page?: number;
+};
+
+/** `GET /api/catalog/services`: published services of approved shops, paginated. */
+export async function listServices(
+  options: ListServicesOptions = {},
+): Promise<PaginatedResponse<CatalogService>> {
+  const params = new URLSearchParams();
+  if (options.search?.trim()) params.set("search", options.search.trim());
+  if (options.category) params.set("category", options.category);
+  if (options.shop) params.set("shop", String(options.shop));
+  if (options.page && options.page > 1) params.set("page", String(options.page));
+  const query = params.toString();
+  return apiFetch<PaginatedResponse<CatalogService>>(
+    `/api/catalog/services${query ? `?${query}` : ""}`,
+  );
+}
+
+/** `GET /api/catalog/services/:id`: `404` unless published in an approved shop. */
+export async function getService(serviceId: number | string): Promise<CatalogService> {
+  return apiFetch<CatalogService>(`/api/catalog/services/${serviceId}`);
+}
+
+/** `GET /api/catalog/services/:id/slots`: open times on one Dar es Salaam date (`YYYY-MM-DD`). */
+export async function getServiceSlots(
+  serviceId: number | string,
+  date: string,
+): Promise<ServiceSlots> {
+  return apiFetch<ServiceSlots>(
+    `/api/catalog/services/${serviceId}/slots?date=${encodeURIComponent(date)}`,
+  );
+}
+
+export type VendorService = {
+  id: number;
+  shop: { id: number; name: string; status: string };
+  name: string;
+  description: string;
+  price: string;
+  duration_minutes: number;
+  /** Category slug. */
+  category: string;
+  category_name: string;
+  is_published: boolean;
+};
+
+export type VendorServiceInput = {
+  name: string;
+  description: string;
+  price: string;
+  duration_minutes: number;
+  category: string;
+};
+
+/** `GET /api/vendor/services`: the signed-in provider's unarchived services. */
+export async function listVendorServices(page = 1): Promise<PaginatedResponse<VendorService>> {
+  return apiFetch<PaginatedResponse<VendorService>>(
+    `/api/vendor/services${page > 1 ? `?page=${page}` : ""}`,
+  );
+}
+
+export async function getVendorService(serviceId: number | string): Promise<VendorService> {
+  return apiFetch<VendorService>(`/api/vendor/services/${serviceId}`);
+}
+
+export async function createVendorService(
+  data: VendorServiceInput & { shop_id: number },
+): Promise<VendorService> {
+  return apiFetch<VendorService>("/api/vendor/services", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateVendorService(
+  serviceId: number | string,
+  data: Partial<VendorServiceInput>,
+): Promise<VendorService> {
+  return apiFetch<VendorService>(`/api/vendor/services/${serviceId}`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+/** `DELETE /api/vendor/services/:id`: archives it. Existing bookings keep their history. */
+export async function archiveVendorService(serviceId: number): Promise<void> {
+  await apiFetch(`/api/vendor/services/${serviceId}`, { method: "DELETE" });
+}
+
+export async function setVendorServicePublished(
+  serviceId: number,
+  published: boolean,
+): Promise<VendorService> {
+  return apiFetch<VendorService>(
+    `/api/vendor/services/${serviceId}/${published ? "publish" : "unpublish"}`,
+    { method: "POST" },
+  );
+}
+
+/** One opening period in local Dar es Salaam time. `weekday` is 0 (Monday) to 6 (Sunday). */
+export type OpeningPeriod = { weekday: number; opens_at: string; closes_at: string };
+
+export type ShopSchedule = { booking_capacity: number; hours: OpeningPeriod[] };
+
+export type ShopClosure = { id: number; date: string; note: string };
+
+export async function getShopSchedule(shopId: number | string): Promise<ShopSchedule> {
+  return apiFetch<ShopSchedule>(`/api/vendor/shops/${shopId}/schedule`);
+}
+
+/** `PUT /api/vendor/shops/:id/schedule`: replaces the weekly hours and capacity. */
+export async function saveShopSchedule(
+  shopId: number | string,
+  schedule: ShopSchedule,
+): Promise<ShopSchedule> {
+  return apiFetch<ShopSchedule>(`/api/vendor/shops/${shopId}/schedule`, {
+    method: "PUT",
+    body: JSON.stringify(schedule),
+  });
+}
+
+/** Today's and future closures, soonest first. */
+export async function listShopClosures(
+  shopId: number | string,
+  page = 1,
+): Promise<PaginatedResponse<ShopClosure>> {
+  return apiFetch<PaginatedResponse<ShopClosure>>(
+    `/api/vendor/shops/${shopId}/closures${page > 1 ? `?page=${page}` : ""}`,
+  );
+}
+
+export async function addShopClosure(
+  shopId: number | string,
+  data: { date: string; note: string },
+): Promise<ShopClosure> {
+  return apiFetch<ShopClosure>(`/api/vendor/shops/${shopId}/closures`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function removeShopClosure(shopId: number | string, closureId: number): Promise<void> {
+  await apiFetch(`/api/vendor/shops/${shopId}/closures/${closureId}`, { method: "DELETE" });
 }
 
 /** `POST /api/checkout/delivery-quote`: what delivering the current cart to `pin` costs.
@@ -550,6 +727,7 @@ export type AdminShop = {
   name: string;
   status: "PENDING" | "APPROVED" | "REJECTED";
   status_reason: string | null;
+  business_type: BusinessType;
   created_at: string;
   owner_name: string;
   owner_email: string;
@@ -837,7 +1015,9 @@ export type AdminCategory = {
   name: string;
   slug: string;
   parent: number | null;
+  kind: CategoryKind;
   product_count: number;
+  service_count: number;
   can_delete: boolean;
   children: AdminCategory[];
 };
@@ -850,6 +1030,8 @@ export async function listAdminCategories(): Promise<AdminCategory[]> {
 export async function createCategory(data: {
   name: string;
   parent: number | null;
+  /** Ignored for a subcategory, which takes its parent's kind. */
+  kind?: CategoryKind;
 }): Promise<AdminCategory> {
   return apiFetch<AdminCategory>("/api/admin/categories", {
     method: "POST",

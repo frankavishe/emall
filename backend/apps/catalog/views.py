@@ -10,6 +10,7 @@ from rest_framework.views import APIView
 
 from apps.audit.models import AuditAction
 from apps.audit.services import changed_fields, record
+from apps.bookings.models import Service
 from apps.catalog.models import Category, Product
 from apps.catalog.permissions import IsApprovedShopOwnerForProduct, IsProductOwner
 from apps.catalog.serializers import (
@@ -32,18 +33,22 @@ from apps.vendors.models import Shop
 class CategoryListView(ListAPIView):
     """Public, read-only category tree: top-level categories with their subcategories. Serves
     both the catalog filter and the vendor product form's category picker. Administrators manage
-    categories through AdminCategoryListCreateView."""
+    categories through AdminCategoryListCreateView. Returns product categories unless `?kind=`
+    asks for another kind, so existing callers are unaffected."""
 
     permission_classes = [AllowAny]
     pagination_class = None
     serializer_class = CategoryTreeSerializer
-    queryset = (
-        Category.objects.filter(parent__isnull=True)
-        .prefetch_related(
-            models.Prefetch("children", queryset=Category.objects.order_by("name"))
+
+    def get_queryset(self):
+        kind = self.request.query_params.get("kind", Category.Kind.PRODUCT)
+        return (
+            Category.objects.filter(parent__isnull=True, kind=kind)
+            .prefetch_related(
+                models.Prefetch("children", queryset=Category.objects.order_by("name"))
+            )
+            .order_by("name")
         )
-        .order_by("name")
-    )
 
 
 def _admin_categories():
@@ -52,6 +57,10 @@ def _admin_categories():
             "products", filter=models.Q(products__is_deleted=False), distinct=True
         ),
         all_product_count=models.Count("products", distinct=True),
+        service_count=models.Count(
+            "services", filter=models.Q(services__is_archived=False), distinct=True
+        ),
+        all_service_count=models.Count("services", distinct=True),
         child_count=models.Count("children", distinct=True),
     )
 
@@ -116,6 +125,11 @@ class AdminCategoryDetailView(APIView):
             raise CategoryConflict(
                 f"Products are listed under {category.name}. Move them to another category "
                 "first."
+            )
+        # Archived services still reference it too.
+        if Service.objects.filter(category=category).exists():
+            raise CategoryConflict(
+                f"Services are listed under {category.name}, so it can't be deleted."
             )
         record(AuditAction.CATEGORY_DELETED, request=request, target=category)
         category.delete()
@@ -226,8 +240,8 @@ class CatalogRelatedProductsView(APIView):
 
 
 class CatalogShopListView(ListAPIView):
-    """Public merchants directory: every APPROVED shop, alphabetically, with its count of
-    published products."""
+    """Public merchants directory: every APPROVED shop, alphabetically, with its counts of
+    published products and services."""
 
     permission_classes = [AllowAny]
     serializer_class = CatalogShopListSerializer
@@ -240,7 +254,13 @@ class CatalogShopListView(ListAPIView):
                 product_count=models.Count(
                     "products",
                     filter=models.Q(products__is_deleted=False, products__is_published=True),
-                )
+                    distinct=True,
+                ),
+                service_count=models.Count(
+                    "services",
+                    filter=models.Q(services__is_archived=False, services__is_published=True),
+                    distinct=True,
+                ),
             )
             .order_by("name")
         )

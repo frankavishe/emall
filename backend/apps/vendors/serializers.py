@@ -25,7 +25,15 @@ class ShopBriefSerializer(ShopLogoUrlMixin, serializers.ModelSerializer):
 
     class Meta:
         model = Shop
-        fields = ["id", "name", "status", "logo_url", "primary_color", "accent_color"]
+        fields = [
+            "id",
+            "name",
+            "status",
+            "business_type",
+            "logo_url",
+            "primary_color",
+            "accent_color",
+        ]
         read_only_fields = fields
 
 
@@ -35,6 +43,7 @@ class OwnShopBriefSerializer(ShopBriefSerializer):
     class Meta(ShopBriefSerializer.Meta):
         fields = [
             *ShopBriefSerializer.Meta.fields,
+            "booking_capacity",
             "description",
             "latitude",
             "longitude",
@@ -53,6 +62,8 @@ class ShopSerializer(ShopLogoUrlMixin, serializers.ModelSerializer):
             "name",
             "status",
             "status_reason",
+            "business_type",
+            "booking_capacity",
             "created_at",
             "logo_url",
             "primary_color",
@@ -66,6 +77,7 @@ class ShopSerializer(ShopLogoUrlMixin, serializers.ModelSerializer):
             "id",
             "status",
             "status_reason",
+            "booking_capacity",
             "created_at",
             "primary_color",
             "accent_color",
@@ -169,6 +181,7 @@ class AdminShopListSerializer(ShopLogoUrlMixin, serializers.ModelSerializer):
             "name",
             "status",
             "status_reason",
+            "business_type",
             "created_at",
             "owner_name",
             "owner_email",

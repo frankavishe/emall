@@ -17,7 +17,7 @@ Times are stored in UTC unless noted. Money uses `DecimalField(max_digits=12, de
 |---|---|---|
 | `kind` | PRODUCT or SERVICE | Default PRODUCT. A subcategory takes its parent's kind. Can't change while in use |
 
-`validate_category` on products refuses SERVICE categories. The category delete guard also checks services.
+`validate_category` on products refuses SERVICE categories. The category delete guard also checks services. The unique top-level name constraint becomes per kind, so a seeded product category such as Beauty doesn't block a Beauty service category.
 
 ### `payments.PaymentRecord`
 
@@ -38,7 +38,7 @@ Constraints:
 |---|---|---|
 | `shop` | FK Shop, PROTECT | Must be a SERVICES shop |
 | `category` | FK Category, PROTECT | Must be a SERVICE category, following the existing subcategory rule |
-| `name` | Char(255) | Unique per shop |
+| `name` | Char(255) | Unique among a shop's unarchived services, so an archived name can be reused |
 | `description` | Text | May be blank |
 | `price` | Decimal | Above 0 |
 | `duration_minutes` | Positive integer | Multiple of the slot step; 30 to 1440 |

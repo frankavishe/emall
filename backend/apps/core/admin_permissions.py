@@ -19,6 +19,8 @@ class AdminPermission(models.TextChoices):
     CUSTOMERS_MANAGE = "customers.manage", "Manage customers"
     ORDERS_VIEW = "orders.view", "View orders"
     ORDERS_MANAGE = "orders.manage", "Manage orders"
+    BOOKINGS_VIEW = "bookings.view", "View bookings"
+    BOOKINGS_MANAGE = "bookings.manage", "Manage bookings"
     RIDERS_VIEW = "riders.view", "View riders"
     RIDERS_MANAGE = "riders.manage", "Manage riders"
     FINANCE_VIEW = "finance.view", "View finance"
@@ -37,6 +39,8 @@ PERMISSION_DESCRIPTIONS = {
     AdminPermission.CUSTOMERS_MANAGE: "Block and unblock customer accounts.",
     AdminPermission.ORDERS_VIEW: "See orders and order lines.",
     AdminPermission.ORDERS_MANAGE: "Assign and unassign riders to order lines.",
+    AdminPermission.BOOKINGS_VIEW: "See service bookings.",
+    AdminPermission.BOOKINGS_MANAGE: "Cancel service bookings.",
     AdminPermission.RIDERS_VIEW: "See rider accounts.",
     AdminPermission.RIDERS_MANAGE: "Create, edit and deactivate riders and reset their passwords.",
     AdminPermission.FINANCE_VIEW: "See balances, payouts, transactions and finance reports.",
@@ -59,6 +63,8 @@ ROLE_PERMISSIONS = {
             AdminPermission.CUSTOMERS_MANAGE,
             AdminPermission.ORDERS_VIEW,
             AdminPermission.ORDERS_MANAGE,
+            AdminPermission.BOOKINGS_VIEW,
+            AdminPermission.BOOKINGS_MANAGE,
             AdminPermission.RIDERS_VIEW,
             AdminPermission.REVIEWS_VIEW,
             AdminPermission.REVIEWS_MANAGE,

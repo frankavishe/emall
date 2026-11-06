@@ -7,11 +7,14 @@ import {
   ApiError,
   getPublicShop,
   listProducts,
+  listServices,
   type CatalogProduct,
+  type CatalogService,
   type CatalogShop,
 } from "@/lib/api-client";
 import { shopThemeStyle } from "@/lib/shop-theme";
 import { ProductCard } from "@/components/product-card";
+import { ServiceCard } from "@/components/booking/service-card";
 import { ShopLogo } from "@/components/shop-logo";
 import { PageShell } from "@/components/ui/page-shell";
 import { Card } from "@/components/ui/card";
@@ -24,7 +27,9 @@ export default function ShopPage() {
   const params = useParams<{ id: string }>();
   const [shop, setShop] = useState<CatalogShop | null>(null);
   const [products, setProducts] = useState<CatalogProduct[]>([]);
-  const [productCount, setProductCount] = useState(0);
+  const [services, setServices] = useState<CatalogService[]>([]);
+  // How many products or services the shop lists, whichever kind it is.
+  const [listingCount, setListingCount] = useState(0);
   const [nextPage, setNextPage] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -39,15 +44,21 @@ export default function ShopPage() {
       setError(null);
       setIsMissing(false);
       try {
-        const [shopResult, productResult] = await Promise.all([
-          getPublicShop(params.id),
-          listProducts({ shop: params.id }),
-        ]);
-        if (cancelled) return;
+        const shopResult = await getPublicShop(params.id);
+        if (shopResult.business_type === "SERVICES") {
+          const serviceResult = await listServices({ shop: params.id });
+          if (cancelled) return;
+          setServices(serviceResult.results);
+          setListingCount(serviceResult.count);
+          setNextPage(serviceResult.next ? 2 : null);
+        } else {
+          const productResult = await listProducts({ shop: params.id });
+          if (cancelled) return;
+          setProducts(productResult.results);
+          setListingCount(productResult.count);
+          setNextPage(productResult.next ? 2 : null);
+        }
         setShop(shopResult);
-        setProducts(productResult.results);
-        setProductCount(productResult.count);
-        setNextPage(productResult.next ? 2 : null);
       } catch (err) {
         if (!cancelled) {
           setIsMissing(err instanceof ApiError && err.status === 404);
@@ -72,9 +83,15 @@ export default function ShopPage() {
     if (!nextPage) return;
     setIsLoadingMore(true);
     try {
-      const result = await listProducts({ shop: params.id, page: nextPage });
-      setProducts((current) => [...current, ...result.results]);
-      setNextPage(result.next ? nextPage + 1 : null);
+      if (shop?.business_type === "SERVICES") {
+        const result = await listServices({ shop: params.id, page: nextPage });
+        setServices((current) => [...current, ...result.results]);
+        setNextPage(result.next ? nextPage + 1 : null);
+      } else {
+        const result = await listProducts({ shop: params.id, page: nextPage });
+        setProducts((current) => [...current, ...result.results]);
+        setNextPage(result.next ? nextPage + 1 : null);
+      }
     } catch {
       // non-fatal — the button stays so the customer can retry
     } finally {
@@ -129,7 +146,14 @@ export default function ShopPage() {
             <div>
               <h1 className="text-2xl font-semibold">{shop.name}</h1>
               <p className="text-sm opacity-80">
-                {productCount} {productCount === 1 ? "product" : "products"}
+                {listingCount}{" "}
+                {shop.business_type === "SERVICES"
+                  ? listingCount === 1
+                    ? "service"
+                    : "services"
+                  : listingCount === 1
+                    ? "product"
+                    : "products"}
               </p>
             </div>
           </div>
@@ -141,7 +165,17 @@ export default function ShopPage() {
           <div aria-hidden className="relative mt-4 h-1 w-16 rounded-pill bg-teal-400" />
         </Card>
 
-        {products.length === 0 ? (
+        {shop.business_type === "SERVICES" ? (
+          services.length === 0 ? (
+            <EmptyText>This shop has no services yet.</EmptyText>
+          ) : (
+            <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
+              {services.map((service) => (
+                <ServiceCard key={service.id} service={service} />
+              ))}
+            </ul>
+          )
+        ) : products.length === 0 ? (
           <EmptyText>This shop has no products yet.</EmptyText>
         ) : (
           <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">

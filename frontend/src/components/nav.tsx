@@ -18,6 +18,7 @@ type NavLink = { label: string; href: string };
 const GUEST_LINKS: NavLink[] = [
   { label: "Home", href: "/" },
   { label: "Products", href: "/products" },
+  { label: "Services", href: "/services" },
   // Guests can shop and check out without an account (guest checkout).
   { label: "Cart", href: "/cart" },
 ];
@@ -25,19 +26,43 @@ const GUEST_LINKS: NavLink[] = [
 const CUSTOMER_LINKS: NavLink[] = [
   { label: "Home", href: "/" },
   { label: "Products", href: "/products" },
+  { label: "Services", href: "/services" },
   { label: "Cart", href: "/cart" },
   { label: "Orders", href: "/orders" },
   { label: "Account", href: "/account" },
 ];
 
-const VENDOR_LINKS: NavLink[] = [
-  { label: "Home", href: "/" },
+const GOODS_VENDOR_LINKS: NavLink[] = [
   { label: "My Products", href: "/vendor/products" },
   { label: "Vendor Orders", href: "/vendor/orders" },
-  { label: "Earnings", href: "/vendor/earnings" },
-  { label: "Reviews", href: "/vendor/reviews" },
-  { label: "Account", href: "/account" },
 ];
+
+const SERVICE_VENDOR_LINKS: NavLink[] = [
+  { label: "My Services", href: "/vendor/services" },
+  { label: "Hours", href: "/vendor/schedule" },
+];
+
+function hasServicesShop(user: AuthUser | null): boolean {
+  return !!user?.shops?.some((shop) => shop.business_type === "SERVICES");
+}
+
+function hasGoodsShop(user: AuthUser | null): boolean {
+  return !!user?.shops?.some((shop) => shop.business_type === "GOODS");
+}
+
+/** Links follow the vendor's shops: a services-only vendor has no products or orders to manage. */
+function vendorLinks(user: AuthUser | null): NavLink[] {
+  const services = hasServicesShop(user);
+  const goods = hasGoodsShop(user) || !services;
+  return [
+    { label: "Home", href: "/" },
+    ...(goods ? GOODS_VENDOR_LINKS : []),
+    ...(services ? SERVICE_VENDOR_LINKS : []),
+    { label: "Earnings", href: "/vendor/earnings" },
+    ...(goods ? [{ label: "Reviews", href: "/vendor/reviews" }] : []),
+    { label: "Account", href: "/account" },
+  ];
+}
 
 const RIDER_LINKS: NavLink[] = [
   { label: "Home", href: "/" },
@@ -50,7 +75,7 @@ function linksForRole(role: Role | null, user: AuthUser | null): NavLink[] {
     case "CUSTOMER":
       return CUSTOMER_LINKS;
     case "VENDOR":
-      return VENDOR_LINKS;
+      return vendorLinks(user);
     case "ADMINISTRATOR":
       return visibleAdminSections(user).flatMap((section) => section.links);
     case "RIDER":
@@ -163,7 +188,8 @@ export function Nav() {
     if (role === activeRole) return;
     setActiveRole(role);
     setMobileOpen(false);
-    router.push(MODE_HOME[role] ?? "/");
+    const servicesOnly = hasServicesShop(user) && !hasGoodsShop(user);
+    router.push(role === "VENDOR" && servicesOnly ? "/vendor/services" : (MODE_HOME[role] ?? "/"));
   }
 
   async function handleLogout() {

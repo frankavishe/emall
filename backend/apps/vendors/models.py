@@ -18,6 +18,10 @@ class Shop(models.Model):
         APPROVED = "APPROVED", "Approved"
         REJECTED = "REJECTED", "Rejected"
 
+    class BusinessType(models.TextChoices):
+        GOODS = "GOODS", "Goods"
+        SERVICES = "SERVICES", "Services"
+
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="shops"
     )
@@ -26,6 +30,13 @@ class Shop(models.Model):
         max_length=20, choices=Status.choices, default=Status.PENDING
     )
     status_reason = models.TextField(null=True, blank=True)
+    # What the shop lists: products or bookable services (008). Chosen when the shop is requested
+    # and never changed afterwards, so a business offering both opens a shop for each.
+    business_type = models.CharField(
+        max_length=20, choices=BusinessType.choices, default=BusinessType.GOODS
+    )
+    # How many customers a services shop can serve at the same time, across all its services.
+    booking_capacity = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
     logo = models.ImageField(upload_to=UniqueUploadTo("shops/logos"), null=True, blank=True)
     primary_color = models.CharField(
         max_length=7, blank=True, default="", validators=[hex_color_validator]

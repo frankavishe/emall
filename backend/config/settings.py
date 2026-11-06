@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     "apps.accounts",
     "apps.vendors",
     "apps.catalog",
+    "apps.bookings",
     "apps.cart",
     "apps.orders",
     "apps.payments",
@@ -247,6 +248,24 @@ LIPA_NAMBA_TILL = env("LIPA_NAMBA_TILL", default="")
 LIPA_NAMBA_NAME = env("LIPA_NAMBA_NAME", default="MangiMall")
 # An unconfirmed Lipa Namba order is failed (and its stock released) after this long.
 MANUAL_PAYMENT_TIMEOUT_HOURS = env.int("MANUAL_PAYMENT_TIMEOUT_HOURS", default=24)
+
+# --- Service bookings (008-service-bookings) --------------------------------
+# Stored times stay in UTC. Opening hours and everything a person reads are in this zone.
+MARKET_TIME_ZONE = "Africa/Dar_es_Salaam"
+BOOKING_SLOT_MINUTES = env.int("BOOKING_SLOT_MINUTES", default=30)
+BOOKING_MIN_NOTICE_HOURS = env.int("BOOKING_MIN_NOTICE_HOURS", default=3)
+BOOKING_MAX_ADVANCE_DAYS = env.int("BOOKING_MAX_ADVANCE_DAYS", default=60)
+# How long a provider has to answer, ending at least the buffer before the visit.
+BOOKING_RESPONSE_HOURS = env.int("BOOKING_RESPONSE_HOURS", default=12)
+BOOKING_RESPONSE_BUFFER_MINUTES = env.int("BOOKING_RESPONSE_BUFFER_MINUTES", default=90)
+# How long a customer has to pay after acceptance, ending at least the buffer before the visit.
+BOOKING_PAYMENT_HOURS = env.int("BOOKING_PAYMENT_HOURS", default=6)
+BOOKING_PAYMENT_BUFFER_MINUTES = env.int("BOOKING_PAYMENT_BUFFER_MINUTES", default=60)
+BOOKING_MAX_ACTIVE_UNPAID = env.int("BOOKING_MAX_ACTIVE_UNPAID", default=3)
+# A customer can cancel a paid booking for a full refund until this long before the visit.
+BOOKING_CUSTOMER_CANCEL_HOURS = env.int("BOOKING_CUSTOMER_CANCEL_HOURS", default=24)
+# Lipa Namba needs an administrator to confirm it, so it isn't offered closer to the visit.
+BOOKING_LIPA_MIN_HOURS = env.int("BOOKING_LIPA_MIN_HOURS", default=3)
 
 # --- simplejwt (task T013) -----------------------------------------------
 # Access token stays short-lived and is returned to the frontend in the response body only

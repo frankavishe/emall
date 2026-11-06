@@ -15,6 +15,7 @@ const AREA_LABELS: Record<string, string> = {
   catalog: "Catalog",
   customers: "Customers",
   orders: "Orders",
+  bookings: "Bookings",
   riders: "Riders",
   finance: "Finance",
   reviews: "Reviews",

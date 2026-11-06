@@ -7,7 +7,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { apiFetch, refreshAccessToken, setAccessToken } from "./api-client";
+import { apiFetch, refreshAccessToken, setAccessToken, type BusinessType } from "./api-client";
 import { useRealtime } from "./realtime";
 
 export type Shop = {
@@ -15,6 +15,8 @@ export type Shop = {
   name: string;
   status: "PENDING" | "APPROVED" | "REJECTED";
   status_reason?: string | null;
+  /** Chosen when the shop is requested; can't change afterwards. */
+  business_type: BusinessType;
   logo_url: string | null;
   /** `#rrggbb`, or `""` for the MangiMall default. */
   primary_color?: string;
@@ -102,10 +104,11 @@ type AuthContextValue = {
     email: string,
     password: string,
     shopName: string,
+    businessType: BusinessType,
   ) => Promise<AuthUser>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
-  requestShop: (name: string) => Promise<void>;
+  requestShop: (name: string, businessType: BusinessType) => Promise<void>;
   resendVerificationEmail: () => Promise<void>;
 };
 
@@ -199,12 +202,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const registerVendor = useCallback(
-    async (name: string, email: string, password: string, shopName: string) => {
+    async (
+      name: string,
+      email: string,
+      password: string,
+      shopName: string,
+      businessType: BusinessType,
+    ) => {
       const result = await apiFetch<LoginResponse & { shops: Shop[] }>(
         "/api/auth/register/vendor",
         {
           method: "POST",
-          body: JSON.stringify({ name, email, password, shop_name: shopName }),
+          body: JSON.stringify({
+            name,
+            email,
+            password,
+            shop_name: shopName,
+            business_type: businessType,
+          }),
         },
       );
       setAccessToken(result.access);
@@ -218,10 +233,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const requestShop = useCallback(
-    async (name: string) => {
+    async (name: string, businessType: BusinessType) => {
       await apiFetch<Shop>("/api/vendor/shops", {
         method: "POST",
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, business_type: businessType }),
       });
       await refreshUser();
     },

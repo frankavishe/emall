@@ -21,6 +21,8 @@ from django.urls import include, path
 
 from apps.accounts.urls import admin_urlpatterns as accounts_admin_urlpatterns
 from apps.audit.urls import admin_urlpatterns as audit_admin_urlpatterns
+from apps.bookings.urls import catalog_urlpatterns as bookings_catalog_urlpatterns
+from apps.bookings.urls import vendor_urlpatterns as bookings_vendor_urlpatterns
 from apps.catalog.urls import admin_urlpatterns as catalog_admin_urlpatterns
 from apps.catalog.urls import vendor_urlpatterns as catalog_vendor_urlpatterns
 from apps.delivery.urls import admin_urlpatterns as delivery_admin_urlpatterns
@@ -45,7 +47,9 @@ urlpatterns = [
     path("api/vendor/", include(orders_vendor_urlpatterns)),
     path("api/vendor/", include(feedback_vendor_urlpatterns)),
     path("api/vendor/", include(finance_vendor_urlpatterns)),
+    path("api/vendor/", include(bookings_vendor_urlpatterns)),
     path("api/catalog/", include("apps.catalog.urls")),
+    path("api/catalog/", include(bookings_catalog_urlpatterns)),
     path("api/admin/", include(accounts_admin_urlpatterns)),
     path("api/admin/", include(catalog_admin_urlpatterns)),
     path("api/admin/", include(vendor_admin_urlpatterns)),
