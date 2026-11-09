@@ -70,6 +70,7 @@ export default function AdminBookingDetailPage() {
           <Row label="Shop">{data.shop.name}</Row>
           <Row label="Customer">
             {data.customer.name} ({data.customer.email})
+            {data.customer.is_guest && " · Guest, no account"}
           </Row>
           <Row label="Contact phone">{data.contact_phone}</Row>
           <Row label={`Visit (${MARKET_TIME_LABEL})`}>

@@ -65,9 +65,7 @@ class OpeningHours(models.Model):
     """One period a shop is open on a weekday, in local market time. Periods on one day can't
     overlap (ShopScheduleSerializer), and a day can have several, to leave room for a break."""
 
-    shop = models.ForeignKey(
-        "vendors.Shop", on_delete=models.CASCADE, related_name="opening_hours"
-    )
+    shop = models.ForeignKey("vendors.Shop", on_delete=models.CASCADE, related_name="opening_hours")
     # 0 is Monday, matching `date.weekday()`.
     weekday = models.PositiveSmallIntegerField(validators=[MaxValueValidator(6)])
     opens_at = models.TimeField()
@@ -153,9 +151,18 @@ class Booking(models.Model):
         EXPIRED = "EXPIRED", "Expired"
         CANCELLED = "CANCELLED", "Cancelled"
 
+    # Null for a guest booking: the guest is then reached through `guest_email`, and the
+    # booking through its unguessable `access_token` link (same pattern as guest orders).
     customer = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="bookings"
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="bookings",
+        null=True,
+        blank=True,
     )
+    guest_name = models.CharField(max_length=255, blank=True, default="")
+    guest_email = models.EmailField(blank=True, default="", db_index=True)
+    access_token = models.CharField(max_length=64, unique=True, null=True, blank=True)
     # Copied from the service, for locking and finance.
     shop = models.ForeignKey("vendors.Shop", on_delete=models.PROTECT, related_name="bookings")
     service = models.ForeignKey(Service, on_delete=models.PROTECT, related_name="bookings")
@@ -200,6 +207,10 @@ class Booking(models.Model):
                 condition=models.Q(ends_at__gt=models.F("starts_at")),
                 name="booking_ends_after_it_starts",
             ),
+            models.CheckConstraint(
+                condition=models.Q(customer__isnull=False) | ~models.Q(guest_email=""),
+                name="booking_has_customer_or_guest_email",
+            ),
         ]
 
     def __str__(self):
@@ -207,6 +218,18 @@ class Booking(models.Model):
 
     def amount_due(self):
         return self.price
+
+    @property
+    def is_guest(self):
+        return self.customer_id is None
+
+    @property
+    def contact_email(self):
+        return self.guest_email if self.is_guest else self.customer.email
+
+    @property
+    def contact_name(self):
+        return self.guest_name if self.is_guest else self.customer.name
 
 
 class BookingStatusEvent(models.Model):

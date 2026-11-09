@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ApiError,
+  bookingPath,
   errorMessage,
   requestBooking,
   type CatalogService,
@@ -18,10 +19,14 @@ import { Button } from "@/components/ui/button";
 import { FormField, inputClassName } from "@/components/ui/form-field";
 import { ErrorText } from "@/components/ui/status-text";
 
-function BookingForm({ service, user }: { service: CatalogService; user: AuthUser }) {
+/** `user` is null for a guest, who books without an account by leaving a name and email. */
+function BookingForm({ service, user }: { service: CatalogService; user: AuthUser | null }) {
   const router = useRouter();
+  const isGuest = !user;
   const [slot, setSlot] = useState<ServiceSlot | null>(null);
-  const [phone, setPhone] = useState(user.phone);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState(user?.phone ?? "");
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -43,8 +48,9 @@ function BookingForm({ service, user }: { service: CatalogService; user: AuthUse
         starts_at: slot.starts_at,
         contact_phone: phone,
         customer_note: note,
+        ...(isGuest ? { name: name.trim(), email: email.trim() } : {}),
       });
-      router.push(`/bookings/${booking.id}`);
+      router.push(bookingPath(booking));
     } catch (err) {
       setError(errorMessage(err));
       // Someone else may have just taken this time, so show what's really open now.
@@ -76,6 +82,32 @@ function BookingForm({ service, user }: { service: CatalogService; user: AuthUse
             {formatMarketDateTime(slot.starts_at)} ({MARKET_TIME_LABEL}) &middot;{" "}
             {formatCurrency(service.price)}
           </p>
+          {isGuest && (
+            <>
+              <FormField label="Your name">
+                <input
+                  type="text"
+                  required
+                  autoComplete="name"
+                  maxLength={255}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className={inputClassName}
+                />
+              </FormField>
+              <FormField label="Email">
+                <input
+                  type="email"
+                  required
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  className={inputClassName}
+                />
+              </FormField>
+            </>
+          )}
           <FormField label="Contact phone">
             <input
               type="tel"
@@ -100,6 +132,16 @@ function BookingForm({ service, user }: { service: CatalogService; user: AuthUse
             You won&apos;t pay anything yet. The provider responds first, and you pay only if they
             accept.
           </p>
+          {isGuest && (
+            <p className="text-sm text-text-muted">
+              No account needed: we&apos;ll email you a private link to follow your booking. Have
+              an account?{" "}
+              <Link href="/login" className="font-medium text-text-primary underline">
+                Sign in
+              </Link>
+              .
+            </p>
+          )}
           <Button type="submit" disabled={isSubmitting} className="self-start">
             {isSubmitting ? "Sending…" : "Request this time"}
           </Button>
@@ -114,21 +156,15 @@ export function BookingRequest({ service }: { service: CatalogService }) {
   const { user, isLoading } = useAuth();
   const isOwnShop = !!user?.shops?.some((shop) => String(shop.id) === String(service.shop.id));
 
+  if (!isLoading && !user) {
+    return <BookingForm key="guest" service={service} user={null} />;
+  }
   if (!isLoading && user && hasRole(user, "CUSTOMER") && user.is_email_verified && !isOwnShop) {
     return <BookingForm key={user.id} service={service} user={user} />;
   }
 
   let prompt = null;
-  if (!isLoading && !user) {
-    prompt = (
-      <p className="text-sm text-text-muted">
-        <Link href="/login" className="font-medium text-text-primary underline">
-          Sign in
-        </Link>{" "}
-        to book this service.
-      </p>
-    );
-  } else if (user && isOwnShop) {
+  if (user && isOwnShop) {
     prompt = <p className="text-sm text-text-muted">This service is in your own shop.</p>;
   } else if (user && hasRole(user, "CUSTOMER") && !user.is_email_verified) {
     prompt = (

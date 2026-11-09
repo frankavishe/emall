@@ -3,11 +3,12 @@ an accept, a cancel and a deadline land together only one takes effect, and the 
 current status."""
 
 import logging
+import secrets
 from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.db import transaction
+from django.db import connection, transaction
 from django.http import Http404
 from django.utils import timezone
 from rest_framework import status as http_status
@@ -79,20 +80,41 @@ def _locked(queryset, booking_id):
     """The booking with its row locked, or a 404. `of` keeps the lock off any table a filter
     joined, and `no_key` doesn't block rows that only reference the booking."""
 
-    booking = (
-        queryset.select_for_update(no_key=True, of=("self",)).filter(pk=booking_id).first()
-    )
+    booking = queryset.select_for_update(no_key=True, of=("self",)).filter(pk=booking_id).first()
     if booking is None:
         raise Http404
     return booking
 
 
+def _lock_guest_email(email):
+    """Serialises one guest email's requests across shops for the unpaid limit, the way the
+    user row lock does for a signed-in customer. Released when the transaction ends."""
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT pg_advisory_xact_lock(hashtext(%s))", [f"booking-guest:{email.lower()}"]
+        )
+
+
 def request_booking(
-    *, customer, service_id, starts_at, contact_phone, customer_note="", request=None, now=None
+    *,
+    customer=None,
+    guest_name="",
+    guest_email="",
+    service_id,
+    starts_at,
+    contact_phone,
+    customer_note="",
+    request=None,
+    now=None,
 ):
-    """Holds a time for `customer`. Locking the shop serialises requests for its capacity, and
-    locking the customer serialises their requests across shops for the unpaid limit. Always in
-    that order, so two requests can't deadlock."""
+    """Holds a time for `customer`, or for a guest identified by `guest_email` when there is no
+    customer. Locking the shop serialises requests for its capacity, and locking the customer
+    (or guest email) serialises their requests across shops for the unpaid limit. Always in that
+    order, so two requests can't deadlock."""
+
+    if customer is None and not guest_email:
+        raise ValueError("A booking needs a customer or a guest email.")
 
     now = now or timezone.now()
     shop_id = (
@@ -102,7 +124,10 @@ def request_booking(
         raise Http404(SERVICE_NOT_FOUND)
 
     with transaction.atomic():
-        get_user_model().objects.select_for_update(no_key=True).get(pk=customer.pk)
+        if customer is not None:
+            get_user_model().objects.select_for_update(no_key=True).get(pk=customer.pk)
+        else:
+            _lock_guest_email(guest_email)
         shop = Shop.objects.select_for_update(no_key=True).get(pk=shop_id)
         # Read again under the lock: the shop or service may have changed in the meantime.
         service = Service.objects.visible().filter(pk=service_id).first()
@@ -110,10 +135,15 @@ def request_booking(
             raise Http404(SERVICE_NOT_FOUND)
         service.shop = shop
 
-        if shop.owner_id == customer.pk:
+        if customer is not None and shop.owner_id == customer.pk:
             raise PermissionDenied("You can't book a service from your own shop.")
 
-        unpaid = Booking.objects.active_unpaid(now).filter(customer=customer).count()
+        mine = (
+            {"customer": customer}
+            if customer is not None
+            else {"customer__isnull": True, "guest_email__iexact": guest_email}
+        )
+        unpaid = Booking.objects.active_unpaid(now).filter(**mine).count()
         if unpaid >= settings.BOOKING_MAX_ACTIVE_UNPAID:
             raise BookingRefused(
                 f"You already have {settings.BOOKING_MAX_ACTIVE_UNPAID} bookings waiting on a "
@@ -132,6 +162,9 @@ def request_booking(
         commission_amount, vendor_earning = split_line(service.price, rate)
         booking = Booking.objects.create(
             customer=customer,
+            guest_name="" if customer is not None else guest_name,
+            guest_email="" if customer is not None else guest_email,
+            access_token=None if customer is not None else secrets.token_urlsafe(32),
             shop=shop,
             service=service,
             starts_at=slot.starts_at,
@@ -239,14 +272,21 @@ def decline_booking(*, booking_id, owner, reason="", request=None, now=None):
     return booking
 
 
-def cancel_unpaid_booking(*, booking_id, customer, request=None, now=None):
-    """The customer ending their own request or accepted booking, at no charge."""
+def cancel_unpaid_booking(*, booking_id, customer=None, access_token=None, request=None, now=None):
+    """The customer ending their own request or accepted booking, at no charge. A guest is
+    identified by the booking's `access_token` instead of a customer."""
 
     now = now or timezone.now()
-    expire_due_bookings(Booking.objects.filter(pk=booking_id, customer=customer), now=now)
+    if customer is not None:
+        mine = Booking.objects.filter(customer=customer)
+    elif access_token:
+        mine = Booking.objects.filter(customer__isnull=True, access_token=access_token)
+    else:
+        raise Http404
+    expire_due_bookings(mine.filter(pk=booking_id), now=now)
 
     with transaction.atomic():
-        booking = _locked(Booking.objects.filter(customer=customer), booking_id)
+        booking = _locked(mine, booking_id)
         if not Booking.objects.active_unpaid(now).filter(pk=booking.pk).exists():
             raise BookingConflict(
                 f"This booking can't be cancelled: it is {_status_label(booking)}."

@@ -74,6 +74,16 @@ customer_urlpatterns = [
         views.BookingCancelView.as_view(),
         name="booking-cancel",
     ),
+    path(
+        "bookings/track/<str:token>",
+        views.GuestBookingDetailView.as_view(),
+        name="guest-booking-detail",
+    ),
+    path(
+        "bookings/track/<str:token>/cancel",
+        views.GuestBookingCancelView.as_view(),
+        name="guest-booking-cancel",
+    ),
 ]
 
 admin_urlpatterns = [

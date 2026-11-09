@@ -37,7 +37,7 @@ A vendor opens a shop and chooses "services" as its business type. Once an Admin
 
 ### User Story 2 - Customer requests a time and the provider responds (Priority: P1)
 
-A signed-in customer with a verified email picks an open time, gives a contact phone number and can add a note. The request holds that time while the provider decides. The provider sees the request in their dashboard and accepts or declines it. The customer can follow its status. A request the provider doesn't answer in time expires, and the time opens up again.
+A signed-in customer with a verified email, or a guest with no account who gives their name and email, picks an open time, gives a contact phone number and can add a note. The request holds that time while the provider decides. The provider sees the request in their dashboard and accepts or declines it. The customer can follow its status. A request the provider doesn't answer in time expires, and the time opens up again.
 
 **Why this priority**: This is the core of booking, and the rule that a time can't be double booked lives here.
 
@@ -49,7 +49,7 @@ A signed-in customer with a verified email picks an open time, gives a contact p
 
 **Acceptance Scenarios**:
 
-1. **Given** a guest or a customer with an unverified email, **When** they try to request a time, **Then** they are told to sign in or verify their email first.
+1. **Given** a signed-in customer with an unverified email, **When** they try to request a time, **Then** they are told to verify their email first. A guest (no account) can request a time by giving a name and email, and is emailed a private link to follow or cancel the booking.
 2. **Given** a shop serving one customer at a time, **When** two customers request the same time at the same moment, **Then** exactly one request succeeds and the other is told the time is no longer available.
 3. **Given** a shop serving one customer at a time, **When** a time overlaps a booking for a different service in that shop, **Then** that time is not offered.
 4. **Given** a shop serving two customers at a time, **When** two customers hold a time, **Then** the time stops being offered, and a third request for it is refused.
@@ -150,7 +150,7 @@ After the visit time has started, the provider marks a confirmed booking as comp
 
 **Requesting and responding**
 
-- **FR-011**: Only a signed-in customer with a verified email MUST be able to request a booking, and MUST provide a contact phone number. They MUST NOT be able to book their own shop's services.
+- **FR-011**: A signed-in customer with a verified email, or a guest with no account, MUST be able to request a booking, and MUST provide a contact phone number. A guest MUST also provide a name and email, and reaches the booking only through a private link that is emailed to them. The limit of 3 active unpaid bookings applies per guest email. A signed-in customer MUST NOT be able to book their own shop's services. (Amended 2026-11-09: guest booking.)
 - **FR-012**: Capacity MUST be shared across all of a shop's services. The number of overlapping holding bookings MUST never exceed the shop's capacity, including when requests arrive at the same moment.
 - **FR-013**: A time MUST be held by a request before its response deadline, an accepted booking before its payment deadline or with a payment in progress, and a confirmed booking.
 - **FR-014**: A customer MUST NOT hold more than 3 active unpaid bookings.

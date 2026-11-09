@@ -44,7 +44,14 @@ from apps.bookings.services import (
 )
 from apps.bookings.slots import market_day_bounds, market_today, open_slots
 from apps.core.pagination import LimitedPageNumberPagination
-from apps.core.permissions import AdminArea, IsCustomer, IsVendor, require_verified_email
+from apps.core.permissions import (
+    AdminArea,
+    IsCustomer,
+    IsCustomerOrGuest,
+    IsVendor,
+    require_verified_email,
+)
+from apps.core.throttles import GuestScopedRateThrottle
 from apps.vendors.models import Shop
 
 # --- Public --------------------------------------------------------------------
@@ -334,10 +341,17 @@ def _booking_rows():
 
 
 class BookingListCreateView(ListCreateAPIView):
-    permission_classes = [IsCustomer]
+    """Listing is for signed-in customers. Requesting is open to guests too (no account), who
+    get the booking's `access_token` back as their only way to reach it again."""
+
     pagination_class = LimitedPageNumberPagination
     serializer_class = BookingSerializer
     throttle_scope = "booking_request"
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsCustomerOrGuest()]
+        return [IsCustomer()]
 
     def get_throttles(self):
         return [ScopedRateThrottle()] if self.request.method == "POST" else []
@@ -352,19 +366,34 @@ class BookingListCreateView(ListCreateAPIView):
         return super().list(request, *args, **kwargs)
 
     def create(self, request, *args, **kwargs):
-        require_verified_email(request.user)
+        is_guest = not request.user.is_authenticated
+        if not is_guest:
+            require_verified_email(request.user)
         serializer = BookingRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
+        if is_guest:
+            missing = {
+                field: ["This field is required."]
+                for field in ("name", "email")
+                if not data[field].strip()
+            }
+            if missing:
+                raise ValidationError(missing)
         booking = request_booking(
-            customer=request.user,
+            customer=None if is_guest else request.user,
+            guest_name=data["name"].strip() if is_guest else "",
+            guest_email=data["email"].strip() if is_guest else "",
             service_id=data["service"],
             starts_at=data["starts_at"],
             contact_phone=data["contact_phone"],
             customer_note=data["customer_note"],
             request=request,
         )
-        return Response(BookingSerializer(booking).data, status=status.HTTP_201_CREATED)
+        body = BookingSerializer(booking).data
+        if booking.is_guest:
+            body["access_token"] = booking.access_token
+        return Response(body, status=status.HTTP_201_CREATED)
 
 
 class BookingDetailView(APIView):
@@ -387,6 +416,40 @@ class BookingCancelView(APIView):
         booking = cancel_unpaid_booking(
             booking_id=booking_id, customer=request.user, request=request
         )
+        return Response(BookingSerializer(booking).data)
+
+
+class _GuestBookingView(APIView):
+    """A guest booking is reached only through its unguessable `access_token`, so an unknown
+    token simply 404s. No authentication: the token is the credential."""
+
+    authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [GuestScopedRateThrottle]
+    throttle_scope = "guest_order"
+
+
+class GuestBookingDetailView(_GuestBookingView):
+    """`GET /api/bookings/track/{token}`."""
+
+    def get(self, request, token):
+        expire_due_bookings(Booking.objects.filter(customer__isnull=True, access_token=token))
+        booking = get_object_or_404(
+            _booking_rows().prefetch_related("status_events"),
+            customer__isnull=True,
+            access_token=token,
+        )
+        return Response(BookingDetailSerializer(booking).data)
+
+
+class GuestBookingCancelView(_GuestBookingView):
+    """`POST /api/bookings/track/{token}/cancel`."""
+
+    def post(self, request, token):
+        booking = get_object_or_404(
+            Booking.objects.only("id"), customer__isnull=True, access_token=token
+        )
+        booking = cancel_unpaid_booking(booking_id=booking.id, access_token=token, request=request)
         return Response(BookingSerializer(booking).data)
 
 
@@ -461,6 +524,8 @@ class AdminBookingListView(ListAPIView):
             queryset = queryset.filter(
                 models.Q(customer__email__icontains=search)
                 | models.Q(customer__name__icontains=search)
+                | models.Q(guest_email__icontains=search)
+                | models.Q(guest_name__icontains=search)
                 | models.Q(shop__name__icontains=search)
                 | models.Q(service__name__icontains=search)
             )
@@ -483,9 +548,7 @@ class AdminBookingDetailView(APIView):
     def get(self, request, booking_id):
         expire_due_bookings(Booking.objects.filter(pk=booking_id))
         booking = get_object_or_404(
-            _booking_rows()
-            .select_related("customer")
-            .prefetch_related("status_events__actor"),
+            _booking_rows().select_related("customer").prefetch_related("status_events__actor"),
             pk=booking_id,
         )
         return Response(AdminBookingDetailSerializer(booking).data)

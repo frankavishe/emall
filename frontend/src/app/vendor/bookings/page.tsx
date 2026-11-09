@@ -175,7 +175,8 @@ export default function VendorBookingsPage() {
                     &middot; {booking.shop.name}
                   </p>
                   <p className="text-sm text-text-muted">
-                    {booking.customer_name} &middot;{" "}
+                    {booking.customer_name}
+                    {booking.is_guest && " (guest)"} &middot;{" "}
                     <a href={`tel:${booking.contact_phone}`} className="underline">
                       {booking.contact_phone}
                     </a>

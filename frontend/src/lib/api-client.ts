@@ -481,12 +481,15 @@ export type BookingDetail = Booking & { history: BookingHistoryEvent[] };
 
 export type VendorBooking = Booking & {
   customer_name: string;
+  /** Booked without an account. */
+  is_guest: boolean;
   commission_amount: string;
   vendor_earning: string;
 };
 
 export type AdminBooking = Booking & {
-  customer: { id: number; name: string; email: string };
+  /** `id` is null for a guest (booked without an account). */
+  customer: { id: number | null; name: string; email: string; is_guest: boolean };
   commission_rate: string;
   commission_amount: string;
   vendor_earning: string;
@@ -499,7 +502,13 @@ export type BookingRequest = {
   starts_at: string;
   contact_phone: string;
   customer_note: string;
+  /** Required from a guest (no session); ignored for a signed-in customer. */
+  name?: string;
+  email?: string;
 };
+
+/** A guest's new booking also carries its private `access_token`. */
+export type RequestedBooking = Booking & { access_token?: string };
 
 function bookingQuery(options: Record<string, string | number | undefined>): string {
   const params = new URLSearchParams();
@@ -511,8 +520,29 @@ function bookingQuery(options: Record<string, string | number | undefined>): str
 }
 
 /** `POST /api/bookings`: holds an open time. The server sets the price and deadlines. */
-export async function requestBooking(data: BookingRequest): Promise<Booking> {
-  return apiFetch<Booking>("/api/bookings", { method: "POST", body: JSON.stringify(data) });
+export async function requestBooking(data: BookingRequest): Promise<RequestedBooking> {
+  return apiFetch<RequestedBooking>("/api/bookings", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+/** Where a booking lives in the app: a guest booking only by its private token, never its id. */
+export function bookingPath(booking: { id: number; access_token?: string }): string {
+  return booking.access_token
+    ? `/bookings/track/${booking.access_token}`
+    : `/bookings/${booking.id}`;
+}
+
+/** `GET /api/bookings/track/{token}`: a guest booking, by its private link. */
+export async function getGuestBooking(token: string): Promise<BookingDetail> {
+  return apiFetch<BookingDetail>(`/api/bookings/track/${encodeURIComponent(token)}`);
+}
+
+export async function cancelGuestBooking(token: string): Promise<Booking> {
+  return apiFetch<Booking>(`/api/bookings/track/${encodeURIComponent(token)}/cancel`, {
+    method: "POST",
+  });
 }
 
 export async function listBookings(

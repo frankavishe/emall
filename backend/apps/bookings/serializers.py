@@ -182,6 +182,9 @@ class BookingRequestSerializer(serializers.Serializer):
     customer_note = serializers.CharField(
         required=False, allow_blank=True, default="", max_length=1000
     )
+    # Required from a guest (no account), ignored from a signed-in customer; see the view.
+    name = serializers.CharField(required=False, allow_blank=True, default="", max_length=255)
+    email = serializers.EmailField(required=False, allow_blank=True, default="")
 
 
 class BookingReasonSerializer(serializers.Serializer):
@@ -267,12 +270,13 @@ class BookingDetailSerializer(BookingSerializer):
 
 
 class VendorBookingSerializer(BookingSerializer):
-    customer_name = serializers.CharField(source="customer.name", read_only=True)
+    customer_name = serializers.CharField(source="contact_name", read_only=True)
 
     class Meta(BookingSerializer.Meta):
         fields = [
             *BookingSerializer.Meta.fields,
             "customer_name",
+            "is_guest",
             "commission_amount",
             "vendor_earning",
         ]
@@ -287,14 +291,18 @@ class VendorBookingDetailSerializer(VendorBookingSerializer):
         read_only_fields = fields
 
 
-class BookingCustomerSerializer(serializers.Serializer):
-    id = serializers.IntegerField()
-    name = serializers.CharField()
-    email = serializers.EmailField()
-
-
 class AdminBookingSerializer(BookingSerializer):
-    customer = BookingCustomerSerializer(read_only=True)
+    customer = serializers.SerializerMethodField()
+
+    def get_customer(self, booking):
+        """The account holder, or the guest who booked without one (`id` is then null)."""
+
+        return {
+            "id": booking.customer_id,
+            "name": booking.contact_name,
+            "email": booking.contact_email,
+            "is_guest": booking.is_guest,
+        }
 
     class Meta(BookingSerializer.Meta):
         fields = [
@@ -318,7 +326,7 @@ class AdminBookingDetailSerializer(AdminBookingSerializer):
 class ClosureBookingSerializer(BookingSerializer):
     """An active booking on a date the provider just closed, as a warning."""
 
-    customer_name = serializers.CharField(source="customer.name", read_only=True)
+    customer_name = serializers.CharField(source="contact_name", read_only=True)
 
     class Meta(BookingSerializer.Meta):
         fields = ["id", "status", "service", "starts_at", "customer_name"]

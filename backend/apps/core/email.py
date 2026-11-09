@@ -16,32 +16,31 @@ from django.core.mail import send_mail
 
 class EmailService(ABC):
     @abstractmethod
-    def send_verification_email(self, user, code):
-        ...
+    def send_verification_email(self, user, code): ...
 
     @abstractmethod
-    def send_password_reset_email(self, user, code):
-        ...
+    def send_password_reset_email(self, user, code): ...
 
     @abstractmethod
-    def send_order_item_status_email(self, order_item):
-        ...
+    def send_order_item_status_email(self, order_item): ...
 
     @abstractmethod
-    def send_order_confirmation_email(self, order):
-        ...
+    def send_order_confirmation_email(self, order): ...
 
     @abstractmethod
-    def send_shop_approved_email(self, shop):
-        ...
+    def send_shop_approved_email(self, shop): ...
 
     @abstractmethod
-    def send_low_stock_email(self, product):
-        ...
+    def send_low_stock_email(self, product): ...
 
     @abstractmethod
-    def send_booking_status_email(self, booking, status):
-        ...
+    def send_booking_status_email(self, booking, status): ...
+
+
+def guest_booking_url(booking):
+    """The guest's private link back to a booking made without an account."""
+
+    return f"{settings.FRONTEND_BASE_URL.rstrip('/')}/bookings/track/{booking.access_token}"
 
 
 def guest_order_url(order):
@@ -103,7 +102,7 @@ class DjangoEmailService(EmailService):
 
         message = (
             f"Hi {order.contact_name},\n\n"
-            f"Your order #{order_id} item \"{product_name}\" {state}.\n"
+            f'Your order #{order_id} item "{product_name}" {state}.\n'
         )
         if order.is_guest:
             message += f"\nTrack your order: {guest_order_url(order)}\n"
@@ -173,20 +172,13 @@ class DjangoEmailService(EmailService):
     def send_booking_status_email(self, booking, status):
         """`status` is the one the booking just moved to; see `_booking_email` for who hears."""
 
-        email = _booking_email(booking, status)
-        if email is None:
-            return
-        user, path, subject, body = email
-        send_mail(
-            subject=subject,
-            message=(
-                f"Hi {user.name},\n\n"
-                f"{body}\n\n"
-                f"View it here: {settings.FRONTEND_BASE_URL.rstrip('/')}{path}\n"
-            ),
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[user.email],
-        )
+        for name, address, url, subject, body in _booking_emails(booking, status):
+            send_mail(
+                subject=subject,
+                message=f"Hi {name},\n\n{body}\n\nView it here: {url}\n",
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[address],
+            )
 
 
 def _market_time(value):
@@ -194,56 +186,79 @@ def _market_time(value):
     return f"{local:%a %d %b %Y at %H:%M} (Dar es Salaam time)"
 
 
-def _booking_email(booking, status):
-    """Who hears about a status change and what they read (FR-032), as `(recipient, link path,
-    subject, body)`. None for a status that notifies nobody."""
+def _booking_emails(booking, status):
+    """Who hears about a status change and what they read (FR-032), as a list of
+    `(name, address, url, subject, body)`. Empty for a status that notifies nobody. A guest
+    (no account) is reached at the booking's email, through its private tracking link."""
 
     service = booking.service.name
     when = _market_time(booking.starts_at)
-    customer_path = f"/bookings/{booking.id}"
+    base = settings.FRONTEND_BASE_URL.rstrip("/")
+    owner = booking.shop.owner
+    vendor_url = f"{base}/vendor/bookings"
+    customer_url = (
+        guest_booking_url(booking) if booking.is_guest else f"{base}/bookings/{booking.id}"
+    )
     reason = f"\n\nReason: {booking.status_reason}" if booking.status_reason else ""
 
+    def to_vendor(subject, body):
+        return (owner.name, owner.email, vendor_url, subject, body)
+
+    def to_customer(subject, body):
+        return (booking.contact_name, booking.contact_email, customer_url, subject, body)
+
     if status == "REQUESTED":
-        return (
-            booking.shop.owner,
-            "/vendor/bookings",
-            f'New booking request: "{service}"',
-            f'{booking.customer.name} asked to book "{service}" on {when}. Please accept or '
-            f"decline by {_market_time(booking.respond_by)}.",
-        )
+        emails = [
+            to_vendor(
+                f'New booking request: "{service}"',
+                f'{booking.contact_name} asked to book "{service}" on {when}. Please accept or '
+                f"decline by {_market_time(booking.respond_by)}.",
+            )
+        ]
+        if booking.is_guest:
+            # A guest has no account: this link is their only way back to the booking.
+            emails.append(
+                to_customer(
+                    f'We sent your booking request for "{service}"',
+                    f"{booking.shop.name} has your request for {when} and will reply by "
+                    f"{_market_time(booking.respond_by)}. Keep this email: the link below is "
+                    "how you check on or cancel your booking.",
+                )
+            )
+        return emails
     if status == "AWAITING_PAYMENT":
-        return (
-            booking.customer,
-            customer_path,
-            f'Your booking for "{service}" was accepted',
-            f"{booking.shop.name} accepted your booking on {when}. Please pay by "
-            f"{_market_time(booking.pay_by)} to confirm it.",
-        )
+        return [
+            to_customer(
+                f'Your booking for "{service}" was accepted',
+                f"{booking.shop.name} accepted your booking on {when}. Please pay by "
+                f"{_market_time(booking.pay_by)} to confirm it.",
+            )
+        ]
     if status == "DECLINED":
-        return (
-            booking.customer,
-            customer_path,
-            f'Your booking for "{service}" was declined',
-            f"{booking.shop.name} can't take your booking on {when}, and you haven't been "
-            f"charged.{reason}",
-        )
+        return [
+            to_customer(
+                f'Your booking for "{service}" was declined',
+                f"{booking.shop.name} can't take your booking on {when}, and you haven't been "
+                f"charged.{reason}",
+            )
+        ]
     if status == "EXPIRED":
-        return (
-            booking.customer,
-            customer_path,
-            f'Your booking for "{service}" expired',
-            f"Your booking on {when} expired before it was confirmed, and you haven't been "
-            "charged. You're welcome to book another time.",
-        )
+        return [
+            to_customer(
+                f'Your booking for "{service}" expired',
+                f"Your booking on {when} expired before it was confirmed, and you haven't been "
+                "charged. You're welcome to book another time.",
+            )
+        ]
     if status == "CANCELLED":
-        return (
-            booking.shop.owner,
-            "/vendor/bookings",
-            f'A booking for "{service}" was cancelled',
-            f"{booking.customer.name} cancelled their booking on {when}, so the time is open "
-            "again.",
-        )
-    return None
+        return [
+            to_vendor(
+                f'A booking for "{service}" was cancelled',
+                f"{booking.contact_name} cancelled their booking on {when}, so the time is "
+                "open again.",
+            )
+        ]
+    return []
 
 
 def get_email_service() -> EmailService:
