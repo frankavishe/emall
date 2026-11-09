@@ -6,7 +6,7 @@ from apps.catalog.models import Product
 from apps.core.validators import PHONE_REGEX
 from apps.finance.models import Payout, PlatformSettings
 from apps.orders.models import Order, OrderItem
-from apps.orders.serializers import OrderDeliverySerializer, OrderTotalsMixin
+from apps.orders.serializers import OrderDeliverySerializer, OrderTotalsMixin, order_buyer
 from apps.payments.models import PaymentRecord
 from apps.vendors.models import Shop
 from apps.vendors.serializers import ShopLogoUrlMixin
@@ -211,17 +211,6 @@ class PayoutDetailSerializer(PayoutSerializer):
     class Meta(PayoutSerializer.Meta):
         fields = PayoutSerializer.Meta.fields + ["items"]
         read_only_fields = fields
-
-
-def order_buyer(order):
-    """Who bought the order: a Customer account, or a guest (guest checkout, `id` None)."""
-
-    return {
-        "id": order.customer_id,
-        "name": order.contact_name,
-        "email": order.contact_email,
-        "is_guest": order.is_guest,
-    }
 
 
 class AdminTransactionSerializer(serializers.ModelSerializer):

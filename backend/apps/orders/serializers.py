@@ -217,9 +217,43 @@ class AdminOrderItemShopSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+def order_buyer(order):
+    """Who bought the order: a Customer account, or a guest (guest checkout, `id` None)."""
+
+    return {
+        "id": order.customer_id,
+        "name": order.contact_name,
+        "email": order.contact_email,
+        "is_guest": order.is_guest,
+    }
+
+
+def admin_order_summary(order):
+    """The order a line belongs to, as an oversight row shows it: who bought it, where it goes,
+    how it's paid and what it totals. Expects `customer`, `payment` and `items` preloaded."""
+
+    payment = getattr(order, "payment", None)
+    return {
+        "placed_at": order.placed_at,
+        "customer": order_buyer(order),
+        "recipient_name": order.recipient_name,
+        "phone": order.phone,
+        "address_line": order.address_line,
+        "city": order.city,
+        "latitude": order.latitude,
+        "longitude": order.longitude,
+        "payment": (
+            {"method": payment.method, "status": payment.status} if payment is not None else None
+        ),
+        "total": str(Decimal(order.total).quantize(Decimal("0.01"))),
+        "line_count": len(order.items.all()),
+    }
+
+
 class AdminOrderItemSerializer(RiderBriefMixin, serializers.ModelSerializer):
     """Administrator oversight row — the only response shape that ever includes
-    `status_history` (Clarifications session 2026-09-21)."""
+    `status_history` (Clarifications session 2026-09-21). `order` carries the order-level
+    details (buyer, delivery address, payment, total) so the row needs no second request."""
 
     order_id = serializers.IntegerField(source="order.id", read_only=True)
     product = OrderItemProductSerializer(read_only=True)
@@ -227,12 +261,14 @@ class AdminOrderItemSerializer(RiderBriefMixin, serializers.ModelSerializer):
     status_history = OrderItemStatusEventSerializer(
         source="status_events", many=True, read_only=True
     )
+    order = serializers.SerializerMethodField()
 
     class Meta:
         model = OrderItem
         fields = [
             "id",
             "order_id",
+            "order",
             "product",
             "shop",
             "quantity",
@@ -246,6 +282,9 @@ class AdminOrderItemSerializer(RiderBriefMixin, serializers.ModelSerializer):
             "rider",
         ]
         read_only_fields = fields
+
+    def get_order(self, obj):
+        return admin_order_summary(obj.order)
 
 
 class OrderItemStatusUpdateSerializer(serializers.Serializer):

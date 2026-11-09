@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { hasRole, useAuth } from "@/lib/auth-context";
 import { useLiveRefresh } from "@/lib/realtime";
@@ -10,6 +11,7 @@ import {
   errorMessage,
   listAdminOrderItems,
   listAdminRiders,
+  paymentMethodLabel,
   type AdminOrderItem,
   type AdminRider,
   type PaginatedResponse,
@@ -22,6 +24,8 @@ import { Pill, statusToTone } from "@/components/ui/pill";
 import { ErrorText, LoadingText, EmptyText } from "@/components/ui/status-text";
 import { inputClassName } from "@/components/ui/form-field";
 import { formatCurrency } from "@/lib/currency";
+import { MapLink } from "@/components/map-link";
+import { cn } from "@/lib/cn";
 
 // Lines a rider can be assigned to (mirrors `orders.services.ASSIGNABLE_STATUSES`).
 const ASSIGNABLE_STATUSES = new Set(["PROCESSING", "SHIPPED"]);
@@ -36,6 +40,58 @@ const NEXT_STATUSES: Record<string, string[]> = {
   DELIVERED: [],
   CANCELLED: [],
 };
+
+/** Who ordered, where it goes and how it's paid: the order-level details of a line. */
+function OrderDetails({ item }: { item: AdminOrderItem }) {
+  const { order } = item;
+  return (
+    <dl className="mt-2 grid grid-cols-1 gap-x-6 gap-y-1 rounded-control bg-hover/60 p-3 text-sm sm:grid-cols-2">
+      <div>
+        <dt className="text-xs font-medium uppercase tracking-wide text-text-muted">Customer</dt>
+        <dd className="text-text-primary">
+          {order.customer.name}
+          {order.customer.is_guest && <span className="text-text-muted"> (guest)</span>}
+        </dd>
+        <dd className="break-all text-text-muted">{order.customer.email}</dd>
+      </div>
+      <div>
+        <dt className="text-xs font-medium uppercase tracking-wide text-text-muted">Deliver to</dt>
+        <dd className="text-text-primary">
+          {order.recipient_name} &middot; {order.phone}
+        </dd>
+        <dd className="text-text-muted">
+          {order.address_line}, {order.city}{" "}
+          <MapLink latitude={order.latitude} longitude={order.longitude}>
+            Map
+          </MapLink>
+        </dd>
+      </div>
+      <div>
+        <dt className="text-xs font-medium uppercase tracking-wide text-text-muted">Payment</dt>
+        <dd className="flex flex-wrap items-center gap-2 text-text-primary">
+          {order.payment ? (
+            <>
+              {paymentMethodLabel(order.payment.method)}
+              <Pill tone={statusToTone(order.payment.status)}>{order.payment.status}</Pill>
+            </>
+          ) : (
+            <span className="text-text-muted">No payment record</span>
+          )}
+        </dd>
+      </div>
+      <div>
+        <dt className="text-xs font-medium uppercase tracking-wide text-text-muted">Order total</dt>
+        <dd className="text-text-primary">
+          {formatCurrency(order.total)}
+          <span className="text-text-muted">
+            {" "}
+            &middot; {order.line_count} line{order.line_count === 1 ? "" : "s"}
+          </span>
+        </dd>
+      </div>
+    </dl>
+  );
+}
 
 function RiderAssignment({
   item,
@@ -218,12 +274,24 @@ export default function AdminOrdersPage() {
         <>
           <ul className="flex flex-col gap-4">
             {items.results.map((item) => (
-              <Card as="li" key={item.id} padding="sm">
+              <Card
+                as="li"
+                key={item.id}
+                padding="sm"
+                className={cn(item.status === "PENDING" && "border-l-4 border-l-teal-400")}
+              >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
                     <p className="font-medium text-text-primary">{item.product.name}</p>
                     <p className="text-sm text-text-muted">
-                      Order #{item.order_id} &middot; Sold by {item.shop.name}
+                      <Link
+                        href={`/admin/orders/${item.order_id}`}
+                        className="font-medium text-text-primary underline"
+                      >
+                        Order #{item.order_id}
+                      </Link>{" "}
+                      &middot; Sold by {item.shop.name} &middot; Placed{" "}
+                      {new Date(item.order.placed_at).toLocaleString()}
                     </p>
                     <p className="text-sm text-text-muted">
                       {item.quantity} &times; {formatCurrency(item.unit_price)}
@@ -231,6 +299,7 @@ export default function AdminOrdersPage() {
                     <div className="mt-1">
                       <Pill tone={statusToTone(item.status)}>{item.status}</Pill>
                     </div>
+                    <OrderDetails item={item} />
                     <div className="mt-2">
                       <RiderAssignment
                         key={item.rider?.id ?? "none"}

@@ -845,9 +845,25 @@ export async function updateOrderItemStatus(
   });
 }
 
+/** The order an oversight row's line belongs to: buyer, delivery address, payment, total. */
+export type AdminOrderItemOrder = {
+  placed_at: string;
+  customer: OrderBuyer;
+  recipient_name: string;
+  phone: string;
+  address_line: string;
+  city: string;
+  latitude: string | null;
+  longitude: string | null;
+  payment: { method: string; status: string } | null;
+  total: string;
+  line_count: number;
+};
+
 export type AdminOrderItem = {
   id: number;
   order_id: number;
+  order: AdminOrderItemOrder;
   product: { id: number; name: string };
   shop: { id: number; name: string };
   quantity: number;
@@ -897,6 +913,11 @@ export async function listAdminOrderItems(
   return apiFetch<PaginatedResponse<AdminOrderItem>>(
     `/api/admin/order-items?page=${page}${limitParam}`,
   );
+}
+
+/** `GET /api/admin/order-items/summary`: paid orders with a line nobody has started on. */
+export async function getAdminOrderSummary(): Promise<{ orders_needing_action: number }> {
+  return apiFetch<{ orders_needing_action: number }>("/api/admin/order-items/summary");
 }
 
 export type Review = {

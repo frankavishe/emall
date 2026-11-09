@@ -6,8 +6,9 @@ import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { BrandLogo } from "@/components/brand-logo";
 import { hasAdminPermission, useAuth, type AuthUser } from "@/lib/auth-context";
-import { listAdminShops } from "@/lib/api-client";
+import { getAdminOrderSummary, listAdminShops } from "@/lib/api-client";
 import { useApi } from "@/lib/use-api";
+import { useRealtime } from "@/lib/realtime";
 
 /** `permission` is the `<area>.view` code an admin's tier must grant to see the link. */
 type AdminLink = { label: string; href: string; icon: ReactNode; permission?: string };
@@ -217,6 +218,28 @@ function usePendingShopCount(): number | null {
   return pending.data?.count ?? null;
 }
 
+/** Paid orders with a line nobody has started on, shown as a badge on the Order Oversight
+ * link. Refetched whenever an order is placed, paid or has a line moved on. */
+function useOrdersNeedingActionCount(): number | null {
+  const { activeRole, user } = useAuth();
+  const enabled = activeRole === "ADMINISTRATOR" && hasAdminPermission(user, "orders.view");
+  const summary = useApi(getAdminOrderSummary, "admin-orders-needing-action", enabled);
+  const { reload } = summary;
+  useRealtime(
+    (event) => {
+      if (
+        event.type === "order.created" ||
+        event.type === "order.updated" ||
+        event.type === "payment.updated"
+      ) {
+        reload();
+      }
+    },
+    { enabled },
+  );
+  return summary.data?.orders_needing_action ?? null;
+}
+
 const SECTION_VARIANTS = {
   light: {
     title: "text-text-muted",
@@ -244,6 +267,11 @@ export function AdminNavSections({
   const pathname = usePathname();
   const { user } = useAuth();
   const pendingShops = usePendingShopCount();
+  const ordersNeedingAction = useOrdersNeedingActionCount();
+  const badges: Record<string, number | null> = {
+    "/admin/shops": pendingShops,
+    "/admin/orders": ordersNeedingAction,
+  };
   const styles = SECTION_VARIANTS[variant];
   return (
     <div className={cn("flex flex-col", variant === "dark" ? "gap-6" : "gap-4")}>
@@ -259,7 +287,7 @@ export function AdminNavSections({
           </p>
           {section.links.map((link) => {
             const active = isLinkActive(pathname, link.href);
-            const badge = link.href === "/admin/shops" && pendingShops ? pendingShops : null;
+            const badge = badges[link.href] || null;
             return (
               <Link
                 key={link.href}
@@ -277,7 +305,7 @@ export function AdminNavSections({
                 {badge !== null && (
                   <span
                     className="rounded-pill bg-teal-400 px-2 py-0.5 text-[11px] font-semibold text-navy-900"
-                    aria-label={`${badge} pending`}
+                    aria-label={`${badge} need${badge === 1 ? "s" : ""} attention`}
                   >
                     {badge}
                   </span>
