@@ -104,9 +104,11 @@ export default function AdminFinancePage() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <StatCard
             variant="hero"
-            label="Item sales (gross)"
+            label="Sales (gross)"
             value={formatCurrency(figures.gross_sales)}
-            trend={{ text: `${figures.order_count} orders` }}
+            trend={{
+              text: `${figures.order_count} orders, ${figures.booking_count} bookings`,
+            }}
           />
           <StatCard
             label="Delivery fees collected"

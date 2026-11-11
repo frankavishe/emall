@@ -666,6 +666,20 @@ export async function vendorCancelBooking(
   });
 }
 
+/** `POST /api/vendor/bookings/{id}/complete`: allowed once the visit has started. */
+export async function completeBooking(bookingId: number | string): Promise<VendorBooking> {
+  return apiFetch<VendorBooking>(`/api/vendor/bookings/${bookingId}/complete`, {
+    method: "POST",
+  });
+}
+
+/** `POST /api/vendor/bookings/{id}/no-show`: allowed once the visit has started. Still earns. */
+export async function markBookingNoShow(bookingId: number | string): Promise<VendorBooking> {
+  return apiFetch<VendorBooking>(`/api/vendor/bookings/${bookingId}/no-show`, {
+    method: "POST",
+  });
+}
+
 export async function listAdminBookings(
   options: {
     status?: string;
@@ -1460,6 +1474,8 @@ export type BalanceFigures = {
 export type PlatformSummary = BalanceFigures & {
   order_count: number;
   line_count: number;
+  /** Paid service bookings (confirmed, completed or no-show). */
+  booking_count: number;
   default_commission_rate: string;
   /** Delivery fees collected: the mall's own revenue, outside every shop balance. */
   delivery_revenue: string;
@@ -1592,7 +1608,9 @@ export type Payout = {
   created_by_name: string | null;
   created_at: string;
   completed_at: string | null;
+  /** Order lines plus bookings. */
   line_count: number | null;
+  booking_count: number | null;
 };
 
 export type PayoutLine = {
@@ -1608,7 +1626,18 @@ export type PayoutLine = {
   status: string;
 };
 
-export type PayoutDetail = Payout & { items: PayoutLine[] };
+export type PayoutBooking = {
+  id: number;
+  service_name: string;
+  starts_at: string;
+  price: string;
+  commission_rate: string;
+  commission_amount: string;
+  vendor_earning: string;
+  status: BookingStatus;
+};
+
+export type PayoutDetail = Payout & { items: PayoutLine[]; bookings: PayoutBooking[] };
 
 export async function createShopPayout(shopId: number | string): Promise<Payout> {
   return apiFetch<Payout>(`/api/admin/shops/${shopId}/payouts`, { method: "POST" });
@@ -1651,7 +1680,9 @@ export type OrderBuyer = { id: number | null; name: string; email: string; is_gu
 
 export type AdminTransaction = {
   id: number;
-  order_id: number;
+  /** Exactly one of `order_id` and `booking_id` is set. */
+  order_id: number | null;
+  booking_id: number | null;
   customer: OrderBuyer;
   amount: string;
   method: string;

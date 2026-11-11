@@ -11,16 +11,31 @@ An earning is
 - in payout while its payout is PENDING / PROCESSING,
 - paid      once its payout SUCCEEDED.
 Cancelled lines never pay out.
+
+Service bookings (008) earn the same way, by their status: pending while CONFIRMED (paid, visit
+still to come), available once COMPLETED or NO_SHOW and not yet in a payout. Their totals are
+added beside the goods aggregates, never through a second join (see `_with_balances`).
 """
 
 import logging
 from decimal import ROUND_HALF_UP, Decimal
 
 from django.db import transaction
-from django.db.models import Count, DecimalField, F, Q, Sum, Value
+from django.db.models import (
+    Count,
+    DecimalField,
+    F,
+    IntegerField,
+    OuterRef,
+    Q,
+    Subquery,
+    Sum,
+    Value,
+)
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
+from apps.bookings.models import Booking
 from apps.finance import disbursement
 from apps.finance.models import Payout, PlatformSettings
 from apps.orders.models import Order, OrderItem
@@ -88,17 +103,26 @@ def _available_lines(shop):
     ).exclude(order__payment__status=PaymentRecord.Status.PENDING)
 
 
+_FINISHED_VISITS = [Booking.Status.COMPLETED, Booking.Status.NO_SHOW]
+
+
+def _available_bookings(shop):
+    return Booking.objects.filter(shop=shop, status__in=_FINISHED_VISITS, payout__isnull=True)
+
+
 def _claim_lines(payout, shop):
-    """Locks the shop's available lines and attaches them to `payout`. Caller holds a
-    transaction and the shop row lock."""
+    """Locks the shop's available order lines and finished bookings and attaches them to
+    `payout`. Caller holds a transaction and the shop row lock."""
 
     lines = list(_available_lines(shop).select_for_update(of=("self",)).order_by("id"))
-    if not lines:
-        raise FinanceError("This shop has no delivered earnings waiting to be paid out.")
-    amount = sum((line.vendor_earning for line in lines), ZERO)
+    bookings = list(_available_bookings(shop).select_for_update(of=("self",)).order_by("id"))
+    if not lines and not bookings:
+        raise FinanceError("This shop has no earnings waiting to be paid out.")
+    amount = sum((row.vendor_earning for row in [*lines, *bookings]), ZERO)
     if amount <= 0:
         raise FinanceError("This shop's available balance is zero.")
     OrderItem.objects.filter(id__in=[line.id for line in lines]).update(payout=payout)
+    Booking.objects.filter(id__in=[booking.id for booking in bookings]).update(payout=payout)
     return amount
 
 
@@ -143,6 +167,7 @@ def _disburse(payout):
             payout.status = Payout.Status.FAILED
             payout.completed_at = timezone.now()
             OrderItem.objects.filter(payout=payout).update(payout=None)
+            Booking.objects.filter(payout=payout).update(payout=None)
         payout.save()
     return payout
 
@@ -227,6 +252,58 @@ def balance_aggregates(prefix=""):
     }
 
 
+def booking_aggregates():
+    """The same figures over `Booking` rows, by the mapping in research.md section 9, plus
+    `booking_count` (paid bookings)."""
+
+    paid = Q(status__in=[Booking.Status.CONFIRMED, *_FINISHED_VISITS])
+    upcoming = Q(status=Booking.Status.CONFIRMED)
+    finished = Q(status__in=_FINISHED_VISITS)
+    return {
+        "gross_sales": _sum("price", paid),
+        "commission_earned": _sum("commission_amount", finished),
+        "commission_pending": _sum("commission_amount", upcoming),
+        "pending_earnings": _sum("vendor_earning", upcoming),
+        "available_balance": _sum("vendor_earning", finished & Q(payout__isnull=True)),
+        "in_payout": _sum("vendor_earning", finished & Q(payout__status__in=_PAYOUT_OPEN)),
+        "paid_out": _sum("vendor_earning", Q(payout__status=Payout.Status.SUCCEEDED)),
+        "booking_count": Count("id", filter=paid),
+    }
+
+
+def _shop_bookings(expression, field, zero):
+    """One booking figure for the outer `Shop` row, as a correlated subquery."""
+
+    rows = (
+        Booking.objects.filter(shop=OuterRef("pk"))
+        .order_by()
+        .values("shop")
+        .annotate(total=expression)
+        .values("total")
+    )
+    return Coalesce(Subquery(rows, output_field=field), Value(zero), output_field=field)
+
+
+def _with_balances(shops):
+    """`shops` annotated with goods plus booking figures and `booking_count`, in one query.
+    Bookings come in through subqueries: joining them beside the order lines would multiply
+    every goods sum by the shop's booking count."""
+
+    goods = balance_aggregates("products__order_items__")
+    bookings = booking_aggregates()
+    return shops.annotate(
+        **{key: goods[key] + _shop_bookings(bookings[key], _MONEY, ZERO) for key in goods},
+        booking_count=_shop_bookings(bookings["booking_count"], IntegerField(), 0),
+    )
+
+
+def _add_figures(goods, bookings):
+    figures = dict(goods)
+    for key, value in bookings.items():
+        figures[key] = figures.get(key, 0) + value
+    return figures
+
+
 def _date_filtered_lines(date_from=None, date_to=None):
     lines = OrderItem.objects.filter(order__status=Order.Status.PLACED)
     if date_from:
@@ -245,6 +322,13 @@ def platform_summary(*, date_from=None, date_to=None):
         order_count=Count("order", distinct=True),
         line_count=Count("id"),
     )
+    # A booking counts from the day it was paid, as an order counts from the day it was placed.
+    bookings = Booking.objects.all()
+    if date_from:
+        bookings = bookings.filter(confirmed_at__date__gte=date_from)
+    if date_to:
+        bookings = bookings.filter(confirmed_at__date__lte=date_to)
+    figures = _add_figures(figures, bookings.aggregate(**booking_aggregates()))
     figures["default_commission_rate"] = PlatformSettings.get_solo().default_commission_rate
 
     orders = Order.objects.filter(status=Order.Status.PLACED)
@@ -259,10 +343,8 @@ def platform_summary(*, date_from=None, date_to=None):
 def shops_with_balances():
     """Every shop annotated with its balance figures (one query)."""
 
-    return (
-        Shop.objects.select_related("owner")
-        .annotate(**balance_aggregates("products__order_items__"))
-        .order_by("-available_balance", "name")
+    return _with_balances(Shop.objects.select_related("owner")).order_by(
+        "-available_balance", "name"
     )
 
 
@@ -273,7 +355,7 @@ def vendor_shop_earnings(owner, shop_id=None):
     if shop_id is not None:
         shops = shops.filter(pk=shop_id)
     default_rate = PlatformSettings.get_solo().default_commission_rate
-    aggregates = balance_aggregates("products__order_items__")
+    keys = [*balance_aggregates(), "booking_count"]
     return [
         {
             "shop_id": shop.id,
@@ -285,18 +367,23 @@ def vendor_shop_earnings(owner, shop_id=None):
             "payout_network": shop.payout_network,
             "payout_phone": shop.payout_phone,
             "payout_account_name": shop.payout_account_name,
-            **{key: getattr(shop, key) for key in aggregates},
+            **{key: getattr(shop, key) for key in keys},
         }
-        for shop in shops.annotate(**aggregates)
+        for shop in _with_balances(shops)
     ]
 
 
 def payout_queryset(*, shop_id=None, status=None):
-    """Payouts newest first with their line count, optionally for one shop / status."""
+    """Payouts newest first with their order line and booking counts, optionally for one shop /
+    status. Both relations are joined, so each count is `distinct`."""
 
     queryset = (
         Payout.objects.select_related("shop", "created_by")
-        .annotate(line_count=Count("items"))
+        .annotate(
+            item_count=Count("items", distinct=True),
+            booking_count=Count("bookings", distinct=True),
+        )
+        .annotate(line_count=F("item_count") + F("booking_count"))
         .order_by("-created_at")
     )
     if shop_id is not None:
@@ -307,14 +394,20 @@ def payout_queryset(*, shop_id=None, status=None):
 
 
 def filter_transactions(*, date_from=None, date_to=None, status=None, method=None, search=""):
-    """Customer payments newest first, with the mall's commission on each. `search` matches an
-    order id, payment reference or the buyer's name/email."""
+    """Customer payments for orders and bookings newest first, with the mall's commission on
+    each. `search` matches an order or booking id, payment reference or the buyer's
+    name/email."""
 
     queryset = (
-        PaymentRecord.objects.select_related("order__customer")
+        PaymentRecord.objects.select_related(
+            "order__customer", "booking__customer", "booking__service"
+        )
         .annotate(
-            commission_total=_sum("order__items__commission_amount"),
-            shop_count=Count("order__items__product__shop", distinct=True),
+            # A payment has one booking at most, so adding its commission multiplies nothing.
+            commission_total=_sum("order__items__commission_amount")
+            + Coalesce(F("booking__commission_amount"), Value(ZERO), output_field=_MONEY),
+            shop_count=Count("order__items__product__shop", distinct=True)
+            + Count("booking__shop", distinct=True),
         )
         .order_by("-created_at")
     )
@@ -335,15 +428,22 @@ def filter_transactions(*, date_from=None, date_to=None, status=None, method=Non
             | Q(order__customer__name__icontains=search)
             | Q(order__guest_email__icontains=search)
             | Q(order__customer__isnull=True, order__recipient_name__icontains=search)
+            | Q(booking__customer__email__icontains=search)
+            | Q(booking__customer__name__icontains=search)
+            | Q(booking__guest_email__icontains=search)
+            | Q(booking__guest_name__icontains=search)
         )
         if search.isdigit():
-            condition |= Q(order_id=int(search))
+            condition |= Q(order_id=int(search)) | Q(booking_id=int(search))
         queryset = queryset.filter(condition)
     return queryset
 
 
 def shop_balance(shop):
-    figures = OrderItem.objects.filter(product__shop=shop).aggregate(**balance_aggregates())
+    figures = _add_figures(
+        OrderItem.objects.filter(product__shop=shop).aggregate(**balance_aggregates()),
+        Booking.objects.filter(shop=shop).aggregate(**booking_aggregates()),
+    )
     figures["commission_rate"] = shop.effective_commission_rate()
     figures["commission_rate_is_override"] = shop.commission_rate is not None
     return figures

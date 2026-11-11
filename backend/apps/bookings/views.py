@@ -43,7 +43,9 @@ from apps.bookings.services import (
     admin_cancel_booking,
     booking_payment_methods,
     cancel_customer_booking,
+    complete_booking,
     decline_booking,
+    mark_no_show,
     provider_cancel_booking,
     refresh_bookings,
     request_booking,
@@ -629,6 +631,26 @@ class VendorBookingCancelView(APIView):
             reason=serializer.validated_data["reason"],
             request=request,
         )
+        return Response(VendorBookingSerializer(booking).data)
+
+
+class VendorBookingCompleteView(APIView):
+    """`POST /api/vendor/bookings/{id}/complete`: once the visit has started."""
+
+    permission_classes = [IsVendor]
+
+    def post(self, request, booking_id):
+        booking = complete_booking(booking_id=booking_id, owner=request.user, request=request)
+        return Response(VendorBookingSerializer(booking).data)
+
+
+class VendorBookingNoShowView(APIView):
+    """`POST /api/vendor/bookings/{id}/no-show`: once the visit has started. Still earns."""
+
+    permission_classes = [IsVendor]
+
+    def post(self, request, booking_id):
+        booking = mark_no_show(booking_id=booking_id, owner=request.user, request=request)
         return Response(VendorBookingSerializer(booking).data)
 
 

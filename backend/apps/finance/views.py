@@ -8,6 +8,7 @@ from rest_framework.views import APIView
 
 from apps.audit.models import AuditAction
 from apps.audit.services import changed_fields, record
+from apps.bookings.models import Booking
 from apps.catalog.models import Product
 from apps.core.pagination import LimitedPageNumberPagination
 from apps.core.permissions import AdminArea, IsCustomer, IsVendor
@@ -218,7 +219,11 @@ def _payout_with_lines(payout_id):
             Prefetch(
                 "items",
                 queryset=OrderItem.objects.select_related("product").order_by("id"),
-            )
+            ),
+            Prefetch(
+                "bookings",
+                queryset=Booking.objects.select_related("service").order_by("starts_at", "id"),
+            ),
         ),
         pk=payout_id,
     )

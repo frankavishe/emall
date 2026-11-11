@@ -174,19 +174,19 @@ description: "Task list for service bookings"
 
 > Write these first and confirm they fail.
 
-- [ ] T072 [P] [US4] Test completion in `backend/tests/bookings/test_completion.py`: refused before the start, completed and no-show both earn, fixed price and commission survive later changes
-- [ ] T073 [P] [US4] Test finance in `backend/tests/finance/test_booking_earnings.py`: **a shop with both goods lines and bookings has exact, unmultiplied totals in every figure**, sorting by balance works, cancelled bookings add nothing, payouts claim both, failure releases both, retry works, and line counts are correct
+- [x] T072 [P] [US4] Test completion in `backend/tests/bookings/test_completion.py`: refused before the start, completed and no-show both earn, fixed price and commission survive later changes
+- [x] T073 [P] [US4] Test finance in `backend/tests/finance/test_booking_earnings.py`: **a shop with both goods lines and bookings has exact, unmultiplied totals in every figure**, sorting by balance works, cancelled bookings add nothing, payouts claim both, failure releases both, retry works, and line counts are correct
 
 ### Implementation for User Story 4
 
-- [ ] T074 [US4] Implement `complete_booking` and `mark_no_show` in `backend/apps/bookings/services.py`, and add the provider endpoints in `backend/apps/bookings/views.py`
-- [ ] T075 [US4] Add `_available_bookings`, and claim and release bookings alongside lines, in `_claim_lines` and `_disburse` in `backend/apps/finance/services.py`
-- [ ] T076 [US4] Add booking totals by the mapping in `research.md` section 9 to `shops_with_balances`, `vendor_shop_earnings`, `shop_balance` and `platform_summary` in `backend/apps/finance/services.py`, using `Subquery` on `Shop` queries and never a second join; add `booking_count`
-- [ ] T077 [US4] Use `Count(..., distinct=True)` for items and bookings in `payout_queryset`, and extend `filter_transactions` with booking commission and search terms, in `backend/apps/finance/services.py`
-- [ ] T078 [US4] Add `booking_id`, make `order_id` nullable, and fix `get_customer` for records with no order in `backend/apps/finance/serializers.py`; list bookings on payout details in `backend/apps/finance/views.py`
-- [ ] T079 [US4] Update the transaction report and payout statement templates in `backend/apps/finance/templates/finance/reports/`, and confirm the PDFs render with booking lines
-- [ ] T080 [P] [US4] Add completed and no-show actions to `frontend/src/app/vendor/bookings/page.tsx`
-- [ ] T081 [P] [US4] Show bookings in `frontend/src/app/admin/transactions/page.tsx`, `frontend/src/app/admin/payouts/[id]/page.tsx` and `frontend/src/app/admin/finance/page.tsx`, updating types in `frontend/src/lib/api-client.ts`
+- [x] T074 [US4] Implement `complete_booking` and `mark_no_show` in `backend/apps/bookings/services.py`, and add the provider endpoints in `backend/apps/bookings/views.py`
+- [x] T075 [US4] Add `_available_bookings`, and claim and release bookings alongside lines, in `_claim_lines` and `_disburse` in `backend/apps/finance/services.py`
+- [x] T076 [US4] Add booking totals by the mapping in `research.md` section 9 to `shops_with_balances`, `vendor_shop_earnings`, `shop_balance` and `platform_summary` in `backend/apps/finance/services.py`, using `Subquery` on `Shop` queries and never a second join; add `booking_count`
+- [x] T077 [US4] Use `Count(..., distinct=True)` for items and bookings in `payout_queryset`, and extend `filter_transactions` with booking commission and search terms, in `backend/apps/finance/services.py`
+- [x] T078 [US4] Add `booking_id`, make `order_id` nullable, and fix `get_customer` for records with no order in `backend/apps/finance/serializers.py`; list bookings on payout details in `backend/apps/finance/views.py`
+- [x] T079 [US4] Update the transaction report and payout statement templates in `backend/apps/finance/templates/finance/reports/`, and confirm the PDFs render with booking lines
+- [x] T080 [P] [US4] Add completed and no-show actions to `frontend/src/app/vendor/bookings/page.tsx`
+- [x] T081 [P] [US4] Show bookings in `frontend/src/app/admin/transactions/page.tsx`, `frontend/src/app/admin/payouts/[id]/page.tsx` and `frontend/src/app/admin/finance/page.tsx`, updating types in `frontend/src/lib/api-client.ts`
 
 **Checkpoint**: Run all tests and the "US4" walkthrough. Stop for review.
 

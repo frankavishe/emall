@@ -69,6 +69,16 @@ vendor_urlpatterns = [
         views.VendorBookingCancelView.as_view(),
         name="vendor-booking-cancel",
     ),
+    path(
+        "bookings/<int:booking_id>/complete",
+        views.VendorBookingCompleteView.as_view(),
+        name="vendor-booking-complete",
+    ),
+    path(
+        "bookings/<int:booking_id>/no-show",
+        views.VendorBookingNoShowView.as_view(),
+        name="vendor-booking-no-show",
+    ),
 ]
 
 customer_urlpatterns = [

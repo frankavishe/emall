@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from rest_framework import serializers
 
+from apps.bookings.models import Booking
 from apps.catalog.models import Product
 from apps.core.validators import PHONE_REGEX
 from apps.finance.models import Payout, PlatformSettings
@@ -28,6 +29,7 @@ class BalanceFiguresSerializer(serializers.Serializer):
 class PlatformSummarySerializer(BalanceFiguresSerializer):
     order_count = serializers.IntegerField(read_only=True)
     line_count = serializers.IntegerField(read_only=True)
+    booking_count = serializers.IntegerField(read_only=True)
     default_commission_rate = serializers.DecimalField(**_RATE, read_only=True)
     delivery_revenue = serializers.DecimalField(**_MONEY)
 
@@ -103,6 +105,7 @@ class AdminShopBalanceSerializer(ShopLogoUrlMixin, BalanceFiguresSerializer):
         source="commission_rate", **_RATE, read_only=True
     )
     has_payout_details = serializers.BooleanField(read_only=True)
+    booking_count = serializers.IntegerField(read_only=True)
 
     def get_commission_rate(self, obj):
         rate = obj.commission_rate
@@ -157,7 +160,9 @@ class AdminShopDetailSerializer(ShopLogoUrlMixin, serializers.ModelSerializer):
 class PayoutSerializer(serializers.ModelSerializer):
     shop = serializers.SerializerMethodField()
     created_by_name = serializers.CharField(source="created_by.name", default=None)
+    # Order lines plus bookings.
     line_count = serializers.IntegerField(read_only=True, default=None)
+    booking_count = serializers.IntegerField(read_only=True, default=None)
 
     class Meta:
         model = Payout
@@ -176,6 +181,7 @@ class PayoutSerializer(serializers.ModelSerializer):
             "created_at",
             "completed_at",
             "line_count",
+            "booking_count",
         ]
         read_only_fields = fields
 
@@ -205,16 +211,38 @@ class PayoutLineSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class PayoutBookingSerializer(serializers.ModelSerializer):
+    service_name = serializers.CharField(source="service.name", read_only=True)
+
+    class Meta:
+        model = Booking
+        fields = [
+            "id",
+            "service_name",
+            "starts_at",
+            "price",
+            "commission_rate",
+            "commission_amount",
+            "vendor_earning",
+            "status",
+        ]
+        read_only_fields = fields
+
+
 class PayoutDetailSerializer(PayoutSerializer):
     items = PayoutLineSerializer(many=True, read_only=True)
+    bookings = PayoutBookingSerializer(many=True, read_only=True)
 
     class Meta(PayoutSerializer.Meta):
-        fields = PayoutSerializer.Meta.fields + ["items"]
+        fields = PayoutSerializer.Meta.fields + ["items", "bookings"]
         read_only_fields = fields
 
 
 class AdminTransactionSerializer(serializers.ModelSerializer):
-    order_id = serializers.IntegerField(read_only=True)
+    """A payment for an order or a booking: exactly one of `order_id` and `booking_id` is set."""
+
+    order_id = serializers.IntegerField(read_only=True, allow_null=True)
+    booking_id = serializers.IntegerField(read_only=True, allow_null=True)
     customer = serializers.SerializerMethodField()
     commission_total = serializers.DecimalField(**_MONEY)
     shop_count = serializers.IntegerField(read_only=True)
@@ -224,6 +252,7 @@ class AdminTransactionSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "order_id",
+            "booking_id",
             "customer",
             "amount",
             "method",
@@ -237,7 +266,8 @@ class AdminTransactionSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_customer(self, obj):
-        return order_buyer(obj.order)
+        # A booking has the same buyer fields as an order (customer or guest).
+        return order_buyer(obj.order or obj.booking)
 
 
 class SettlePaymentSerializer(serializers.Serializer):
@@ -355,3 +385,4 @@ class VendorShopEarningsSerializer(BalanceFiguresSerializer):
     payout_network = serializers.CharField(read_only=True)
     payout_phone = serializers.CharField(read_only=True)
     payout_account_name = serializers.CharField(read_only=True)
+    booking_count = serializers.IntegerField(read_only=True)

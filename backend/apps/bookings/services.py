@@ -650,3 +650,50 @@ def admin_cancel_booking(*, booking_id, admin, reason, refund_amount=None, reque
                 request=request,
             )
     return booking
+
+
+# --- Completion ------------------------------------------------------------------
+
+
+def _finish_visit(*, booking_id, owner, status, action, request, now):
+    """Ends a paid visit once its start time has arrived. The earning fixed at request time then
+    becomes available for payout (FR-028). The shop's approval isn't checked: the visit already
+    happened, and payouts stay an administrator's decision."""
+
+    now = now or timezone.now()
+    with transaction.atomic():
+        booking = _locked(Booking.objects.filter(shop__owner=owner), booking_id)
+        if booking.status != Booking.Status.CONFIRMED:
+            raise BookingConflict(
+                f"Only a confirmed booking can be marked; this one is {_status_label(booking)}."
+            )
+        if booking.starts_at > now:
+            raise BookingConflict("This visit hasn't started yet.")
+        _change_status(
+            booking, status, action=action, actor=owner, request=request, completed_at=now
+        )
+    return booking
+
+
+def complete_booking(*, booking_id, owner, request=None, now=None):
+    return _finish_visit(
+        booking_id=booking_id,
+        owner=owner,
+        status=Booking.Status.COMPLETED,
+        action=AuditAction.BOOKING_COMPLETED,
+        request=request,
+        now=now,
+    )
+
+
+def mark_no_show(*, booking_id, owner, request=None, now=None):
+    """A paid no-show still earns the provider (FR-028)."""
+
+    return _finish_visit(
+        booking_id=booking_id,
+        owner=owner,
+        status=Booking.Status.NO_SHOW,
+        action=AuditAction.BOOKING_NO_SHOW,
+        request=request,
+        now=now,
+    )

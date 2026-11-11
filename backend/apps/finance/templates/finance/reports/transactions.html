@@ -5,15 +5,17 @@
 <p class="muted">{{ transactions|length }} transaction{{ transactions|length|pluralize }}</p>
 <table repeat="1">
   <thead><tr>
-    <th width="11%">Date</th><th width="6%">Order</th><th width="19%">Customer</th><th width="10%">Method</th><th width="17%">Reference</th>
+    <th width="11%">Date</th><th width="6%">For</th><th width="19%">Customer</th><th width="10%">Method</th><th width="17%">Reference</th>
     <th width="9%">Status</th><th class="num" width="5%">Shops</th><th class="num" width="11%">Amount</th><th class="num" width="12%">Commission</th>
   </tr></thead>
   <tbody>
   {% for tx in transactions %}
     <tr>
       <td>{{ tx.created_at|date:"j M Y H:i" }}</td>
-      <td>#{{ tx.order_id }}</td>
-      <td>{{ tx.order.contact_name }}{% if tx.order.is_guest %} <span class="muted">(guest)</span>{% endif %}<br><span class="muted">{{ tx.order.contact_email }}</span></td>
+      {% with buyer=tx.order|default:tx.booking %}
+      <td>{% if tx.booking_id %}Booking #{{ tx.booking_id }}{% else %}#{{ tx.order_id }}{% endif %}</td>
+      <td>{{ buyer.contact_name }}{% if buyer.is_guest %} <span class="muted">(guest)</span>{% endif %}<br><span class="muted">{{ buyer.contact_email }}</span></td>
+      {% endwith %}
       <td>{{ tx.method_label }}</td>
       <td>{{ tx.transaction_reference|breakable }}{% if tx.provider_reference %}<br><span class="muted">Txn {{ tx.provider_reference|breakable }}</span>{% endif %}</td>
       <td>{{ tx.get_status_display }}</td>
