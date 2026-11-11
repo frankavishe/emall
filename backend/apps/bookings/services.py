@@ -4,6 +4,7 @@ current status."""
 
 import logging
 import secrets
+import uuid
 from datetime import timedelta
 
 from django.conf import settings
@@ -21,6 +22,15 @@ from apps.bookings.permissions import require_bookable_shop
 from apps.bookings.slots import market_zone, open_slots
 from apps.core.email import get_email_service
 from apps.finance.services import split_line
+from apps.payments.models import PaymentRecord, RefundDue
+from apps.payments.outcomes import complete_payment, expire_stale_payments
+from apps.payments.services import (
+    LIPA_NAMBA_METHOD,
+    MOBILE_MONEY_METHOD,
+    InitiationResult,
+    available_payment_methods,
+    get_mobile_money_gateway,
+)
 from apps.realtime.broadcast import publish_on_commit
 from apps.realtime.groups import ADMINS, booking_audience, user_group
 from apps.vendors.models import Shop
@@ -272,31 +282,371 @@ def decline_booking(*, booking_id, owner, reason="", request=None, now=None):
     return booking
 
 
-def cancel_unpaid_booking(*, booking_id, customer=None, access_token=None, request=None, now=None):
-    """The customer ending their own request or accepted booking, at no charge. A guest is
-    identified by the booking's `access_token` instead of a customer."""
+# --- Payment -------------------------------------------------------------------
+
+PAYMENT_IN_PROGRESS = (
+    "A payment for this booking is still being processed. Please wait until it finishes."
+)
+
+
+def _customer_bookings(customer=None, access_token=None):
+    """A signed-in customer's bookings, or the one guest booking its `access_token` opens."""
+
+    if customer is not None:
+        return Booking.objects.filter(customer=customer)
+    if access_token:
+        return Booking.objects.filter(customer__isnull=True, access_token=access_token)
+    raise Http404
+
+
+def settle_stale_payments(bookings=None):
+    """Fails booking mobile-money payments that have timed out (never Lipa Namba: an
+    administrator settles those). Returns how many it failed."""
+
+    records = PaymentRecord.objects.filter(booking__isnull=False)
+    if bookings is not None:
+        records = records.filter(booking__in=bookings)
+    return expire_stale_payments(queryset=records)
+
+
+def refresh_bookings(bookings=None, *, now=None):
+    """The lazy cleanup before a read or an action: stale payments first, then deadlines, in
+    the same order as the scheduled command. Returns how many bookings expired."""
+
+    settle_stale_payments(bookings)
+    return expire_due_bookings(bookings, now=now)
+
+
+def _payment_in_progress(booking):
+    return booking.payments.filter(status=PaymentRecord.Status.PENDING).exists()
+
+
+def _paid_record(booking):
+    return booking.payments.filter(status=PaymentRecord.Status.SUCCEEDED).first()
+
+
+def booking_payment_methods(booking, now=None):
+    """What this booking can be paid with: mobile money, and Lipa Namba while the visit is far
+    enough away for an administrator to check the statement (FR-018). Never card or cash."""
 
     now = now or timezone.now()
-    if customer is not None:
-        mine = Booking.objects.filter(customer=customer)
-    elif access_token:
-        mine = Booking.objects.filter(customer__isnull=True, access_token=access_token)
-    else:
-        raise Http404
-    expire_due_bookings(mine.filter(pk=booking_id), now=now)
+    lipa_allowed = booking.starts_at - now >= timedelta(hours=settings.BOOKING_LIPA_MIN_HOURS)
+    return [
+        option
+        for option in available_payment_methods()
+        if option["method"] == MOBILE_MONEY_METHOD
+        or (option["method"] == LIPA_NAMBA_METHOD and lipa_allowed)
+    ]
+
+
+def start_booking_payment(
+    *,
+    booking_id,
+    payment_method,
+    customer=None,
+    access_token=None,
+    msisdn="",
+    provider="",
+    payer_reference="",
+    now=None,
+):
+    """Starts one payment attempt for an accepted booking, for `booking.amount_due()` and never
+    an amount from the client. A mobile-money push is sent after commit, outside the row locks,
+    as checkout does (`_place_mobile_money_order`). Returns the booking."""
+
+    now = now or timezone.now()
+    mine = _customer_bookings(customer, access_token)
+    refresh_bookings(mine.filter(pk=booking_id), now=now)
 
     with transaction.atomic():
         booking = _locked(mine, booking_id)
-        if not Booking.objects.active_unpaid(now).filter(pk=booking.pk).exists():
-            raise BookingConflict(
-                f"This booking can't be cancelled: it is {_status_label(booking)}."
-            )
+        if booking.status != Booking.Status.AWAITING_PAYMENT or booking.pay_by <= now:
+            raise BookingConflict(f"This booking can't be paid: it is {_status_label(booking)}.")
+        if booking.payments.filter(
+            status__in=[PaymentRecord.Status.PENDING, PaymentRecord.Status.SUCCEEDED]
+        ).exists():
+            raise BookingConflict(PAYMENT_IN_PROGRESS)
+        offered = {option["method"] for option in booking_payment_methods(booking, now)}
+        if payment_method not in offered:
+            raise BookingRefused("This payment method isn't available for this booking.")
+
+        fields = (
+            {"provider_reference": payer_reference}
+            if payment_method == LIPA_NAMBA_METHOD
+            else {"provider": provider, "msisdn": msisdn}
+        )
+        payment = PaymentRecord.objects.create(
+            booking=booking,
+            method=payment_method,
+            amount=booking.amount_due(),
+            status=PaymentRecord.Status.PENDING,
+            transaction_reference=uuid.uuid4().hex,
+            **fields,
+        )
+        _announce_update(booking)
+
+    if payment_method == MOBILE_MONEY_METHOD:
+        _push_payment_prompt(payment)
+    booking.refresh_from_db()
+    return booking
+
+
+def _push_payment_prompt(payment):
+    try:
+        result = get_mobile_money_gateway().initiate(
+            amount=payment.amount,
+            msisdn=payment.msisdn,
+            provider=payment.provider,
+            external_id=payment.transaction_reference,
+        )
+    except Exception:
+        logger.exception("Mobile money initiation crashed for booking %s", payment.booking_id)
+        result = InitiationResult(accepted=False, message="Payment provider unavailable.")
+
+    if not result.accepted:
+        complete_payment(record_id=payment.id, success=False, message=result.message)
+        raise BookingRefused(result.message or "The payment request could not be sent.")
+    if result.provider_reference:
+        PaymentRecord.objects.filter(pk=payment.pk).update(
+            provider_reference=result.provider_reference
+        )
+
+
+def _owe_back(payment, *, amount, reason, note="", request=None):
+    """Puts money on the refund list once per payment and reason: a repeated callback or click
+    finds the existing entry."""
+
+    refund, created = RefundDue.objects.get_or_create(
+        payment=payment, reason=reason, defaults={"amount": amount, "note": note}
+    )
+    if created:
+        record(
+            AuditAction.REFUND_CREATED,
+            request=request,
+            target=payment.booking,
+            metadata={"refund_id": refund.id, "amount": refund.amount, "reason": refund.reason},
+        )
+        publish_on_commit([ADMINS], {"type": "refund.updated", "refund_id": refund.id})
+    return refund
+
+
+def _confirm_or_refund(booking, payment, *, honourable, now):
+    """Every successful payment ends as a confirmed booking or a refund entry (SC-004)."""
+
+    if honourable:
         _change_status(
             booking,
-            Booking.Status.CANCELLED,
-            action=AuditAction.BOOKING_CANCELLED,
-            actor=customer,
-            request=request,
-            cancelled_at=now,
+            Booking.Status.CONFIRMED,
+            action=AuditAction.BOOKING_CONFIRMED,
+            confirmed_at=now,
         )
+        return
+    _owe_back(
+        payment,
+        amount=payment.amount,
+        reason=RefundDue.Reason.LATE_PAYMENT,
+        note=f"Paid while the booking was {_status_label(booking)}.",
+    )
+    # A booking that can no longer be paid ends now rather than at the next sweep.
+    if Booking.objects.due_for_expiry(now).filter(pk=booking.pk).exists():
+        _change_status(booking, Booking.Status.EXPIRED, action=AuditAction.BOOKING_EXPIRED)
+
+
+def on_payment_settled(payment, *, success, now=None):
+    """Called by `complete_payment` with the payment already locked and settled; locks the
+    booking second (research.md §7). A PENDING payment held the time, so a success confirms the
+    booking as long as it is still waiting and the visit hasn't started. A failure leaves the
+    booking as it is, free to retry until the deadline."""
+
+    if not success:
+        return
+    now = now or timezone.now()
+    booking = Booking.objects.select_for_update(no_key=True, of=("self",)).get(
+        pk=payment.booking_id
+    )
+    payment.booking = booking
+    honourable = booking.status == Booking.Status.AWAITING_PAYMENT and booking.starts_at > now
+    _confirm_or_refund(booking, payment, honourable=honourable, now=now)
+
+
+def reconcile_late_payment(*, record_id, provider_reference="", now=None):
+    """A success callback for a payment we had already failed (it timed out, or the push was
+    reported refused). The money is real, so it confirms the booking only if the time was still
+    held, nothing else was paid and the visit hasn't started; otherwise it is owed back."""
+
+    now = now or timezone.now()
+    with transaction.atomic():
+        payment = PaymentRecord.objects.select_for_update(of=("self",)).get(pk=record_id)
+        if payment.status != PaymentRecord.Status.FAILED:
+            return payment
+        booking = Booking.objects.select_for_update(no_key=True, of=("self",)).get(
+            pk=payment.booking_id
+        )
+        payment.booking = booking
+        other_live = (
+            booking.payments.exclude(pk=payment.pk)
+            .filter(status__in=[PaymentRecord.Status.PENDING, PaymentRecord.Status.SUCCEEDED])
+            .exists()
+        )
+        if provider_reference:
+            payment.provider_reference = provider_reference
+        if other_live:
+            # Only one live payment per booking: this one stays failed, and is owed back.
+            payment.failure_reason = "Paid after another payment; on the refund list."
+        else:
+            payment.status = PaymentRecord.Status.SUCCEEDED
+            payment.failure_reason = ""
+        payment.save()
+
+        honourable = (
+            not other_live
+            and booking.status == Booking.Status.AWAITING_PAYMENT
+            and booking.pay_by > now
+            and booking.starts_at > now
+        )
+        _confirm_or_refund(booking, payment, honourable=honourable, now=now)
+        record(
+            AuditAction.PAYMENT_COMPLETED,
+            target=booking,
+            target_repr=f"Booking #{booking.id}",
+            metadata={
+                "reference": payment.transaction_reference,
+                "method": payment.method,
+                "amount": payment.amount,
+                "late": True,
+            },
+        )
+        _announce_update(booking)
+    return payment
+
+
+# --- Cancellation ----------------------------------------------------------------
+
+
+def _cancel(booking, *, actor, request, now, reason=""):
+    _change_status(
+        booking,
+        Booking.Status.CANCELLED,
+        action=AuditAction.BOOKING_CANCELLED,
+        actor=actor,
+        request=request,
+        reason=reason,
+        cancelled_at=now,
+    )
+
+
+def _refuse_if_paying(booking):
+    if _payment_in_progress(booking):
+        raise BookingConflict(PAYMENT_IN_PROGRESS)
+
+
+def _is_unpaid_and_active(booking, now):
+    return Booking.objects.active_unpaid(now).filter(pk=booking.pk).exists()
+
+
+def _cannot_cancel(booking):
+    return BookingConflict(f"This booking can't be cancelled: it is {_status_label(booking)}.")
+
+
+def cancel_customer_booking(
+    *, booking_id, customer=None, access_token=None, request=None, now=None
+):
+    """The customer ending their own booking: free before payment, and for a full refund once
+    paid if the visit is at least `BOOKING_CUSTOMER_CANCEL_HOURS` away (FR-024). A guest is
+    identified by the booking's `access_token` instead of a customer."""
+
+    now = now or timezone.now()
+    mine = _customer_bookings(customer, access_token)
+    refresh_bookings(mine.filter(pk=booking_id), now=now)
+
+    with transaction.atomic():
+        booking = _locked(mine, booking_id)
+        _refuse_if_paying(booking)
+        if _is_unpaid_and_active(booking, now):
+            _cancel(booking, actor=customer, request=request, now=now)
+            return booking
+        if booking.status != Booking.Status.CONFIRMED:
+            raise _cannot_cancel(booking)
+        if booking.starts_at - now < timedelta(hours=settings.BOOKING_CUSTOMER_CANCEL_HOURS):
+            raise BookingConflict(
+                f"This booking starts in less than {settings.BOOKING_CUSTOMER_CANCEL_HOURS} "
+                "hours, so it can't be cancelled here. Please contact support."
+            )
+        _cancel(booking, actor=customer, request=request, now=now)
+        paid = _paid_record(booking)
+        if paid is not None:
+            _owe_back(
+                paid,
+                amount=paid.amount,
+                reason=RefundDue.Reason.CUSTOMER_CANCELLED,
+                request=request,
+            )
+    return booking
+
+
+def provider_cancel_booking(*, booking_id, owner, reason, request=None, now=None):
+    """A provider ending an accepted or confirmed booking, with a reason the customer sees. A
+    paid booking is refunded in full (FR-025)."""
+
+    now = now or timezone.now()
+    reason = (reason or "").strip()
+    if not reason:
+        raise BookingRefused("Give the customer a reason for cancelling.")
+    owned = Booking.objects.filter(shop__owner=owner)
+    refresh_bookings(owned.filter(pk=booking_id), now=now)
+
+    with transaction.atomic():
+        booking = _locked(owned, booking_id)
+        require_bookable_shop(booking.shop)
+        _refuse_if_paying(booking)
+        unpaid = booking.status == Booking.Status.AWAITING_PAYMENT and _is_unpaid_and_active(
+            booking, now
+        )
+        if not unpaid and booking.status != Booking.Status.CONFIRMED:
+            raise _cannot_cancel(booking)
+        _cancel(booking, actor=owner, request=request, now=now, reason=reason)
+        paid = _paid_record(booking)
+        if paid is not None:
+            _owe_back(
+                paid,
+                amount=paid.amount,
+                reason=RefundDue.Reason.PROVIDER_CANCELLED,
+                note=reason,
+                request=request,
+            )
+    return booking
+
+
+def admin_cancel_booking(*, booking_id, admin, reason, refund_amount=None, request=None, now=None):
+    """An administrator ending any active booking. A paid one is refunded `refund_amount`, which
+    defaults to everything paid and can't exceed it."""
+
+    now = now or timezone.now()
+    reason = (reason or "").strip()
+    if not reason:
+        raise BookingRefused("Give a reason for cancelling.")
+    refresh_bookings(Booking.objects.filter(pk=booking_id), now=now)
+
+    with transaction.atomic():
+        booking = _locked(Booking.objects.all(), booking_id)
+        _refuse_if_paying(booking)
+        if not (_is_unpaid_and_active(booking, now) or booking.status == Booking.Status.CONFIRMED):
+            raise _cannot_cancel(booking)
+        paid = _paid_record(booking)
+        if paid is None and refund_amount is not None:
+            raise BookingRefused("Nothing has been paid for this booking, so there is no refund.")
+        if paid is not None:
+            amount = paid.amount if refund_amount is None else refund_amount
+            if not 0 < amount <= paid.amount:
+                raise BookingRefused(f"The refund must be above 0 and at most {paid.amount}.")
+
+        _cancel(booking, actor=admin, request=request, now=now, reason=reason)
+        if paid is not None:
+            _owe_back(
+                paid,
+                amount=amount,
+                reason=RefundDue.Reason.ADMIN_CANCELLED,
+                note=reason,
+                request=request,
+            )
     return booking

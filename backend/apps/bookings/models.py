@@ -105,6 +105,16 @@ class ShopClosure(models.Model):
         return f"{self.shop_id}: {self.date}"
 
 
+def _has_pending_payment():
+    from apps.payments.models import PaymentRecord
+
+    return models.Exists(
+        PaymentRecord.objects.filter(
+            booking=models.OuterRef("pk"), status=PaymentRecord.Status.PENDING
+        )
+    )
+
+
 class BookingQuerySet(models.QuerySet):
     def holding(self, now=None):
         """Bookings that hold their time right now. This compares deadlines rather than trusting
@@ -114,6 +124,12 @@ class BookingQuerySet(models.QuerySet):
         return self.filter(
             models.Q(status=Booking.Status.REQUESTED, respond_by__gt=now)
             | models.Q(status=Booking.Status.AWAITING_PAYMENT, pay_by__gt=now)
+            # A payment still being processed keeps holding the time past the deadline, until
+            # it settles or the visit starts (research.md §5).
+            | (
+                models.Q(status=Booking.Status.AWAITING_PAYMENT, starts_at__gt=now)
+                & _has_pending_payment()
+            )
             | models.Q(status=Booking.Status.CONFIRMED)
         )
 
@@ -133,7 +149,10 @@ class BookingQuerySet(models.QuerySet):
         now = now or timezone.now()
         return self.filter(
             models.Q(status=Booking.Status.REQUESTED, respond_by__lte=now)
-            | models.Q(status=Booking.Status.AWAITING_PAYMENT, pay_by__lte=now)
+            | (
+                models.Q(status=Booking.Status.AWAITING_PAYMENT, pay_by__lte=now)
+                & (models.Q(starts_at__lte=now) | ~_has_pending_payment())
+            )
         )
 
 

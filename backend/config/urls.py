@@ -38,6 +38,7 @@ from apps.orders.urls import admin_urlpatterns as orders_admin_urlpatterns
 from apps.orders.urls import checkout_urlpatterns
 from apps.orders.urls import urlpatterns as order_urlpatterns
 from apps.orders.urls import vendor_urlpatterns as orders_vendor_urlpatterns
+from apps.payments.urls import admin_urlpatterns as payments_admin_urlpatterns
 from apps.payments.urls import simulator_urlpatterns as payments_simulator_urlpatterns
 from apps.vendors.urls import admin_urlpatterns as vendor_admin_urlpatterns
 
@@ -60,6 +61,7 @@ urlpatterns = [
     path("api/admin/", include(feedback_admin_urlpatterns)),
     path("api/admin/", include(delivery_admin_urlpatterns)),
     path("api/admin/", include(finance_admin_urlpatterns)),
+    path("api/admin/", include(payments_admin_urlpatterns)),
     path("api/admin/", include(audit_admin_urlpatterns)),
     path("api/rider/", include(rider_urlpatterns)),
     path("api/", include("apps.cart.urls")),

@@ -64,6 +64,11 @@ vendor_urlpatterns = [
         views.VendorBookingDeclineView.as_view(),
         name="vendor-booking-decline",
     ),
+    path(
+        "bookings/<int:booking_id>/cancel",
+        views.VendorBookingCancelView.as_view(),
+        name="vendor-booking-cancel",
+    ),
 ]
 
 customer_urlpatterns = [
@@ -84,6 +89,32 @@ customer_urlpatterns = [
         views.GuestBookingCancelView.as_view(),
         name="guest-booking-cancel",
     ),
+    path(
+        "bookings/<int:booking_id>/payment-methods",
+        views.BookingPaymentMethodsView.as_view(),
+        name="booking-payment-methods",
+    ),
+    path("bookings/<int:booking_id>/pay", views.BookingPayView.as_view(), name="booking-pay"),
+    path(
+        "bookings/<int:booking_id>/payment-status",
+        views.BookingPaymentStatusView.as_view(),
+        name="booking-payment-status",
+    ),
+    path(
+        "bookings/track/<str:token>/payment-methods",
+        views.GuestBookingPaymentMethodsView.as_view(),
+        name="guest-booking-payment-methods",
+    ),
+    path(
+        "bookings/track/<str:token>/pay",
+        views.GuestBookingPayView.as_view(),
+        name="guest-booking-pay",
+    ),
+    path(
+        "bookings/track/<str:token>/payment-status",
+        views.GuestBookingPaymentStatusView.as_view(),
+        name="guest-booking-payment-status",
+    ),
 ]
 
 admin_urlpatterns = [
@@ -92,5 +123,20 @@ admin_urlpatterns = [
         "bookings/<int:booking_id>",
         views.AdminBookingDetailView.as_view(),
         name="admin-booking-detail",
+    ),
+    path(
+        "bookings/<int:booking_id>/cancel",
+        views.AdminBookingCancelView.as_view(),
+        name="admin-booking-cancel",
+    ),
+    path(
+        "bookings/<int:booking_id>/payment/confirm",
+        views.AdminBookingPaymentSettleView.as_view(confirm=True),
+        name="admin-booking-payment-confirm",
+    ),
+    path(
+        "bookings/<int:booking_id>/payment/reject",
+        views.AdminBookingPaymentSettleView.as_view(confirm=False),
+        name="admin-booking-payment-reject",
     ),
 ]

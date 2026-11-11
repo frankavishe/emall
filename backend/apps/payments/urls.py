@@ -24,3 +24,12 @@ simulator_urlpatterns = [
         name="azampay-sim-reject",
     ),
 ]
+
+admin_urlpatterns = [
+    path("refunds", views.AdminRefundListView.as_view(), name="admin-refunds"),
+    path(
+        "refunds/<int:refund_id>/mark-paid",
+        views.AdminRefundMarkPaidView.as_view(),
+        name="admin-refund-mark-paid",
+    ),
+]

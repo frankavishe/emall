@@ -17,6 +17,7 @@ export default function BookingDetailPage() {
   return (
     <BookingDetailScreen
       booking={booking}
+      bookingKey={{ id: Number(params.id) }}
       ready={allowed}
       cancel={() => cancelBooking(params.id)}
       back={BACK}

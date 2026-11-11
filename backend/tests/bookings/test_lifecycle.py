@@ -376,10 +376,10 @@ def test_customer_cancels_an_accepted_unpaid_booking(api_client):
     assert _customer_cancel(api_client, booking).status_code == 200
 
 
+# CONFIRMED is cancellable 24+ hours ahead (FR-024); see tests/bookings/test_refunds.py.
 @pytest.mark.parametrize(
     "status",
     [
-        Booking.Status.CONFIRMED,
         Booking.Status.COMPLETED,
         Booking.Status.NO_SHOW,
         Booking.Status.DECLINED,

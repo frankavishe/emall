@@ -15,6 +15,7 @@ export default function GuestBookingPage() {
   return (
     <BookingDetailScreen
       booking={booking}
+      bookingKey={{ token: params.token }}
       cancel={() => cancelGuestBooking(params.token)}
       back={BACK}
       notice={

@@ -250,15 +250,52 @@ def _booking_emails(booking, status):
                 "charged. You're welcome to book another time.",
             )
         ]
-    if status == "CANCELLED":
+    if status == "CONFIRMED":
         return [
+            to_customer(
+                f'Your booking for "{service}" is confirmed',
+                f"We received your payment. {booking.shop.name} expects you on {when}.",
+            ),
+            to_vendor(
+                f'Booking confirmed: "{service}"',
+                f"{booking.contact_name} paid for their booking on {when}. It is confirmed.",
+            ),
+        ]
+    if status == "CANCELLED":
+        refund = (
+            " The money you paid is on our refund list and will be sent back to you."
+            if booking.confirmed_at is not None
+            else ""
+        )
+        if _cancelled_by_customer(booking):
+            return [
+                to_vendor(
+                    f'A booking for "{service}" was cancelled',
+                    f"{booking.contact_name} cancelled their booking on {when}, so the time is "
+                    "open again.",
+                )
+            ]
+        return [
+            to_customer(
+                f'Your booking for "{service}" was cancelled',
+                f"Your booking with {booking.shop.name} on {when} was cancelled.{refund}{reason}",
+            ),
             to_vendor(
                 f'A booking for "{service}" was cancelled',
-                f"{booking.contact_name} cancelled their booking on {when}, so the time is "
-                "open again.",
-            )
+                f"The booking by {booking.contact_name} on {when} was cancelled, so the time is "
+                f"open again.{reason}",
+            ),
         ]
     return []
+
+
+def _cancelled_by_customer(booking):
+    """A guest has no account, so their cancellation has no actor; a provider's or
+    administrator's always does."""
+
+    event = booking.status_events.filter(status="CANCELLED").order_by("-id").first()
+    actor_id = event.actor_id if event else None
+    return actor_id is None or actor_id == booking.customer_id
 
 
 def get_email_service() -> EmailService:

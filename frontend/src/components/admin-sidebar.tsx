@@ -65,6 +65,16 @@ export const ADMIN_SECTIONS: AdminSection[] = [
           </Icon>
         ),
       },
+      {
+        label: "Refunds",
+        href: "/admin/refunds",
+        permission: "finance.view",
+        icon: (
+          <Icon>
+            <path d="M7 5 4 8l3 3M4 8h8a4 4 0 0 1 0 8H9" />
+          </Icon>
+        ),
+      },
     ],
   },
   {

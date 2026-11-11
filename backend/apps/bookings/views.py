@@ -19,9 +19,11 @@ from apps.bookings.permissions import (
     require_bookable_shop,
 )
 from apps.bookings.serializers import (
+    AdminBookingCancelSerializer,
     AdminBookingDetailSerializer,
     AdminBookingSerializer,
     BookingDetailSerializer,
+    BookingPaySerializer,
     BookingReasonSerializer,
     BookingRequestSerializer,
     BookingSerializer,
@@ -34,13 +36,18 @@ from apps.bookings.serializers import (
     VendorBookingSerializer,
     VendorServiceSerializer,
     VendorServiceWriteSerializer,
+    latest_payment,
 )
 from apps.bookings.services import (
     accept_booking,
-    cancel_unpaid_booking,
+    admin_cancel_booking,
+    booking_payment_methods,
+    cancel_customer_booking,
     decline_booking,
-    expire_due_bookings,
+    provider_cancel_booking,
+    refresh_bookings,
     request_booking,
+    start_booking_payment,
 )
 from apps.bookings.slots import market_day_bounds, market_today, open_slots
 from apps.core.pagination import LimitedPageNumberPagination
@@ -52,6 +59,7 @@ from apps.core.permissions import (
     require_verified_email,
 )
 from apps.core.throttles import GuestScopedRateThrottle
+from apps.payments.outcomes import SettlementError, settle_manual_payment
 from apps.vendors.models import Shop
 
 # --- Public --------------------------------------------------------------------
@@ -337,6 +345,10 @@ def _booking_rows():
     return Booking.objects.select_related("service", "shop")
 
 
+def booking_detail_rows():
+    return _booking_rows().prefetch_related("status_events", "payments__refunds")
+
+
 # --- Customer: bookings --------------------------------------------------------
 
 
@@ -362,7 +374,7 @@ class BookingListCreateView(ListCreateAPIView):
         )
 
     def list(self, request, *args, **kwargs):
-        expire_due_bookings(Booking.objects.filter(customer=request.user))
+        refresh_bookings(Booking.objects.filter(customer=request.user))
         return super().list(request, *args, **kwargs)
 
     def create(self, request, *args, **kwargs):
@@ -400,12 +412,8 @@ class BookingDetailView(APIView):
     permission_classes = [IsCustomer]
 
     def get(self, request, booking_id):
-        expire_due_bookings(Booking.objects.filter(pk=booking_id, customer=request.user))
-        booking = get_object_or_404(
-            _booking_rows().prefetch_related("status_events"),
-            pk=booking_id,
-            customer=request.user,
-        )
+        refresh_bookings(Booking.objects.filter(pk=booking_id, customer=request.user))
+        booking = get_object_or_404(booking_detail_rows(), pk=booking_id, customer=request.user)
         return Response(BookingDetailSerializer(booking).data)
 
 
@@ -413,7 +421,7 @@ class BookingCancelView(APIView):
     permission_classes = [IsCustomer]
 
     def post(self, request, booking_id):
-        booking = cancel_unpaid_booking(
+        booking = cancel_customer_booking(
             booking_id=booking_id, customer=request.user, request=request
         )
         return Response(BookingSerializer(booking).data)
@@ -433,11 +441,9 @@ class GuestBookingDetailView(_GuestBookingView):
     """`GET /api/bookings/track/{token}`."""
 
     def get(self, request, token):
-        expire_due_bookings(Booking.objects.filter(customer__isnull=True, access_token=token))
+        refresh_bookings(Booking.objects.filter(customer__isnull=True, access_token=token))
         booking = get_object_or_404(
-            _booking_rows().prefetch_related("status_events"),
-            customer__isnull=True,
-            access_token=token,
+            booking_detail_rows(), customer__isnull=True, access_token=token
         )
         return Response(BookingDetailSerializer(booking).data)
 
@@ -449,8 +455,110 @@ class GuestBookingCancelView(_GuestBookingView):
         booking = get_object_or_404(
             Booking.objects.only("id"), customer__isnull=True, access_token=token
         )
-        booking = cancel_unpaid_booking(booking_id=booking.id, access_token=token, request=request)
+        booking = cancel_customer_booking(
+            booking_id=booking.id, access_token=token, request=request
+        )
         return Response(BookingSerializer(booking).data)
+
+
+# --- Customer and guest: payment -----------------------------------------------
+
+
+def payment_status_data(booking):
+    payment = latest_payment(booking)
+    return {
+        "booking_id": booking.id,
+        "booking_status": booking.status,
+        "pay_by": BookingSerializer(booking).data["pay_by"],
+        "payment_status": payment.status if payment else None,
+        "method": payment.method if payment else None,
+        "failure_reason": payment.failure_reason if payment else "",
+    }
+
+
+def _customer_scope(customer=None, access_token=None):
+    """`owner` below is one of `{"customer": user}` or `{"access_token": token}`: the same
+    endpoints serve a signed-in customer by id and a guest through their tracking link."""
+
+    if customer is not None:
+        return Booking.objects.filter(customer=customer)
+    return Booking.objects.filter(customer__isnull=True, access_token=access_token)
+
+
+def _payment_methods_response(booking_id, owner):
+    booking = get_object_or_404(_customer_scope(**owner), pk=booking_id)
+    if booking.status != Booking.Status.AWAITING_PAYMENT:
+        return Response([])
+    return Response(booking_payment_methods(booking))
+
+
+def _pay_response(request, booking_id, owner):
+    serializer = BookingPaySerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    start_booking_payment(booking_id=booking_id, **owner, **serializer.validated_data)
+    booking = booking_detail_rows().get(pk=booking_id)
+    return Response(BookingDetailSerializer(booking).data, status=status.HTTP_201_CREATED)
+
+
+def _payment_status_response(booking_id, owner):
+    scope = _customer_scope(**owner).filter(pk=booking_id)
+    refresh_bookings(scope)
+    booking = get_object_or_404(scope.prefetch_related("payments"))
+    return Response(payment_status_data(booking))
+
+
+class BookingPaymentMethodsView(APIView):
+    """`GET /api/bookings/{id}/payment-methods`."""
+
+    permission_classes = [IsCustomer]
+
+    def get(self, request, booking_id):
+        return _payment_methods_response(booking_id, {"customer": request.user})
+
+
+class BookingPayView(APIView):
+    """`POST /api/bookings/{id}/pay`."""
+
+    permission_classes = [IsCustomer]
+
+    def post(self, request, booking_id):
+        return _pay_response(request, booking_id, {"customer": request.user})
+
+
+class BookingPaymentStatusView(APIView):
+    """`GET /api/bookings/{id}/payment-status`: polled while a push is pending."""
+
+    permission_classes = [IsCustomer]
+
+    def get(self, request, booking_id):
+        return _payment_status_response(booking_id, {"customer": request.user})
+
+
+def _guest_booking_id(token):
+    return get_object_or_404(
+        Booking.objects.only("id"), customer__isnull=True, access_token=token
+    ).id
+
+
+class GuestBookingPaymentMethodsView(_GuestBookingView):
+    """`GET /api/bookings/track/{token}/payment-methods`."""
+
+    def get(self, request, token):
+        return _payment_methods_response(_guest_booking_id(token), {"access_token": token})
+
+
+class GuestBookingPayView(_GuestBookingView):
+    """`POST /api/bookings/track/{token}/pay`."""
+
+    def post(self, request, token):
+        return _pay_response(request, _guest_booking_id(token), {"access_token": token})
+
+
+class GuestBookingPaymentStatusView(_GuestBookingView):
+    """`GET /api/bookings/track/{token}/payment-status`."""
+
+    def get(self, request, token):
+        return _payment_status_response(_guest_booking_id(token), {"access_token": token})
 
 
 # --- Provider: bookings --------------------------------------------------------
@@ -467,7 +575,7 @@ class VendorBookingListView(ListAPIView):
         return _with_shop(_with_status(queryset, params), params)
 
     def list(self, request, *args, **kwargs):
-        expire_due_bookings(Booking.objects.filter(shop__owner=request.user))
+        refresh_bookings(Booking.objects.filter(shop__owner=request.user))
         return super().list(request, *args, **kwargs)
 
 
@@ -475,7 +583,7 @@ class VendorBookingDetailView(APIView):
     permission_classes = [IsVendor]
 
     def get(self, request, booking_id):
-        expire_due_bookings(Booking.objects.filter(pk=booking_id, shop__owner=request.user))
+        refresh_bookings(Booking.objects.filter(pk=booking_id, shop__owner=request.user))
         booking = get_object_or_404(
             _booking_rows().select_related("customer").prefetch_related("status_events"),
             pk=booking_id,
@@ -499,6 +607,23 @@ class VendorBookingDeclineView(APIView):
         serializer = BookingReasonSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         booking = decline_booking(
+            booking_id=booking_id,
+            owner=request.user,
+            reason=serializer.validated_data["reason"],
+            request=request,
+        )
+        return Response(VendorBookingSerializer(booking).data)
+
+
+class VendorBookingCancelView(APIView):
+    """`POST /api/vendor/bookings/{id}/cancel`: a reason is required, and the customer sees it."""
+
+    permission_classes = [IsVendor]
+
+    def post(self, request, booking_id):
+        serializer = BookingReasonSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        booking = provider_cancel_booking(
             booking_id=booking_id,
             owner=request.user,
             reason=serializer.validated_data["reason"],
@@ -538,7 +663,7 @@ class AdminBookingListView(ListAPIView):
         return queryset
 
     def list(self, request, *args, **kwargs):
-        expire_due_bookings()
+        refresh_bookings()
         return super().list(request, *args, **kwargs)
 
 
@@ -546,9 +671,61 @@ class AdminBookingDetailView(APIView):
     permission_classes = [AdminArea("bookings")]
 
     def get(self, request, booking_id):
-        expire_due_bookings(Booking.objects.filter(pk=booking_id))
-        booking = get_object_or_404(
-            _booking_rows().select_related("customer").prefetch_related("status_events__actor"),
-            pk=booking_id,
+        refresh_bookings(Booking.objects.filter(pk=booking_id))
+        return Response(_admin_booking_data(booking_id))
+
+
+def _admin_booking_data(booking_id):
+    booking = get_object_or_404(
+        _booking_rows()
+        .select_related("customer")
+        .prefetch_related("status_events__actor", "payments__refunds"),
+        pk=booking_id,
+    )
+    return AdminBookingDetailSerializer(booking).data
+
+
+class AdminBookingCancelView(APIView):
+    """`POST /api/admin/bookings/{id}/cancel`: body `reason`, optional `refund_amount`."""
+
+    permission_classes = [AdminArea("bookings")]
+
+    def post(self, request, booking_id):
+        serializer = AdminBookingCancelSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        admin_cancel_booking(
+            booking_id=booking_id,
+            admin=request.user,
+            reason=serializer.validated_data["reason"],
+            refund_amount=serializer.validated_data.get("refund_amount"),
+            request=request,
         )
-        return Response(AdminBookingDetailSerializer(booking).data)
+        return Response(_admin_booking_data(booking_id))
+
+
+class AdminBookingPaymentSettleView(APIView):
+    """`POST /api/admin/bookings/{id}/payment/confirm` (or `/reject`, with an optional
+    `reason`): an administrator checking a Lipa Namba payment against the statement."""
+
+    permission_classes = [AdminArea("bookings", write_permission="finance.manage")]
+    confirm = True
+
+    def post(self, request, booking_id):
+        booking = get_object_or_404(Booking, pk=booking_id)
+        serializer = BookingReasonSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        reason = serializer.validated_data["reason"].strip()
+        try:
+            settle_manual_payment(
+                booking=booking, admin=request.user, confirm=self.confirm, reason=reason
+            )
+        except SettlementError as error:
+            return Response({"detail": error.detail}, status=status.HTTP_400_BAD_REQUEST)
+        record(
+            AuditAction.PAYMENT_CONFIRMED if self.confirm else AuditAction.PAYMENT_REJECTED,
+            request=request,
+            target=booking,
+            target_repr=f"Booking #{booking.pk}",
+            metadata={"reason": reason} if reason else {},
+        )
+        return Response(_admin_booking_data(booking_id))

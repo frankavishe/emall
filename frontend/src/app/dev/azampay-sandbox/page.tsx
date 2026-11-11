@@ -18,6 +18,11 @@ import { EmptyText, ErrorText } from "@/components/ui/status-text";
 
 const REFRESH_MS = 2000;
 
+/** What the push is paying for: a goods order, or a service booking (which has no order). */
+function pushTarget(push: SimulatedPush): string {
+  return push.order_id === null ? `Booking #${push.booking_id}` : `Order #${push.order_id}`;
+}
+
 /** Dev-only stand-in for the customer's phone while AzamPay credentials are pending: lists the
  * USSD pushes the simulator "sent" and approves or rejects them, which makes the backend run its
  * real AzamPay callback handler. Requires PAYMENT_BACKEND=azampay_simulator on the backend and
@@ -48,10 +53,10 @@ export default function AzamPaySandboxPage() {
   async function decide(push: SimulatedPush, decision: "approve" | "reject", pin?: string) {
     try {
       const result = await decideSimulatedPush(push.reference, decision, pin);
-      setLog((prev) => [`Order #${push.order_id}: ${decision} → ${result.outcome}`, ...prev]);
+      setLog((prev) => [`${pushTarget(push)}: ${decision} → ${result.outcome}`, ...prev]);
       await refresh();
     } catch (err) {
-      setLog((prev) => [`Order #${push.order_id}: ${errorMessage(err)}`, ...prev]);
+      setLog((prev) => [`${pushTarget(push)}: ${errorMessage(err)}`, ...prev]);
     }
   }
 
@@ -126,7 +131,7 @@ function PushCard({
         <div>
           <p className="text-sm font-semibold text-text-primary">{providerLabel}</p>
           <p className="text-xs text-text-muted">
-            To {push.msisdn} · order #{push.order_id}
+            To {push.msisdn} · {pushTarget(push).toLowerCase()}
           </p>
         </div>
         <p className="text-lg font-semibold text-text-primary">{formatCurrency(push.amount)}</p>

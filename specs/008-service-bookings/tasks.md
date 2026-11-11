@@ -136,29 +136,29 @@ description: "Task list for service bookings"
 
 > Write these first and confirm they fail.
 
-- [ ] T052 [P] [US3] Test payments in `backend/tests/bookings/test_payments.py`: payment refused before acceptance, callback success and failure, retry, one live payment, client amount ignored, wrong amount ignored, repeated callback, Lipa Namba offered only 3 hours or more ahead, Lipa confirm and reject
-- [ ] T053 [P] [US3] Test late money in `backend/tests/bookings/test_late_payments.py`: late success in each status, after `pay_by`, after the visit starts, Lipa confirmed after the visit starts, success racing the sweep, one refund entry from repeated callbacks
-- [ ] T054 [P] [US3] Test cancellation and refunds in `backend/tests/bookings/test_refunds.py`: 24-hour boundary, refused within 24 hours, provider reason required, admin amount limit, payment in progress blocks cancel, mark-paid requires `finance.manage` and works once
+- [x] T052 [P] [US3] Test payments in `backend/tests/bookings/test_payments.py`: payment refused before acceptance, callback success and failure, retry, one live payment, client amount ignored, wrong amount ignored, repeated callback, Lipa Namba offered only 3 hours or more ahead, Lipa confirm and reject
+- [x] T053 [P] [US3] Test late money in `backend/tests/bookings/test_late_payments.py`: late success in each status, after `pay_by`, after the visit starts, Lipa confirmed after the visit starts, success racing the sweep, one refund entry from repeated callbacks
+- [x] T054 [P] [US3] Test cancellation and refunds in `backend/tests/bookings/test_refunds.py`: 24-hour boundary, refused within 24 hours, provider reason required, admin amount limit, payment in progress blocks cancel, mark-paid requires `finance.manage` and works once
 
 ### Implementation for User Story 3
 
-- [ ] T055 [US3] Make `PaymentRecord.order` nullable, and add the `booking` FK with `related_name="payments"` and the `payment_has_one_target` and `one_live_payment_per_booking` constraints, with a migration, in `backend/apps/payments/models.py`
-- [ ] T056 [US3] Split `complete_payment` into a shared start plus `_apply_order_outcome`, and branch `_audit_system_payment`, `_announce_payment` and `settle_manual_payment` for bookings, in `backend/apps/payments/outcomes.py`. **Commit this on its own.** All existing payment tests must pass with no edits
-- [ ] T057 [US3] Exclude booking records from the Lipa Namba branch of `expire_stale_payments` in `backend/apps/payments/outcomes.py`
-- [ ] T058 [US3] Add `RefundDue` per `data-model.md` in `backend/apps/payments/models.py`, with `amount` "Above 0, and no more than the payment's amount", `paid_reference` "Required when PAID", and uniqueness on `payment` and `reason`; generate the migration
-- [ ] T059 [US3] Implement `on_payment_settled` in `backend/apps/bookings/services.py`: confirm only with the time held and the visit not started, otherwise create a `RefundDue`; lock the record before the booking
-- [ ] T060 [US3] Add `reconcile_late_payment` and call it from `handle_azampay_callback` for a success on a booking's FAILED record, in `backend/apps/payments/outcomes.py` and `backend/apps/bookings/services.py`
-- [ ] T061 [US3] Extend `holding(now)` for AWAITING_PAYMENT bookings with a PENDING payment, expire them when the visit starts, and settle stale booking payments in `expire_bookings`, in `backend/apps/bookings/models.py`, `services.py` and the command
-- [ ] T062 [US3] Implement `start_booking_payment` in `backend/apps/bookings/services.py`, reusing `normalise_msisdn`, `get_mobile_money_gateway` and `azampay_amount`, with the gateway called after commit as in `_place_mobile_money_order` in `backend/apps/orders/services.py`
-- [ ] T063 [US3] Implement `cancel_confirmed_booking`, provider cancel and `admin_cancel_booking` in `backend/apps/bookings/services.py`, creating `RefundDue` per the status table in `data-model.md`
-- [ ] T064 [US3] Add the customer payment methods, pay and payment-status endpoints, provider cancel, and admin cancel and payment settlement endpoints, in `backend/apps/bookings/views.py`, with `AdminArea("bookings", write_permission="finance.manage")` on settlement
-- [ ] T065 [US3] Add `GET /api/admin/refunds` and `POST /api/admin/refunds/{id}/mark-paid` in `backend/apps/payments/views.py` and `urls.py`, with audit and `refund.updated`, and mount them in `backend/config/urls.py`
-- [ ] T066 [US3] Show a booking reference when a record has no order in `backend/apps/payments/views.py` and `frontend/src/app/dev/azampay-sandbox/page.tsx`
-- [ ] T067 [P] [US3] Extract `frontend/src/components/payment/payment-method-fields.tsx` from `frontend/src/app/checkout/page.tsx`, leaving checkout unchanged in behaviour
-- [ ] T068 [US3] Create `frontend/src/components/booking/booking-payment-panel.tsx` with `useLiveRefresh`, use it in `frontend/src/app/bookings/[id]/page.tsx`, and add payment functions to `frontend/src/lib/api-client.ts`
-- [ ] T069 [P] [US3] Add provider cancel with a reason to `frontend/src/app/vendor/bookings/page.tsx`
-- [ ] T070 [P] [US3] Add admin cancel and Lipa Namba settlement to `frontend/src/app/admin/bookings/[id]/page.tsx`
-- [ ] T071 [P] [US3] Create `frontend/src/app/admin/refunds/page.tsx`, and add it to `frontend/src/components/admin-sidebar.tsx`
+- [x] T055 [US3] Make `PaymentRecord.order` nullable, and add the `booking` FK with `related_name="payments"` and the `payment_has_one_target` and `one_live_payment_per_booking` constraints, with a migration, in `backend/apps/payments/models.py`
+- [x] T056 [US3] Split `complete_payment` into a shared start plus `_apply_order_outcome`, and branch `_audit_system_payment`, `_announce_payment` and `settle_manual_payment` for bookings, in `backend/apps/payments/outcomes.py`. **Commit this on its own.** All existing payment tests must pass with no edits
+- [x] T057 [US3] Exclude booking records from the Lipa Namba branch of `expire_stale_payments` in `backend/apps/payments/outcomes.py`
+- [x] T058 [US3] Add `RefundDue` per `data-model.md` in `backend/apps/payments/models.py`, with `amount` "Above 0, and no more than the payment's amount", `paid_reference` "Required when PAID", and uniqueness on `payment` and `reason`; generate the migration
+- [x] T059 [US3] Implement `on_payment_settled` in `backend/apps/bookings/services.py`: confirm only with the time held and the visit not started, otherwise create a `RefundDue`; lock the record before the booking
+- [x] T060 [US3] Add `reconcile_late_payment` and call it from `handle_azampay_callback` for a success on a booking's FAILED record, in `backend/apps/payments/outcomes.py` and `backend/apps/bookings/services.py`
+- [x] T061 [US3] Extend `holding(now)` for AWAITING_PAYMENT bookings with a PENDING payment, expire them when the visit starts, and settle stale booking payments in `expire_bookings`, in `backend/apps/bookings/models.py`, `services.py` and the command
+- [x] T062 [US3] Implement `start_booking_payment` in `backend/apps/bookings/services.py`, reusing `normalise_msisdn`, `get_mobile_money_gateway` and `azampay_amount`, with the gateway called after commit as in `_place_mobile_money_order` in `backend/apps/orders/services.py`
+- [x] T063 [US3] Implement `cancel_confirmed_booking`, provider cancel and `admin_cancel_booking` in `backend/apps/bookings/services.py`, creating `RefundDue` per the status table in `data-model.md`
+- [x] T064 [US3] Add the customer payment methods, pay and payment-status endpoints, provider cancel, and admin cancel and payment settlement endpoints, in `backend/apps/bookings/views.py`, with `AdminArea("bookings", write_permission="finance.manage")` on settlement
+- [x] T065 [US3] Add `GET /api/admin/refunds` and `POST /api/admin/refunds/{id}/mark-paid` in `backend/apps/payments/views.py` and `urls.py`, with audit and `refund.updated`, and mount them in `backend/config/urls.py`
+- [x] T066 [US3] Show a booking reference when a record has no order in `backend/apps/payments/views.py` and `frontend/src/app/dev/azampay-sandbox/page.tsx`
+- [x] T067 [P] [US3] Extract `frontend/src/components/payment/payment-method-fields.tsx` from `frontend/src/app/checkout/page.tsx`, leaving checkout unchanged in behaviour
+- [x] T068 [US3] Create `frontend/src/components/booking/booking-payment-panel.tsx` with `useLiveRefresh`, use it in `frontend/src/app/bookings/[id]/page.tsx`, and add payment functions to `frontend/src/lib/api-client.ts`
+- [x] T069 [P] [US3] Add provider cancel with a reason to `frontend/src/app/vendor/bookings/page.tsx`
+- [x] T070 [P] [US3] Add admin cancel and Lipa Namba settlement to `frontend/src/app/admin/bookings/[id]/page.tsx`
+- [x] T071 [P] [US3] Create `frontend/src/app/admin/refunds/page.tsx`, and add it to `frontend/src/components/admin-sidebar.tsx`
 
 **Checkpoint**: Run all tests, confirm goods payment tests are unedited, and do the "US3" walkthrough with the simulator, including a goods order. Stop for review.
 

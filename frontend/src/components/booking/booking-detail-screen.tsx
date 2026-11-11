@@ -2,10 +2,11 @@
 
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
-import { errorMessage, type BookingDetail } from "@/lib/api-client";
+import { errorMessage, type BookingDetail, type BookingKey } from "@/lib/api-client";
 import { formatCurrency } from "@/lib/currency";
 import { formatMarketDateTime, formatMarketTime, MARKET_TIME_LABEL } from "@/lib/market-time";
 import { BookingHistory, BookingStatusPill } from "@/components/booking/booking-status";
+import { BookingPaymentPanel } from "@/components/booking/booking-payment-panel";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ErrorState } from "@/components/ui/error-state";
@@ -17,17 +18,31 @@ function statusMessage(booking: BookingDetail): string | null {
     case "REQUESTED":
       return `This time is held for you while ${booking.shop.name} decides. They have until ${formatMarketDateTime(booking.respond_by)} to respond. You won't pay anything unless they accept.`;
     case "AWAITING_PAYMENT":
-      return `${booking.shop.name} accepted your booking. It's held until ${formatMarketDateTime(booking.pay_by ?? booking.respond_by)}, the deadline to pay. Online payment for bookings isn't available yet.`;
+      return `${booking.shop.name} accepted your booking. Pay below to confirm it.`;
+    case "CONFIRMED":
+      return `You're booked. ${booking.shop.name} expects you at the time above.`;
     case "DECLINED":
       return "The provider declined this booking, and you haven't been charged.";
     case "EXPIRED":
-      return "This booking expired before it was confirmed, and you haven't been charged.";
+      return booking.refunds.length > 0
+        ? "This booking expired before it was confirmed."
+        : "This booking expired before it was confirmed, and you haven't been charged.";
     case "CANCELLED":
       return "This booking was cancelled.";
     default:
       return null;
   }
 }
+
+// Matches the server's BOOKING_CUSTOMER_CANCEL_HOURS default; the server has the final say.
+const FREE_CANCEL_HOURS = 24;
+
+const REFUND_REASONS: Record<string, string> = {
+  CUSTOMER_CANCELLED: "You cancelled",
+  PROVIDER_CANCELLED: "The provider cancelled",
+  ADMIN_CANCELLED: "Cancelled by MangiMall",
+  LATE_PAYMENT: "Paid after the booking ended",
+};
 
 type BookingState = {
   data: BookingDetail | null;
@@ -41,12 +56,15 @@ type BookingState = {
  * private link). The caller loads it and says how to cancel it. */
 export function BookingDetailScreen({
   booking,
+  bookingKey,
   ready = true,
   cancel,
   back,
   notice,
 }: {
   booking: BookingState;
+  /** How to reach this booking's payment endpoints. */
+  bookingKey: BookingKey;
   ready?: boolean;
   cancel: () => Promise<unknown>;
   back: { href: string; label: string };
@@ -55,6 +73,8 @@ export function BookingDetailScreen({
   const [isConfirming, setIsConfirming] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  // When the page opened: close enough for the 24-hour hint, and the server decides anyway.
+  const [openedAt] = useState(() => Date.now());
 
   async function handleCancel() {
     setIsCancelling(true);
@@ -99,7 +119,14 @@ export function BookingDetailScreen({
   }
 
   const data = booking.data;
-  const canCancel = data.status === "REQUESTED" || data.status === "AWAITING_PAYMENT";
+  const paymentPending = data.payment?.status === "PENDING";
+  const hoursAway = (new Date(data.starts_at).getTime() - openedAt) / 3_600_000;
+  const isPaid = data.status === "CONFIRMED";
+  const canCancel =
+    !paymentPending &&
+    (data.status === "REQUESTED" ||
+      data.status === "AWAITING_PAYMENT" ||
+      (isPaid && hoursAway >= FREE_CANCEL_HOURS));
   const message = statusMessage(data);
 
   return (
@@ -135,12 +162,39 @@ export function BookingDetailScreen({
         )}
         {notice}
 
+        <BookingPaymentPanel bookingKey={bookingKey} booking={data} onChanged={booking.reload} />
+
+        {data.refunds.length > 0 && (
+          <section aria-label="Refunds" className="flex flex-col gap-1">
+            <h2 className="text-sm font-semibold text-text-primary">Money owed back to you</h2>
+            {data.refunds.map((refund) => (
+              <p key={refund.id} className="text-sm text-text-muted">
+                {formatCurrency(refund.amount)}, {REFUND_REASONS[refund.reason].toLowerCase()}:{" "}
+                {refund.status === "PAID" && refund.paid_at
+                  ? `sent on ${formatMarketDateTime(refund.paid_at)}`
+                  : "we'll send it back to you by hand"}
+              </p>
+            ))}
+          </section>
+        )}
+
+        {isPaid && !paymentPending && hoursAway > 0 && hoursAway < FREE_CANCEL_HOURS && (
+          <p className="text-sm text-text-muted">
+            Your visit is less than {FREE_CANCEL_HOURS} hours away. To cancel now, please contact
+            support.
+          </p>
+        )}
+
         {actionError && <ErrorText>{actionError}</ErrorText>}
 
         {canCancel &&
           (isConfirming ? (
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm text-text-primary">Cancel this booking?</span>
+              <span className="text-sm text-text-primary">
+                {isPaid
+                  ? "Cancel this booking? You'll be refunded the full amount."
+                  : "Cancel this booking?"}
+              </span>
               <Button variant="danger" size="sm" disabled={isCancelling} onClick={handleCancel}>
                 {isCancelling ? "Cancelling…" : "Yes, cancel it"}
               </Button>

@@ -51,6 +51,7 @@ class AuditAction(models.TextChoices):
     # Bookings
     BOOKING_REQUESTED = "booking.requested", "Requested booking"
     BOOKING_ACCEPTED = "booking.accepted", "Accepted booking"
+    BOOKING_CONFIRMED = "booking.confirmed", "Booking confirmed"
     BOOKING_DECLINED = "booking.declined", "Declined booking"
     BOOKING_CANCELLED = "booking.cancelled", "Cancelled booking"
     BOOKING_EXPIRED = "booking.expired", "Booking expired"

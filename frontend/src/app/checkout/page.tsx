@@ -10,7 +10,6 @@ import {
   checkout,
   getDeliveryQuote,
   listPaymentMethods,
-  MOBILE_MONEY_PROVIDERS,
   orderPath,
   type DeliveryQuote,
   type LatLng,
@@ -28,6 +27,7 @@ import { ErrorText, LoadingText } from "@/components/ui/status-text";
 import { LocationPicker } from "@/components/location-picker";
 import { PlaceSearch } from "@/components/place-search";
 import { DeliverySummary } from "@/components/delivery-summary";
+import { isValidMobile, PaymentMethodFields } from "@/components/payment/payment-method-fields";
 
 type FieldErrors = Partial<Record<keyof ShippingAddress, string>>;
 
@@ -40,14 +40,6 @@ const EMPTY_SHIPPING: ShippingAddress = {
 };
 
 const QUOTE_DEBOUNCE_MS = 400;
-
-// Tanzanian mobile number: 07XXXXXXXX / 06XXXXXXXX, optionally as +255 / 255. The server
-// normalises and re-validates it.
-const TZ_MOBILE = /^(?:\+?255|0)?[67]\d{8}$/;
-
-function isValidMobile(value: string): boolean {
-  return TZ_MOBILE.test(value.replace(/[\s-]/g, ""));
-}
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -391,96 +383,22 @@ export default function CheckoutPage() {
             </p>
           )}
 
-          {paymentMethod === "lipa_namba" && lipaNamba && (
-            <div className="flex flex-col gap-4 rounded-control border border-border bg-card-muted p-4">
-              <ol className="list-decimal space-y-1 pl-5 text-sm text-text-muted">
-                <li>
-                  On your phone choose <strong>Lipa kwa Simu</strong> (or your network&apos;s
-                  &ldquo;Lipa Namba&rdquo; / &ldquo;Pay by till&rdquo; option).
-                </li>
-                <li>
-                  Pay till number{" "}
-                  <strong className="font-mono text-text-primary">{lipaNamba.till_number}</strong>
-                  {lipaNamba.till_name ? ` (${lipaNamba.till_name})` : ""}
-                  {quote && !quoteError ? (
-                    <>
-                      {" "}
-                      exactly{" "}
-                      <strong className="text-text-primary">{formatCurrency(quote.total)}</strong>
-                    </>
-                  ) : null}
-                  .
-                </li>
-                <li>Enter the transaction ID from the confirmation SMS below.</li>
-              </ol>
-              <FormField label="Transaction ID">
-                <input
-                  type="text"
-                  autoComplete="off"
-                  autoCapitalize="characters"
-                  placeholder="e.g. QJK7H2LM9P"
-                  maxLength={64}
-                  value={payerReference}
-                  onChange={(e) => {
-                    setPayerReference(e.target.value);
-                    setPayerReferenceError(null);
-                  }}
-                  className={inputClassName}
-                />
-                {payerReferenceError && (
-                  <span className="text-xs text-status-cancelled">{payerReferenceError}</span>
-                )}
-              </FormField>
-              <p className="text-xs text-text-muted">
-                We confirm your payment by hand, usually within a few hours. Your order ships once
-                it&apos;s confirmed.
-              </p>
-            </div>
-          )}
-
-          {paymentMethod === "mobile_money" && (
-            <div className="flex flex-col gap-4 rounded-control border border-border bg-card-muted p-4">
-              <p className="text-sm text-text-muted">
-                We&apos;ll send a payment prompt to this phone. Enter your mobile money PIN there to
-                confirm the order.
-              </p>
-              <FormField label="Network">
-                <select
-                  value={provider}
-                  onChange={(e) => setProvider(e.target.value as MobileMoneyProvider)}
-                  className={inputClassName}
-                >
-                  {MOBILE_MONEY_PROVIDERS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </FormField>
-              <FormField label="Mobile money number">
-                <input
-                  type="tel"
-                  inputMode="tel"
-                  autoComplete="tel"
-                  placeholder="0712 345 678"
-                  value={msisdn}
-                  onChange={(e) => {
-                    setMsisdn(e.target.value);
-                    setMsisdnError(null);
-                  }}
-                  onBlur={() => {
-                    if (msisdn && !isValidMobile(msisdn)) {
-                      setMsisdnError("That doesn't look like a Tanzanian mobile number.");
-                    }
-                  }}
-                  className={inputClassName}
-                />
-                {msisdnError && (
-                  <span className="text-xs text-status-cancelled">{msisdnError}</span>
-                )}
-              </FormField>
-            </div>
-          )}
+          <PaymentMethodFields
+            method={paymentMethod}
+            lipaNamba={lipaNamba}
+            amount={quote && !quoteError ? quote.total : null}
+            values={{ payerReference, provider, msisdn }}
+            errors={{ payerReference: payerReferenceError, msisdn: msisdnError }}
+            onChange={(values) => {
+              setPayerReference(values.payerReference);
+              setProvider(values.provider);
+              setMsisdn(values.msisdn);
+            }}
+            onErrorsChange={(errors) => {
+              setPayerReferenceError(errors.payerReference ?? null);
+              setMsisdnError(errors.msisdn ?? null);
+            }}
+          />
 
           {error && <ErrorText>{error}</ErrorText>}
 

@@ -477,7 +477,38 @@ export type Booking = {
   cancelled_at: string | null;
 };
 
-export type BookingDetail = Booking & { history: BookingHistoryEvent[] };
+export type BookingPayment = {
+  id: number;
+  method: string;
+  status: "PENDING" | "SUCCEEDED" | "FAILED";
+  amount: string;
+  provider: string;
+  /** Masked. */
+  msisdn: string;
+  /** Lipa Namba only: the transaction ID the customer gave. */
+  payer_reference: string;
+  failure_reason: string;
+  created_at: string;
+};
+
+export type RefundReason =
+  "CUSTOMER_CANCELLED" | "PROVIDER_CANCELLED" | "ADMIN_CANCELLED" | "LATE_PAYMENT";
+
+export type BookingRefund = {
+  id: number;
+  amount: string;
+  reason: RefundReason;
+  status: "DUE" | "PAID";
+  created_at: string;
+  paid_at: string | null;
+};
+
+export type BookingDetail = Booking & {
+  history: BookingHistoryEvent[];
+  /** The newest payment attempt, if any. */
+  payment: BookingPayment | null;
+  refunds: BookingRefund[];
+};
 
 export type VendorBooking = Booking & {
   customer_name: string;
@@ -495,7 +526,12 @@ export type AdminBooking = Booking & {
   vendor_earning: string;
 };
 
-export type AdminBookingDetail = AdminBooking & { history: BookingHistoryEvent[] };
+export type AdminBookingDetail = AdminBooking & {
+  history: BookingHistoryEvent[];
+  /** Every attempt, newest first. */
+  payments: BookingPayment[];
+  refunds: BookingRefund[];
+};
 
 export type BookingRequest = {
   service: number;
@@ -559,6 +595,46 @@ export async function cancelBooking(bookingId: number | string): Promise<Booking
   return apiFetch<Booking>(`/api/bookings/${bookingId}/cancel`, { method: "POST" });
 }
 
+/** How the customer reaches a booking: by id when signed in, by private token as a guest. */
+export type BookingKey = { id: number } | { token: string };
+
+function bookingBase(key: BookingKey): string {
+  return "token" in key
+    ? `/api/bookings/track/${encodeURIComponent(key.token)}`
+    : `/api/bookings/${key.id}`;
+}
+
+export type BookingPaymentStatus = {
+  booking_id: number;
+  booking_status: BookingStatus;
+  pay_by: string | null;
+  payment_status: BookingPayment["status"] | null;
+  method: string | null;
+  failure_reason: string;
+};
+
+export type BookingPayRequest =
+  | { payment_method: "mobile_money"; provider: MobileMoneyProvider; msisdn: string }
+  | { payment_method: "lipa_namba"; payer_reference: string };
+
+/** `GET .../payment-methods`: mobile money, plus Lipa Namba while the visit is 3+ hours away. */
+export async function getBookingPaymentMethods(key: BookingKey): Promise<PaymentMethodOption[]> {
+  return apiFetch<PaymentMethodOption[]>(`${bookingBase(key)}/payment-methods`);
+}
+
+/** `POST .../pay`: starts one attempt. The server charges the booking's price; a second
+ * attempt while one is live is a 409. */
+export async function payBooking(key: BookingKey, data: BookingPayRequest): Promise<BookingDetail> {
+  return apiFetch<BookingDetail>(`${bookingBase(key)}/pay`, {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function getBookingPaymentStatus(key: BookingKey): Promise<BookingPaymentStatus> {
+  return apiFetch<BookingPaymentStatus>(`${bookingBase(key)}/payment-status`);
+}
+
 export async function listVendorBookings(
   options: { status?: string; shop?: string | number; page?: number } = {},
 ): Promise<PaginatedResponse<VendorBooking>> {
@@ -579,6 +655,17 @@ export async function declineBooking(
   });
 }
 
+/** `POST /api/vendor/bookings/{id}/cancel`: the reason is required and shown to the customer. */
+export async function vendorCancelBooking(
+  bookingId: number | string,
+  reason: string,
+): Promise<VendorBooking> {
+  return apiFetch<VendorBooking>(`/api/vendor/bookings/${bookingId}/cancel`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  });
+}
+
 export async function listAdminBookings(
   options: {
     status?: string;
@@ -594,6 +681,69 @@ export async function listAdminBookings(
 
 export async function getAdminBooking(bookingId: number | string): Promise<AdminBookingDetail> {
   return apiFetch<AdminBookingDetail>(`/api/admin/bookings/${bookingId}`);
+}
+
+/** `POST /api/admin/bookings/{id}/cancel`: `refundAmount` defaults to everything paid. */
+export async function adminCancelBooking(
+  bookingId: number | string,
+  reason: string,
+  refundAmount?: string,
+): Promise<AdminBookingDetail> {
+  return apiFetch<AdminBookingDetail>(`/api/admin/bookings/${bookingId}/cancel`, {
+    method: "POST",
+    body: JSON.stringify(refundAmount ? { reason, refund_amount: refundAmount } : { reason }),
+  });
+}
+
+/** Confirm (or reject) a booking's Lipa Namba payment. Needs `finance.manage`. */
+export async function settleBookingPayment(
+  bookingId: number | string,
+  action: "confirm" | "reject",
+  reason = "",
+): Promise<AdminBookingDetail> {
+  return apiFetch<AdminBookingDetail>(`/api/admin/bookings/${bookingId}/payment/${action}`, {
+    method: "POST",
+    body: JSON.stringify(reason ? { reason } : {}),
+  });
+}
+
+export type AdminRefund = {
+  id: number;
+  booking_id: number;
+  shop: string;
+  service: string;
+  customer_name: string;
+  customer_email: string;
+  contact_phone: string;
+  payment_method: string;
+  /** Unmasked: where the money goes back to. */
+  payment_msisdn: string;
+  payment_reference: string;
+  amount: string;
+  reason: RefundReason;
+  note: string;
+  status: "DUE" | "PAID";
+  paid_reference: string;
+  paid_by_email: string | null;
+  paid_at: string | null;
+  created_at: string;
+};
+
+export async function listAdminRefunds(
+  options: { status?: string; page?: number } = {},
+): Promise<PaginatedResponse<AdminRefund>> {
+  return apiFetch<PaginatedResponse<AdminRefund>>(`/api/admin/refunds${bookingQuery(options)}`);
+}
+
+/** Works once; a repeat is a 409. */
+export async function markRefundPaid(
+  refundId: number,
+  paidReference: string,
+): Promise<AdminRefund> {
+  return apiFetch<AdminRefund>(`/api/admin/refunds/${refundId}/mark-paid`, {
+    method: "POST",
+    body: JSON.stringify({ paid_reference: paidReference }),
+  });
 }
 
 export type VendorService = {
@@ -793,7 +943,9 @@ export async function getGuestPaymentStatus(token: string): Promise<PaymentStatu
 /** A USSD push waiting on the simulated phone (dev-only AzamPay sandbox simulator). */
 export type SimulatedPush = {
   reference: string;
-  order_id: number;
+  /** Exactly one of `order_id` and `booking_id` is set. */
+  order_id: number | null;
+  booking_id: number | null;
   msisdn: string;
   provider: MobileMoneyProvider;
   amount: string;
