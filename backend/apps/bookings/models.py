@@ -65,9 +65,7 @@ class OpeningHours(models.Model):
     """One period a shop is open on a weekday, in local market time. Periods on one day can't
     overlap (ShopScheduleSerializer), and a day can have several, to leave room for a break."""
 
-    shop = models.ForeignKey(
-        "vendors.Shop", on_delete=models.CASCADE, related_name="opening_hours"
-    )
+    shop = models.ForeignKey("vendors.Shop", on_delete=models.CASCADE, related_name="opening_hours")
     # 0 is Monday, matching `date.weekday()`.
     weekday = models.PositiveSmallIntegerField(validators=[MaxValueValidator(6)])
     opens_at = models.TimeField()
@@ -107,6 +105,16 @@ class ShopClosure(models.Model):
         return f"{self.shop_id}: {self.date}"
 
 
+def _has_pending_payment():
+    from apps.payments.models import PaymentRecord
+
+    return models.Exists(
+        PaymentRecord.objects.filter(
+            booking=models.OuterRef("pk"), status=PaymentRecord.Status.PENDING
+        )
+    )
+
+
 class BookingQuerySet(models.QuerySet):
     def holding(self, now=None):
         """Bookings that hold their time right now. This compares deadlines rather than trusting
@@ -116,6 +124,12 @@ class BookingQuerySet(models.QuerySet):
         return self.filter(
             models.Q(status=Booking.Status.REQUESTED, respond_by__gt=now)
             | models.Q(status=Booking.Status.AWAITING_PAYMENT, pay_by__gt=now)
+            # A payment still being processed keeps holding the time past the deadline, until
+            # it settles or the visit starts (research.md §5).
+            | (
+                models.Q(status=Booking.Status.AWAITING_PAYMENT, starts_at__gt=now)
+                & _has_pending_payment()
+            )
             | models.Q(status=Booking.Status.CONFIRMED)
         )
 
@@ -135,7 +149,10 @@ class BookingQuerySet(models.QuerySet):
         now = now or timezone.now()
         return self.filter(
             models.Q(status=Booking.Status.REQUESTED, respond_by__lte=now)
-            | models.Q(status=Booking.Status.AWAITING_PAYMENT, pay_by__lte=now)
+            | (
+                models.Q(status=Booking.Status.AWAITING_PAYMENT, pay_by__lte=now)
+                & (models.Q(starts_at__lte=now) | ~_has_pending_payment())
+            )
         )
 
 
@@ -153,9 +170,18 @@ class Booking(models.Model):
         EXPIRED = "EXPIRED", "Expired"
         CANCELLED = "CANCELLED", "Cancelled"
 
+    # Null for a guest booking: the guest is then reached through `guest_email`, and the
+    # booking through its unguessable `access_token` link (same pattern as guest orders).
     customer = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="bookings"
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="bookings",
+        null=True,
+        blank=True,
     )
+    guest_name = models.CharField(max_length=255, blank=True, default="")
+    guest_email = models.EmailField(blank=True, default="", db_index=True)
+    access_token = models.CharField(max_length=64, unique=True, null=True, blank=True)
     # Copied from the service, for locking and finance.
     shop = models.ForeignKey("vendors.Shop", on_delete=models.PROTECT, related_name="bookings")
     service = models.ForeignKey(Service, on_delete=models.PROTECT, related_name="bookings")
@@ -200,6 +226,10 @@ class Booking(models.Model):
                 condition=models.Q(ends_at__gt=models.F("starts_at")),
                 name="booking_ends_after_it_starts",
             ),
+            models.CheckConstraint(
+                condition=models.Q(customer__isnull=False) | ~models.Q(guest_email=""),
+                name="booking_has_customer_or_guest_email",
+            ),
         ]
 
     def __str__(self):
@@ -207,6 +237,18 @@ class Booking(models.Model):
 
     def amount_due(self):
         return self.price
+
+    @property
+    def is_guest(self):
+        return self.customer_id is None
+
+    @property
+    def contact_email(self):
+        return self.guest_email if self.is_guest else self.customer.email
+
+    @property
+    def contact_name(self):
+        return self.guest_name if self.is_guest else self.customer.name
 
 
 class BookingStatusEvent(models.Model):

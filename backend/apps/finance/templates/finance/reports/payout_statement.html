@@ -15,6 +15,8 @@
 </table>
 {% if payout.failure_reason %}<p class="notice">Failed: {{ payout.failure_reason }}</p>{% endif %}
 
+{% with lines=payout.items.all bookings=payout.bookings.all %}
+{% if lines or not bookings %}
 <h2>Order lines</h2>
 <table repeat="1">
   <thead><tr>
@@ -22,7 +24,7 @@
     <th class="num">Subtotal</th><th class="num">Commission</th><th class="num">Shop earning</th>
   </tr></thead>
   <tbody>
-  {% for line in payout.items.all %}
+  {% for line in lines %}
     <tr>
       <td>#{{ line.order_id }}</td>
       <td>{{ line.product.name }}</td>
@@ -33,6 +35,34 @@
       <td class="num">{{ line.vendor_earning|money }}</td>
     </tr>
   {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% if bookings %}
+<h2>Service bookings</h2>
+<table repeat="1">
+  <thead><tr>
+    <th>Booking</th><th>Service</th><th>Visit</th><th>Status</th>
+    <th class="num">Price</th><th class="num">Commission</th><th class="num">Shop earning</th>
+  </tr></thead>
+  <tbody>
+  {% for booking in bookings %}
+    <tr>
+      <td>#{{ booking.id }}</td>
+      <td>{{ booking.service.name }}</td>
+      <td>{{ booking.starts_at|date:"j M Y H:i" }}</td>
+      <td>{{ booking.get_status_display }}</td>
+      <td class="num">{{ booking.price|money }}</td>
+      <td class="num">{{ booking.commission_amount|money }} <span class="muted">({{ booking.commission_rate|rate }})</span></td>
+      <td class="num">{{ booking.vendor_earning|money }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endwith %}
+<table>
+  <tbody>
   <tr class="total"><td colspan="6">Total paid to shop</td><td class="num">{{ payout.amount|money }}</td></tr>
   </tbody>
 </table>

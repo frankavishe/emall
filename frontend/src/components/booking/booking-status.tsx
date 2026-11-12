@@ -1,4 +1,4 @@
-import type { BookingHistoryEvent, BookingStatus } from "@/lib/api-client";
+import type { BookingHistoryEvent, BookingStatus, RefundReason } from "@/lib/api-client";
 import { formatMarketDateTime } from "@/lib/market-time";
 import { Pill, statusToTone } from "@/components/ui/pill";
 
@@ -14,6 +14,14 @@ export const BOOKING_STATUS_LABELS: Record<BookingStatus, string> = {
 };
 
 export const BOOKING_STATUSES = Object.keys(BOOKING_STATUS_LABELS) as BookingStatus[];
+
+/** Why money is owed back, as staff see it (the customer's page words these for the customer). */
+export const REFUND_REASON_LABELS: Record<RefundReason, string> = {
+  CUSTOMER_CANCELLED: "Customer cancelled",
+  PROVIDER_CANCELLED: "Provider cancelled",
+  ADMIN_CANCELLED: "Administrator cancelled",
+  LATE_PAYMENT: "Paid too late",
+};
 
 export function BookingStatusPill({ status }: { status: BookingStatus }) {
   return <Pill tone={statusToTone(status)}>{BOOKING_STATUS_LABELS[status]}</Pill>;

@@ -271,15 +271,7 @@ class AdminOrderItemListView(ListAPIView):
 
     def get_queryset(self):
         queryset = (
-            OrderItem.objects.select_related(
-                "product", "product__shop", "order", "rider__rider_profile"
-            )
-            .prefetch_related(
-                Prefetch(
-                    "status_events",
-                    queryset=OrderItemStatusEvent.objects.order_by("changed_at"),
-                )
-            )
+            _admin_order_items()
             .filter(order__status=Order.Status.PLACED)
             .order_by("-order__placed_at")
         )
@@ -293,6 +285,21 @@ class AdminOrderItemListView(ListAPIView):
         if order.isdigit():
             queryset = queryset.filter(order_id=int(order))
         return queryset
+
+
+class AdminOrderSummaryView(APIView):
+    """`GET /api/admin/order-items/summary`: how many paid orders still have a line nobody has
+    started on (PENDING). Drives the Order Oversight badge in the admin sidebar."""
+
+    permission_classes = [AdminArea("orders")]
+
+    def get(self, request):
+        count = (
+            Order.objects.filter(status=Order.Status.PLACED, items__status=OrderItem.Status.PENDING)
+            .distinct()
+            .count()
+        )
+        return Response({"orders_needing_action": count})
 
 
 class AdminOrderItemAssignRiderView(APIView):
@@ -371,18 +378,27 @@ class AdminOrderItemStatusUpdateView(APIView):
         return Response(AdminOrderItemSerializer(_admin_order_item(order_item.pk)).data)
 
 
+def _admin_order_items():
+    """Order lines with everything an admin oversight row renders preloaded: the line's own
+    history and rider, and its order's buyer, payment and lines (for the order total)."""
+
+    return OrderItem.objects.select_related(
+        "product",
+        "product__shop",
+        "order",
+        "order__customer",
+        "order__payment",
+        "rider__rider_profile",
+    ).prefetch_related(
+        Prefetch(
+            "status_events",
+            queryset=OrderItemStatusEvent.objects.order_by("changed_at"),
+        ),
+        "order__items",
+    )
+
+
 def _admin_order_item(pk):
     """An order line as the admin oversight row renders it, history included."""
 
-    return (
-        OrderItem.objects.select_related(
-            "product", "product__shop", "order", "rider__rider_profile"
-        )
-        .prefetch_related(
-            Prefetch(
-                "status_events",
-                queryset=OrderItemStatusEvent.objects.order_by("changed_at"),
-            )
-        )
-        .get(pk=pk)
-    )
+    return _admin_order_items().get(pk=pk)

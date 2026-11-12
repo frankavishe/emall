@@ -121,6 +121,7 @@ export default function AdminBookingsPage() {
                   </Link>
                   <p className="text-sm text-text-muted">
                     {booking.shop.name} &middot; {booking.customer.name}
+                    {booking.customer.is_guest && " (guest)"}
                   </p>
                   <p className="text-sm text-text-muted">
                     {formatMarketDateTime(booking.starts_at)} &middot;{" "}

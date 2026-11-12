@@ -112,9 +112,9 @@ Because it compares deadlines, times free up on schedule even if cron stops.
 
 ## 10. Access
 
-**Decision**: Require a signed-in customer with a verified email, using the existing `IsCustomer` and `require_verified_email`. Refuse bookings on the customer's own shop. Apply the existing throttle pattern to booking requests.
+**Decision** (amended 2026-11-09): Allow a signed-in customer with a verified email (`require_verified_email`) **or** a guest with no account, using the existing `IsCustomerOrGuest`, the same as guest checkout. A guest gives a name and email. The booking has a null customer, a `guest_email` and an unguessable `access_token`, and the guest follows it at `/bookings/track/{token}`, a link that is also emailed to them. Refuse bookings on a signed-in customer's own shop. The per-IP `booking_request` throttle and the 3-active-unpaid limit (counted per guest email, serialised with a Postgres advisory lock) guard against anonymous holds.
 
-**Rationale**: The flow runs over days, and email is the only outbound channel. Anonymous holds would make capacity easy to block.
+**Rationale**: The original sign-in requirement was relaxed so customers can book without registering. Email is still the outbound channel, so a guest must give one. There is no email verification step, so the throttle and the per-email unpaid limit are what keep capacity from being blocked cheaply.
 
 ## 11. Provider cancellation before payment
 

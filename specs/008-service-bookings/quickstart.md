@@ -80,6 +80,83 @@ npm run build
 5. Force a payout failure. **Expected:** those bookings are available for payout again.
 6. Open `/admin/transactions`. **Expected:** the booking's payment links to the booking, and the PDF report renders.
 
+## Results: 2026-11-12
+
+Walked through locally against the dev database, with `azampay_simulator`, Lipa Namba till `555123` and the `mock` disbursement backend. Port 8000 was taken by another project's container, so this ran with the backend on `8010`, and the frontend was started with `NEXT_PUBLIC_API_BASE_URL=http://localhost:8010`. Test accounts were `provider.walk@` and `customer.walk@emall.local`, with passwords in `backend/.env`, plus the seeded admin. The shop was "Walk Salon Services" (#76), offering Haircut (60 min, TSh 20,000) and Beard trim (30 min, TSh 8,000).
+
+### Automated checks
+
+| Check | Result |
+| --- | --- |
+| `pytest` | 861 passed, **5 failed**: all in `tests/finance/test_reports.py`, `AttributeError: 'super' object has no attribute 'dicts'` in `Context.__copy__`. This comes from the local venv running Python 3.14 with Django 5.1, which doesn't support it. It only happens under the test client's template instrumentation, and production runs Python 3.12. The PDFs render fine in the running app (see US4.6). Not caused by this feature. |
+| `ruff check .` | Pass |
+| `npm run lint` | Pass |
+| `npm run format:check` | Pass |
+| `npm run test` | Pass (113 tests) |
+| `npm run build` | Pass |
+
+### US1
+
+| Step | Result | Notes |
+| --- | --- | --- |
+| 1 | Pass | Services shop requested from Account, then approved in Shop approvals. |
+| 2 | Pass | Publish refused: "Set your shop's location before publishing a service." |
+| 3 | Pass | Location pinned, service published, hours 09:00–17:00 every day. |
+| 4 | Pass | As a guest on 13 Nov, the times run 09:00–16:00, "in Dar es Salaam time". |
+| 5 | Pass (substitute) | The browser zone couldn't be changed from automation. Every formatter in `lib/market-time.ts` pins `Africa/Dar_es_Salaam`, and `market-time.test.ts` passes under `TZ=America/New_York` and `TZ=Asia/Tokyo`. |
+| 6 | Pass | 14 Nov marked closed: "No open times". |
+
+### US2
+
+| Step | Result | Notes |
+| --- | --- | --- |
+| 1 | Pass | With 10:00 held, Haircut lost 09:30, 10:00 and 10:30, and Beard trim lost 10:00 and 10:30 but kept 09:30. |
+| 2 | Pass | Declined with a reason: the times returned and no payment record was created. |
+| 3 | Pass | Accepted: the customer sees "Pay by Fri, 13 Nov 2026 at 00:08". |
+| 4 | Pass | `respond_by` back-dated: the time was free before the command ran, then `expire_bookings` marked the booking EXPIRED. |
+| 5 | Pass | The second run reported "Expired 0". |
+| 6 | Pass | 4th active unpaid booking refused: "You already have 3 bookings waiting…" |
+| 7 | Pass | Another customer's booking returns 404 in the API, and the page shows "Booking not found". |
+
+### US3
+
+| Step | Result | Notes |
+| --- | --- | --- |
+| 1 | Pass | Mobile money approved on `/dev/azampay-sandbox`: CONFIRMED, and the customer page updated live. |
+| 2 | Pass | Push rejected: still awaiting payment, with the reason shown. The retry was approved: CONFIRMED. |
+| 3 | Pass | While a push was pending, pay and cancel both returned 409. |
+| 4 | Pass | Lipa Namba transaction ID submitted, then "Confirm payment → Yes, received" as admin: CONFIRMED. |
+| 5 | Pass | Payment and booking expired, then a success callback was sent: payment SUCCEEDED, booking stays EXPIRED, and a LATE_PAYMENT refund is DUE (research.md §7). The repeated callback changed nothing. |
+| 6 | Pass | Provider cancelled a confirmed booking with a reason: a TSh 20,000 PROVIDER_CANCELLED entry appears on `/admin/refunds`. |
+| 7 | Pass | Marked paid. A second attempt returned 409 "already been paid". |
+| 8 | Pass | Less than 24h away: cancel is hidden, the page says to contact support, and the API returns 409. |
+| 9 | Pass | Goods order #64 paid by mobile money: payment SUCCEEDED, order PLACED. |
+
+### US4
+
+| Step | Result | Notes |
+| --- | --- | --- |
+| 1 | Pass | Before the start, the buttons are hidden ("from Fri … at 11:00"), and complete and no-show return 409. |
+| 2 | Pass | Visit times back-dated. Completed plus no-show: available went from TSh 0 to TSh 25,200 (18,000 + 7,200), and the earnings page matches the database. |
+| 3 | Pass (platform level) | A shop is goods or services and can't change, so a shop with both can't be reached in the UI; T073 covers that case. Every mall-wide figure on `/admin/finance` equals the exact sum over all shops. |
+| 4 | Pass | PAYOUT-9 succeeded and lists bookings #26 and #28. The statement PDF contains both. |
+| 5 | Pass | Failing mock phone: payout #8 FAILED, both bookings were released (`payout_id` null), and the balance stayed available. The retry succeeded. |
+| 6 | Pass | Booking payments link to `/admin/bookings/<id>`. The transaction, finance and payout PDFs render, with booking rows. |
+
+### Fixed during the walkthrough
+
+- `components/booking/slot-picker.tsx`: the selected time used `bg-primary`, which the theme doesn't define, so it showed white text on white and the chosen time looked like it had vanished. It now uses `bg-navy-900`, like other selected controls.
+- `components/booking/booking-payment-panel.tsx`: the failure message ran into the next sentence ("…rejected the payment You can try again."). It now adds a full stop when the reason has none.
+
+### Noted, not fixed
+
+- Location section on a services shop: it says "Customers can't check out your products … delivery fee" and labels the fields "Pickup address/location". This is goods wording.
+- The Shop approvals badge keeps its count after an approval until the page reloads.
+- Admin Lipa Namba confirmation is credited to "System" in the booking history, not to the admin.
+- Booking create, accept and decline take about 2.7s, because the status email is sent over SMTP inside the request. Goods orders do the same.
+- Goods (existing behaviour, not from this feature): after a mobile-money order is paid, the cart badge still shows the old count until the next reload. The server cart is empty.
+- Payouts (existing): a failure message reads "Mock: recipient rejected.." with a doubled full stop.
+
 ## Required automated tests
 
 - **Concurrency:** threaded tests modelled on `backend/tests/orders/test_checkout_concurrency.py`.

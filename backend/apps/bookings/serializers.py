@@ -1,4 +1,5 @@
 from collections import defaultdict
+from decimal import Decimal
 
 from django.conf import settings
 from rest_framework import serializers
@@ -10,6 +11,8 @@ from apps.bookings.slots import market_today, market_zone
 from apps.catalog.models import Category
 from apps.catalog.serializers import CatalogShopSerializer
 from apps.core.validators import PHONE_REGEX
+from apps.payments.models import PaymentRecord, RefundDue
+from apps.payments.services import LIPA_NAMBA_METHOD, MOBILE_MONEY_METHOD, normalise_msisdn
 from apps.vendors.models import Shop
 
 MAX_BOOKING_CAPACITY = 1000
@@ -182,10 +185,103 @@ class BookingRequestSerializer(serializers.Serializer):
     customer_note = serializers.CharField(
         required=False, allow_blank=True, default="", max_length=1000
     )
+    # Required from a guest (no account), ignored from a signed-in customer; see the view.
+    name = serializers.CharField(required=False, allow_blank=True, default="", max_length=255)
+    email = serializers.EmailField(required=False, allow_blank=True, default="")
 
 
 class BookingReasonSerializer(serializers.Serializer):
     reason = serializers.CharField(required=False, allow_blank=True, default="", max_length=1000)
+
+
+class BookingPaySerializer(serializers.Serializer):
+    """No amount: the server charges `Booking.amount_due()` (FR-019). Which methods a booking
+    may use is the service's decision (`booking_payment_methods`)."""
+
+    payment_method = serializers.CharField()
+    # Mobile money only: the number the prompt is pushed to, and its network.
+    msisdn = serializers.CharField(required=False, allow_blank=True, default="")
+    provider = serializers.ChoiceField(
+        choices=PaymentRecord.Provider.choices, required=False, allow_blank=True, default=""
+    )
+    # Lipa Namba only: the transaction ID from the customer's payment SMS.
+    payer_reference = serializers.CharField(
+        required=False, allow_blank=True, default="", max_length=64, trim_whitespace=True
+    )
+
+    def validate(self, attrs):
+        method = attrs["payment_method"]
+        if method == LIPA_NAMBA_METHOD:
+            if not attrs["payer_reference"]:
+                raise serializers.ValidationError(
+                    {"payer_reference": ["Enter the transaction ID from your payment SMS."]}
+                )
+            attrs["msisdn"] = attrs["provider"] = ""
+        elif method == MOBILE_MONEY_METHOD:
+            errors = {}
+            msisdn = normalise_msisdn(attrs["msisdn"])
+            if msisdn is None:
+                errors["msisdn"] = ["Enter a Tanzanian mobile number, e.g. 0712345678."]
+            if not attrs["provider"]:
+                errors["provider"] = ["Choose your mobile money network."]
+            if errors:
+                raise serializers.ValidationError(errors)
+            attrs["msisdn"] = msisdn
+            attrs["payer_reference"] = ""
+        return attrs
+
+
+class AdminBookingCancelSerializer(serializers.Serializer):
+    reason = serializers.CharField(max_length=1000)
+    # Defaults to everything paid; refused above that.
+    refund_amount = serializers.DecimalField(
+        max_digits=12, decimal_places=2, min_value=Decimal("0.01"), required=False
+    )
+
+
+class BookingPaymentSerializer(serializers.ModelSerializer):
+    msisdn = serializers.CharField(source="masked_msisdn", read_only=True)
+    payer_reference = serializers.SerializerMethodField()
+    created_at = MarketDateTimeField()
+
+    class Meta:
+        model = PaymentRecord
+        fields = [
+            "id",
+            "method",
+            "status",
+            "amount",
+            "provider",
+            "msisdn",
+            "payer_reference",
+            "failure_reason",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+    def get_payer_reference(self, payment):
+        return payment.provider_reference if payment.is_lipa_namba else ""
+
+
+class BookingRefundSerializer(serializers.ModelSerializer):
+    created_at = MarketDateTimeField()
+    paid_at = MarketDateTimeField()
+
+    class Meta:
+        model = RefundDue
+        fields = ["id", "amount", "reason", "status", "created_at", "paid_at"]
+        read_only_fields = fields
+
+
+def latest_payment(booking):
+    """The newest attempt, from a prefetched `payments` list when there is one."""
+
+    payments = list(booking.payments.all())
+    return max(payments, key=lambda payment: payment.id) if payments else None
+
+
+def booking_refunds(booking):
+    return [refund for payment in booking.payments.all() for refund in payment.refunds.all()]
 
 
 class BookingServiceSerializer(serializers.ModelSerializer):
@@ -259,20 +355,32 @@ class BookingSerializer(serializers.ModelSerializer):
 
 
 class BookingDetailSerializer(BookingSerializer):
+    """Expects `payments__refunds` prefetched (see `booking_detail_rows` in the views)."""
+
     history = BookingHistorySerializer(source="status_events", many=True, read_only=True)
+    payment = serializers.SerializerMethodField()
+    refunds = serializers.SerializerMethodField()
 
     class Meta(BookingSerializer.Meta):
-        fields = [*BookingSerializer.Meta.fields, "history"]
+        fields = [*BookingSerializer.Meta.fields, "history", "payment", "refunds"]
         read_only_fields = fields
+
+    def get_payment(self, booking):
+        payment = latest_payment(booking)
+        return BookingPaymentSerializer(payment).data if payment else None
+
+    def get_refunds(self, booking):
+        return BookingRefundSerializer(booking_refunds(booking), many=True).data
 
 
 class VendorBookingSerializer(BookingSerializer):
-    customer_name = serializers.CharField(source="customer.name", read_only=True)
+    customer_name = serializers.CharField(source="contact_name", read_only=True)
 
     class Meta(BookingSerializer.Meta):
         fields = [
             *BookingSerializer.Meta.fields,
             "customer_name",
+            "is_guest",
             "commission_amount",
             "vendor_earning",
         ]
@@ -287,14 +395,18 @@ class VendorBookingDetailSerializer(VendorBookingSerializer):
         read_only_fields = fields
 
 
-class BookingCustomerSerializer(serializers.Serializer):
-    id = serializers.IntegerField()
-    name = serializers.CharField()
-    email = serializers.EmailField()
-
-
 class AdminBookingSerializer(BookingSerializer):
-    customer = BookingCustomerSerializer(read_only=True)
+    customer = serializers.SerializerMethodField()
+
+    def get_customer(self, booking):
+        """The account holder, or the guest who booked without one (`id` is then null)."""
+
+        return {
+            "id": booking.customer_id,
+            "name": booking.contact_name,
+            "email": booking.contact_email,
+            "is_guest": booking.is_guest,
+        }
 
     class Meta(BookingSerializer.Meta):
         fields = [
@@ -309,16 +421,25 @@ class AdminBookingSerializer(BookingSerializer):
 
 class AdminBookingDetailSerializer(AdminBookingSerializer):
     history = AdminBookingHistorySerializer(source="status_events", many=True, read_only=True)
+    payments = serializers.SerializerMethodField()
+    refunds = serializers.SerializerMethodField()
 
     class Meta(AdminBookingSerializer.Meta):
-        fields = [*AdminBookingSerializer.Meta.fields, "history"]
+        fields = [*AdminBookingSerializer.Meta.fields, "history", "payments", "refunds"]
         read_only_fields = fields
+
+    def get_payments(self, booking):
+        payments = sorted(booking.payments.all(), key=lambda payment: -payment.id)
+        return BookingPaymentSerializer(payments, many=True).data
+
+    def get_refunds(self, booking):
+        return BookingRefundSerializer(booking_refunds(booking), many=True).data
 
 
 class ClosureBookingSerializer(BookingSerializer):
     """An active booking on a date the provider just closed, as a warning."""
 
-    customer_name = serializers.CharField(source="customer.name", read_only=True)
+    customer_name = serializers.CharField(source="contact_name", read_only=True)
 
     class Meta(BookingSerializer.Meta):
         fields = ["id", "status", "service", "starts_at", "customer_name"]

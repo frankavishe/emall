@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { downloadPayoutReport, errorMessage, getAdminPayout, retryPayout } from "@/lib/api-client";
 import { formatCurrency } from "@/lib/currency";
+import { formatMarketDateTime } from "@/lib/market-time";
+import { BOOKING_STATUS_LABELS } from "@/components/booking/booking-status";
 import { PAYOUT_NETWORK_LABELS, formatRate, payoutStatusTone } from "@/lib/finance";
 import { useApi, useRequireRole } from "@/lib/use-api";
 import { PageShell } from "@/components/ui/page-shell";
@@ -119,7 +121,7 @@ export default function AdminPayoutDetailPage() {
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold text-text-primary">Order lines paid</h2>
         {data.items.length === 0 ? (
-          <p className="text-sm text-text-muted">No lines attached.</p>
+          <p className="text-sm text-text-muted">No order lines attached.</p>
         ) : (
           <ul className="flex flex-col gap-2">
             {data.items.map((line) => (
@@ -145,6 +147,44 @@ export default function AdminPayoutDetailPage() {
                   </p>
                   <p className="font-medium text-text-primary">
                     {formatCurrency(line.vendor_earning)}
+                  </p>
+                </div>
+              </Card>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <h2 className="text-lg font-semibold text-text-primary">Service bookings paid</h2>
+        {data.bookings.length === 0 ? (
+          <p className="text-sm text-text-muted">No bookings attached.</p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {data.bookings.map((booking) => (
+              <Card
+                as="li"
+                key={booking.id}
+                padding="sm"
+                className="flex flex-wrap justify-between gap-2 text-sm"
+              >
+                <div>
+                  <p className="font-medium text-text-primary">{booking.service_name}</p>
+                  <p className="text-text-muted">
+                    <Link href={`/admin/bookings/${booking.id}`} className="underline">
+                      Booking #{booking.id}
+                    </Link>{" "}
+                    &middot; {formatMarketDateTime(booking.starts_at)} &middot;{" "}
+                    {BOOKING_STATUS_LABELS[booking.status]}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-text-muted">
+                    {formatCurrency(booking.price)} − {formatCurrency(booking.commission_amount)} (
+                    {formatRate(booking.commission_rate)})
+                  </p>
+                  <p className="font-medium text-text-primary">
+                    {formatCurrency(booking.vendor_earning)}
                   </p>
                 </div>
               </Card>

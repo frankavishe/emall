@@ -23,10 +23,17 @@ def _admin(admin_role=AdminRole.SUPPORT_ADMIN):
 # --- Requesting ----------------------------------------------------------------
 
 
-def test_a_guest_cant_request(api_client):
-    response = api_client.post("/api/bookings", request_body(bookable_service()), format="json")
+def test_a_guest_can_request_with_name_and_email(api_client):
+    body = request_body(bookable_service(), name="Ama Owusu", email="ama@example.com")
 
-    assert response.status_code == 401
+    response = api_client.post("/api/bookings", body, format="json")
+
+    assert response.status_code == 201
+    assert response.data["access_token"]
+
+
+def test_a_guest_cant_list_bookings(api_client):
+    assert api_client.get("/api/bookings").status_code == 401
 
 
 def test_an_unverified_customer_is_told_to_verify(api_client):

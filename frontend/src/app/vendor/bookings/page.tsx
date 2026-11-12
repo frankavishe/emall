@@ -3,9 +3,12 @@
 import { useState } from "react";
 import {
   acceptBooking,
+  completeBooking,
   declineBooking,
   errorMessage,
   listVendorBookings,
+  markBookingNoShow,
+  vendorCancelBooking,
   type VendorBooking,
 } from "@/lib/api-client";
 import { formatCurrency } from "@/lib/currency";
@@ -106,6 +109,138 @@ function RequestActions({
   );
 }
 
+/** Cancelling an accepted or paid booking. The reason is required and the customer sees it; a
+ * paid booking is refunded in full. */
+function CancelAction({
+  booking,
+  onDone,
+  onError,
+}: {
+  booking: VendorBooking;
+  onDone: () => void;
+  onError: (message: string) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const [isPending, setIsPending] = useState(false);
+
+  if (!isOpen) {
+    return (
+      <Button variant="secondary" size="sm" className="self-start" onClick={() => setIsOpen(true)}>
+        Cancel booking
+      </Button>
+    );
+  }
+
+  return (
+    <form
+      className="flex flex-col gap-2 border-t border-border pt-3"
+      onSubmit={async (event) => {
+        event.preventDefault();
+        setIsPending(true);
+        try {
+          await vendorCancelBooking(booking.id, reason);
+          setIsOpen(false);
+        } catch (err) {
+          onError(errorMessage(err));
+        } finally {
+          setIsPending(false);
+          onDone();
+        }
+      }}
+    >
+      <FormField label="Reason (required, the customer sees this)">
+        <input
+          type="text"
+          required
+          maxLength={1000}
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          className={inputClassName}
+        />
+      </FormField>
+      {booking.status === "CONFIRMED" && (
+        <p className="text-sm text-text-muted">
+          The customer has paid, so they&apos;ll be refunded the full{" "}
+          {formatCurrency(booking.price)}, and you won&apos;t earn from this booking.
+        </p>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <Button type="submit" variant="danger" size="sm" disabled={isPending || !reason.trim()}>
+          {isPending ? "Cancelling…" : "Cancel booking"}
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          disabled={isPending}
+          onClick={() => setIsOpen(false)}
+        >
+          Back
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+/** Ending a paid visit once it has started. Completed and no-show both earn the shop. */
+function VisitActions({
+  booking,
+  onDone,
+  onError,
+}: {
+  booking: VendorBooking;
+  onDone: () => void;
+  onError: (message: string) => void;
+}) {
+  // Read once on mount; the list re-renders with a fresh component on every reload.
+  const [now] = useState(() => Date.now());
+  const [pending, setPending] = useState<"complete" | "no-show" | null>(null);
+
+  if (new Date(booking.starts_at).getTime() > now) {
+    return (
+      <p className="text-sm text-text-muted">
+        You can mark this visit completed or a no-show from{" "}
+        {formatMarketDateTime(booking.starts_at)}.
+      </p>
+    );
+  }
+
+  async function run(kind: "complete" | "no-show") {
+    setPending(kind);
+    try {
+      await (kind === "complete" ? completeBooking(booking.id) : markBookingNoShow(booking.id));
+    } catch (err) {
+      onError(errorMessage(err));
+    } finally {
+      setPending(null);
+      onDone();
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2 border-t border-border pt-3">
+      <p className="text-sm text-text-muted">
+        Once marked, your earning of {formatCurrency(booking.vendor_earning)} becomes available for
+        payout.
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" disabled={pending !== null} onClick={() => void run("complete")}>
+          {pending === "complete" ? "Saving…" : "Mark completed"}
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={pending !== null}
+          onClick={() => void run("no-show")}
+        >
+          {pending === "no-show" ? "Saving…" : "Customer didn't come"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export default function VendorBookingsPage() {
   const allowed = useRequireRole("VENDOR");
   const [page, setPage] = useState(1);
@@ -175,7 +310,8 @@ export default function VendorBookingsPage() {
                     &middot; {booking.shop.name}
                   </p>
                   <p className="text-sm text-text-muted">
-                    {booking.customer_name} &middot;{" "}
+                    {booking.customer_name}
+                    {booking.is_guest && " (guest)"} &middot;{" "}
                     <a href={`tel:${booking.contact_phone}`} className="underline">
                       {booking.contact_phone}
                     </a>
@@ -212,6 +348,12 @@ export default function VendorBookingsPage() {
                     onError={setActionError}
                   />
                 </>
+              )}
+              {booking.status === "CONFIRMED" && (
+                <VisitActions booking={booking} onDone={bookings.reload} onError={setActionError} />
+              )}
+              {(booking.status === "AWAITING_PAYMENT" || booking.status === "CONFIRMED") && (
+                <CancelAction booking={booking} onDone={bookings.reload} onError={setActionError} />
               )}
             </Card>
           ))}

@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useAuth } from "@/lib/auth-context";
+import { AdminOrderAlerts } from "@/components/admin-order-alerts";
 import { AdminSidebar } from "@/components/admin-sidebar";
 import { AdminTopBar } from "@/components/admin-top-bar";
 import { Footer } from "@/components/footer";
@@ -28,6 +29,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
         <AdminTopBar />
         {children}
       </div>
+      <AdminOrderAlerts />
     </>
   );
 }

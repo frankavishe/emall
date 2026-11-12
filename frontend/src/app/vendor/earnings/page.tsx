@@ -43,7 +43,7 @@ export default function VendorEarningsPage() {
     <PageShell
       size="md"
       title="Earnings"
-      description="Customers pay MangiMall. Once an order line is delivered, its earnings (after the mall's commission) become available and the mall sends them to your mobile-money account."
+      description="Customers pay MangiMall. Once an order line is delivered or a booking is completed, its earnings (after the mall's commission) become available and the mall sends them to your mobile-money account."
       actions={
         <>
           <Button asChild variant="secondary" size="sm">
@@ -129,12 +129,12 @@ function ShopEarnings({ shop, onSaved }: { shop: VendorShopEarnings; onSaved: ()
               : undefined
           }
         />
-        <StatCard label="Pending delivery" value={formatCurrency(shop.pending_earnings)} />
+        <StatCard label="Pending" value={formatCurrency(shop.pending_earnings)} />
         <StatCard label="Paid to you" value={formatCurrency(shop.paid_out)} />
       </div>
       <p className="text-sm text-text-muted">
         Sales so far: {formatCurrency(shop.gross_sales)}, of which the mall&apos;s commission on
-        delivered lines is {formatCurrency(shop.commission_earned)}.
+        delivered lines and completed bookings is {formatCurrency(shop.commission_earned)}.
       </p>
 
       <Card padding="sm" className="flex flex-col gap-3">

@@ -50,10 +50,13 @@ def rider_groups(order_id):
 
 
 def booking_audience(booking):
-    """Everyone who sees a service booking: its customer, the shop's owner and the
-    administrators."""
+    """Everyone who sees a service booking: its customer (none for a guest), the shop's owner
+    and the administrators."""
 
-    return [user_group(booking.customer_id), user_group(booking.shop.owner_id), ADMINS]
+    groups = [user_group(booking.shop.owner_id), ADMINS]
+    if booking.customer_id is not None:
+        groups.insert(0, user_group(booking.customer_id))
+    return groups
 
 
 def order_audience(order_id):

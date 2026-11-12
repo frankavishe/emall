@@ -136,29 +136,29 @@ description: "Task list for service bookings"
 
 > Write these first and confirm they fail.
 
-- [ ] T052 [P] [US3] Test payments in `backend/tests/bookings/test_payments.py`: payment refused before acceptance, callback success and failure, retry, one live payment, client amount ignored, wrong amount ignored, repeated callback, Lipa Namba offered only 3 hours or more ahead, Lipa confirm and reject
-- [ ] T053 [P] [US3] Test late money in `backend/tests/bookings/test_late_payments.py`: late success in each status, after `pay_by`, after the visit starts, Lipa confirmed after the visit starts, success racing the sweep, one refund entry from repeated callbacks
-- [ ] T054 [P] [US3] Test cancellation and refunds in `backend/tests/bookings/test_refunds.py`: 24-hour boundary, refused within 24 hours, provider reason required, admin amount limit, payment in progress blocks cancel, mark-paid requires `finance.manage` and works once
+- [x] T052 [P] [US3] Test payments in `backend/tests/bookings/test_payments.py`: payment refused before acceptance, callback success and failure, retry, one live payment, client amount ignored, wrong amount ignored, repeated callback, Lipa Namba offered only 3 hours or more ahead, Lipa confirm and reject
+- [x] T053 [P] [US3] Test late money in `backend/tests/bookings/test_late_payments.py`: late success in each status, after `pay_by`, after the visit starts, Lipa confirmed after the visit starts, success racing the sweep, one refund entry from repeated callbacks
+- [x] T054 [P] [US3] Test cancellation and refunds in `backend/tests/bookings/test_refunds.py`: 24-hour boundary, refused within 24 hours, provider reason required, admin amount limit, payment in progress blocks cancel, mark-paid requires `finance.manage` and works once
 
 ### Implementation for User Story 3
 
-- [ ] T055 [US3] Make `PaymentRecord.order` nullable, and add the `booking` FK with `related_name="payments"` and the `payment_has_one_target` and `one_live_payment_per_booking` constraints, with a migration, in `backend/apps/payments/models.py`
-- [ ] T056 [US3] Split `complete_payment` into a shared start plus `_apply_order_outcome`, and branch `_audit_system_payment`, `_announce_payment` and `settle_manual_payment` for bookings, in `backend/apps/payments/outcomes.py`. **Commit this on its own.** All existing payment tests must pass with no edits
-- [ ] T057 [US3] Exclude booking records from the Lipa Namba branch of `expire_stale_payments` in `backend/apps/payments/outcomes.py`
-- [ ] T058 [US3] Add `RefundDue` per `data-model.md` in `backend/apps/payments/models.py`, with `amount` "Above 0, and no more than the payment's amount", `paid_reference` "Required when PAID", and uniqueness on `payment` and `reason`; generate the migration
-- [ ] T059 [US3] Implement `on_payment_settled` in `backend/apps/bookings/services.py`: confirm only with the time held and the visit not started, otherwise create a `RefundDue`; lock the record before the booking
-- [ ] T060 [US3] Add `reconcile_late_payment` and call it from `handle_azampay_callback` for a success on a booking's FAILED record, in `backend/apps/payments/outcomes.py` and `backend/apps/bookings/services.py`
-- [ ] T061 [US3] Extend `holding(now)` for AWAITING_PAYMENT bookings with a PENDING payment, expire them when the visit starts, and settle stale booking payments in `expire_bookings`, in `backend/apps/bookings/models.py`, `services.py` and the command
-- [ ] T062 [US3] Implement `start_booking_payment` in `backend/apps/bookings/services.py`, reusing `normalise_msisdn`, `get_mobile_money_gateway` and `azampay_amount`, with the gateway called after commit as in `_place_mobile_money_order` in `backend/apps/orders/services.py`
-- [ ] T063 [US3] Implement `cancel_confirmed_booking`, provider cancel and `admin_cancel_booking` in `backend/apps/bookings/services.py`, creating `RefundDue` per the status table in `data-model.md`
-- [ ] T064 [US3] Add the customer payment methods, pay and payment-status endpoints, provider cancel, and admin cancel and payment settlement endpoints, in `backend/apps/bookings/views.py`, with `AdminArea("bookings", write_permission="finance.manage")` on settlement
-- [ ] T065 [US3] Add `GET /api/admin/refunds` and `POST /api/admin/refunds/{id}/mark-paid` in `backend/apps/payments/views.py` and `urls.py`, with audit and `refund.updated`, and mount them in `backend/config/urls.py`
-- [ ] T066 [US3] Show a booking reference when a record has no order in `backend/apps/payments/views.py` and `frontend/src/app/dev/azampay-sandbox/page.tsx`
-- [ ] T067 [P] [US3] Extract `frontend/src/components/payment/payment-method-fields.tsx` from `frontend/src/app/checkout/page.tsx`, leaving checkout unchanged in behaviour
-- [ ] T068 [US3] Create `frontend/src/components/booking/booking-payment-panel.tsx` with `useLiveRefresh`, use it in `frontend/src/app/bookings/[id]/page.tsx`, and add payment functions to `frontend/src/lib/api-client.ts`
-- [ ] T069 [P] [US3] Add provider cancel with a reason to `frontend/src/app/vendor/bookings/page.tsx`
-- [ ] T070 [P] [US3] Add admin cancel and Lipa Namba settlement to `frontend/src/app/admin/bookings/[id]/page.tsx`
-- [ ] T071 [P] [US3] Create `frontend/src/app/admin/refunds/page.tsx`, and add it to `frontend/src/components/admin-sidebar.tsx`
+- [x] T055 [US3] Make `PaymentRecord.order` nullable, and add the `booking` FK with `related_name="payments"` and the `payment_has_one_target` and `one_live_payment_per_booking` constraints, with a migration, in `backend/apps/payments/models.py`
+- [x] T056 [US3] Split `complete_payment` into a shared start plus `_apply_order_outcome`, and branch `_audit_system_payment`, `_announce_payment` and `settle_manual_payment` for bookings, in `backend/apps/payments/outcomes.py`. **Commit this on its own.** All existing payment tests must pass with no edits
+- [x] T057 [US3] Exclude booking records from the Lipa Namba branch of `expire_stale_payments` in `backend/apps/payments/outcomes.py`
+- [x] T058 [US3] Add `RefundDue` per `data-model.md` in `backend/apps/payments/models.py`, with `amount` "Above 0, and no more than the payment's amount", `paid_reference` "Required when PAID", and uniqueness on `payment` and `reason`; generate the migration
+- [x] T059 [US3] Implement `on_payment_settled` in `backend/apps/bookings/services.py`: confirm only with the time held and the visit not started, otherwise create a `RefundDue`; lock the record before the booking
+- [x] T060 [US3] Add `reconcile_late_payment` and call it from `handle_azampay_callback` for a success on a booking's FAILED record, in `backend/apps/payments/outcomes.py` and `backend/apps/bookings/services.py`
+- [x] T061 [US3] Extend `holding(now)` for AWAITING_PAYMENT bookings with a PENDING payment, expire them when the visit starts, and settle stale booking payments in `expire_bookings`, in `backend/apps/bookings/models.py`, `services.py` and the command
+- [x] T062 [US3] Implement `start_booking_payment` in `backend/apps/bookings/services.py`, reusing `normalise_msisdn`, `get_mobile_money_gateway` and `azampay_amount`, with the gateway called after commit as in `_place_mobile_money_order` in `backend/apps/orders/services.py`
+- [x] T063 [US3] Implement `cancel_confirmed_booking`, provider cancel and `admin_cancel_booking` in `backend/apps/bookings/services.py`, creating `RefundDue` per the status table in `data-model.md`
+- [x] T064 [US3] Add the customer payment methods, pay and payment-status endpoints, provider cancel, and admin cancel and payment settlement endpoints, in `backend/apps/bookings/views.py`, with `AdminArea("bookings", write_permission="finance.manage")` on settlement
+- [x] T065 [US3] Add `GET /api/admin/refunds` and `POST /api/admin/refunds/{id}/mark-paid` in `backend/apps/payments/views.py` and `urls.py`, with audit and `refund.updated`, and mount them in `backend/config/urls.py`
+- [x] T066 [US3] Show a booking reference when a record has no order in `backend/apps/payments/views.py` and `frontend/src/app/dev/azampay-sandbox/page.tsx`
+- [x] T067 [P] [US3] Extract `frontend/src/components/payment/payment-method-fields.tsx` from `frontend/src/app/checkout/page.tsx`, leaving checkout unchanged in behaviour
+- [x] T068 [US3] Create `frontend/src/components/booking/booking-payment-panel.tsx` with `useLiveRefresh`, use it in `frontend/src/app/bookings/[id]/page.tsx`, and add payment functions to `frontend/src/lib/api-client.ts`
+- [x] T069 [P] [US3] Add provider cancel with a reason to `frontend/src/app/vendor/bookings/page.tsx`
+- [x] T070 [P] [US3] Add admin cancel and Lipa Namba settlement to `frontend/src/app/admin/bookings/[id]/page.tsx`
+- [x] T071 [P] [US3] Create `frontend/src/app/admin/refunds/page.tsx`, and add it to `frontend/src/components/admin-sidebar.tsx`
 
 **Checkpoint**: Run all tests, confirm goods payment tests are unedited, and do the "US3" walkthrough with the simulator, including a goods order. Stop for review.
 
@@ -174,19 +174,19 @@ description: "Task list for service bookings"
 
 > Write these first and confirm they fail.
 
-- [ ] T072 [P] [US4] Test completion in `backend/tests/bookings/test_completion.py`: refused before the start, completed and no-show both earn, fixed price and commission survive later changes
-- [ ] T073 [P] [US4] Test finance in `backend/tests/finance/test_booking_earnings.py`: **a shop with both goods lines and bookings has exact, unmultiplied totals in every figure**, sorting by balance works, cancelled bookings add nothing, payouts claim both, failure releases both, retry works, and line counts are correct
+- [x] T072 [P] [US4] Test completion in `backend/tests/bookings/test_completion.py`: refused before the start, completed and no-show both earn, fixed price and commission survive later changes
+- [x] T073 [P] [US4] Test finance in `backend/tests/finance/test_booking_earnings.py`: **a shop with both goods lines and bookings has exact, unmultiplied totals in every figure**, sorting by balance works, cancelled bookings add nothing, payouts claim both, failure releases both, retry works, and line counts are correct
 
 ### Implementation for User Story 4
 
-- [ ] T074 [US4] Implement `complete_booking` and `mark_no_show` in `backend/apps/bookings/services.py`, and add the provider endpoints in `backend/apps/bookings/views.py`
-- [ ] T075 [US4] Add `_available_bookings`, and claim and release bookings alongside lines, in `_claim_lines` and `_disburse` in `backend/apps/finance/services.py`
-- [ ] T076 [US4] Add booking totals by the mapping in `research.md` section 9 to `shops_with_balances`, `vendor_shop_earnings`, `shop_balance` and `platform_summary` in `backend/apps/finance/services.py`, using `Subquery` on `Shop` queries and never a second join; add `booking_count`
-- [ ] T077 [US4] Use `Count(..., distinct=True)` for items and bookings in `payout_queryset`, and extend `filter_transactions` with booking commission and search terms, in `backend/apps/finance/services.py`
-- [ ] T078 [US4] Add `booking_id`, make `order_id` nullable, and fix `get_customer` for records with no order in `backend/apps/finance/serializers.py`; list bookings on payout details in `backend/apps/finance/views.py`
-- [ ] T079 [US4] Update the transaction report and payout statement templates in `backend/apps/finance/templates/finance/reports/`, and confirm the PDFs render with booking lines
-- [ ] T080 [P] [US4] Add completed and no-show actions to `frontend/src/app/vendor/bookings/page.tsx`
-- [ ] T081 [P] [US4] Show bookings in `frontend/src/app/admin/transactions/page.tsx`, `frontend/src/app/admin/payouts/[id]/page.tsx` and `frontend/src/app/admin/finance/page.tsx`, updating types in `frontend/src/lib/api-client.ts`
+- [x] T074 [US4] Implement `complete_booking` and `mark_no_show` in `backend/apps/bookings/services.py`, and add the provider endpoints in `backend/apps/bookings/views.py`
+- [x] T075 [US4] Add `_available_bookings`, and claim and release bookings alongside lines, in `_claim_lines` and `_disburse` in `backend/apps/finance/services.py`
+- [x] T076 [US4] Add booking totals by the mapping in `research.md` section 9 to `shops_with_balances`, `vendor_shop_earnings`, `shop_balance` and `platform_summary` in `backend/apps/finance/services.py`, using `Subquery` on `Shop` queries and never a second join; add `booking_count`
+- [x] T077 [US4] Use `Count(..., distinct=True)` for items and bookings in `payout_queryset`, and extend `filter_transactions` with booking commission and search terms, in `backend/apps/finance/services.py`
+- [x] T078 [US4] Add `booking_id`, make `order_id` nullable, and fix `get_customer` for records with no order in `backend/apps/finance/serializers.py`; list bookings on payout details in `backend/apps/finance/views.py`
+- [x] T079 [US4] Update the transaction report and payout statement templates in `backend/apps/finance/templates/finance/reports/`, and confirm the PDFs render with booking lines
+- [x] T080 [P] [US4] Add completed and no-show actions to `frontend/src/app/vendor/bookings/page.tsx`
+- [x] T081 [P] [US4] Show bookings in `frontend/src/app/admin/transactions/page.tsx`, `frontend/src/app/admin/payouts/[id]/page.tsx` and `frontend/src/app/admin/finance/page.tsx`, updating types in `frontend/src/lib/api-client.ts`
 
 **Checkpoint**: Run all tests and the "US4" walkthrough. Stop for review.
 
@@ -196,11 +196,11 @@ description: "Task list for service bookings"
 
 **Purpose**: Whole-feature checks
 
-- [ ] T082 [P] Add a Playwright flow from request to completion in `frontend/e2e/service-booking.spec.ts`, noting it needs the running stack
-- [ ] T083 [P] Update `backend/README.md` with the bookings app, settings and command
-- [ ] T084 Check for N+1 queries on booking, service and admin lists with `select_related` in `backend/apps/bookings/views.py`
-- [ ] T085 Run all checks in `quickstart.md`: `pytest`, `ruff check .`, `npm run lint`, `npm run format:check`, `npm run test` and `npm run build`
-- [ ] T086 Walk through all of `quickstart.md` in a browser, record the results in `specs/008-service-bookings/quickstart.md`, and tell the owner about the late-callback gap in goods orders noted in `plan.md`
+- [x] T082 [P] Add a Playwright flow from request to completion in `frontend/e2e/service-booking.spec.ts`, noting it needs the running stack
+- [x] T083 [P] Update `backend/README.md` with the bookings app, settings and command
+- [x] T084 Check for N+1 queries on booking, service and admin lists with `select_related` in `backend/apps/bookings/views.py`
+- [ ] T085 Run all checks in `quickstart.md`: `pytest`, `ruff check .`, `npm run lint`, `npm run format:check`, `npm run test` and `npm run build`. All pass except 5 `test_reports.py` failures from the local venv's Python 3.14 with Django 5.1 (see quickstart Results). Owner to decide how to handle the environment.
+- [x] T086 Walk through all of `quickstart.md` in a browser, record the results in `specs/008-service-bookings/quickstart.md`, and tell the owner about the late-callback gap in goods orders noted in `plan.md`
 
 ---
 

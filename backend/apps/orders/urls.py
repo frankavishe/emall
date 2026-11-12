@@ -46,6 +46,11 @@ admin_urlpatterns = [
         name="admin-order-item-list",
     ),
     path(
+        "order-items/summary",
+        views.AdminOrderSummaryView.as_view(),
+        name="admin-order-summary",
+    ),
+    path(
         "order-items/<int:item_id>/rider",
         views.AdminOrderItemAssignRiderView.as_view(),
         name="admin-order-item-assign-rider",

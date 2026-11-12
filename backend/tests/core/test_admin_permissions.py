@@ -21,6 +21,7 @@ READS = [
     ("get", "/api/admin/finance/summary", "finance.view"),
     ("get", "/api/admin/payouts", "finance.view"),
     ("get", "/api/admin/transactions", "finance.view"),
+    ("get", "/api/admin/refunds", "finance.view"),
     ("get", "/api/admin/reviews", "reviews.view"),
     ("get", "/api/admin/audit-events", "audit.view"),
 ]
@@ -31,6 +32,9 @@ WRITES = [
     ("post", "/api/admin/orders/999999/payment/confirm", "finance.manage"),
     ("post", "/api/admin/shops/999999/approve", "shops.manage"),
     ("post", "/api/admin/order-items/999999/rider", "orders.manage"),
+    ("post", "/api/admin/bookings/999999/cancel", "bookings.manage"),
+    ("post", "/api/admin/bookings/999999/payment/confirm", "finance.manage"),
+    ("post", "/api/admin/refunds/999999/mark-paid", "finance.manage"),
 ]
 
 

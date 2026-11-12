@@ -64,7 +64,7 @@ export default function AdminTransactionsPage() {
         <FormField label="Search">
           <input
             type="search"
-            placeholder="Order #, reference, txn ID, customer"
+            placeholder="Order or booking #, reference, txn ID, customer"
             value={searchDraft}
             onChange={(e) => setSearchDraft(e.target.value)}
             className={inputClassName}
@@ -129,12 +129,19 @@ export default function AdminTransactionsPage() {
             {transactions.data.results.map((tx) => (
               <Card as="li" key={tx.id} padding="sm">
                 <Link
-                  href={`/admin/orders/${tx.order_id}`}
+                  href={
+                    tx.booking_id !== null
+                      ? `/admin/bookings/${tx.booking_id}`
+                      : `/admin/orders/${tx.order_id}`
+                  }
                   className="flex flex-wrap items-start justify-between gap-3"
                 >
                   <div>
                     <p className="font-medium text-text-primary">
-                      Order #{tx.order_id} &middot; {tx.customer.name}
+                      {tx.booking_id !== null
+                        ? `Booking #${tx.booking_id}`
+                        : `Order #${tx.order_id}`}{" "}
+                      &middot; {tx.customer.name}
                       {tx.customer.is_guest && (
                         <span className="font-normal text-text-muted"> (guest)</span>
                       )}

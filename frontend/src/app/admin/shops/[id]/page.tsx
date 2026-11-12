@@ -107,7 +107,7 @@ export default function AdminShopDetailPage() {
               Not set yet — the owner adds these on their Earnings page.
             </p>
           )}
-          <Row label="Pending delivery">{formatCurrency(balance.pending_earnings)}</Row>
+          <Row label="Pending">{formatCurrency(balance.pending_earnings)}</Row>
           {Number(balance.in_payout) > 0 && (
             <Row label="Payout in progress">{formatCurrency(balance.in_payout)}</Row>
           )}
