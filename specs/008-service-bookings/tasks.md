@@ -196,11 +196,11 @@ description: "Task list for service bookings"
 
 **Purpose**: Whole-feature checks
 
-- [ ] T082 [P] Add a Playwright flow from request to completion in `frontend/e2e/service-booking.spec.ts`, noting it needs the running stack
-- [ ] T083 [P] Update `backend/README.md` with the bookings app, settings and command
-- [ ] T084 Check for N+1 queries on booking, service and admin lists with `select_related` in `backend/apps/bookings/views.py`
-- [ ] T085 Run all checks in `quickstart.md`: `pytest`, `ruff check .`, `npm run lint`, `npm run format:check`, `npm run test` and `npm run build`
-- [ ] T086 Walk through all of `quickstart.md` in a browser, record the results in `specs/008-service-bookings/quickstart.md`, and tell the owner about the late-callback gap in goods orders noted in `plan.md`
+- [x] T082 [P] Add a Playwright flow from request to completion in `frontend/e2e/service-booking.spec.ts`, noting it needs the running stack
+- [x] T083 [P] Update `backend/README.md` with the bookings app, settings and command
+- [x] T084 Check for N+1 queries on booking, service and admin lists with `select_related` in `backend/apps/bookings/views.py`
+- [ ] T085 Run all checks in `quickstart.md`: `pytest`, `ruff check .`, `npm run lint`, `npm run format:check`, `npm run test` and `npm run build`. All pass except 5 `test_reports.py` failures from the local venv's Python 3.14 with Django 5.1 (see quickstart Results). Owner to decide how to handle the environment.
+- [x] T086 Walk through all of `quickstart.md` in a browser, record the results in `specs/008-service-bookings/quickstart.md`, and tell the owner about the late-callback gap in goods orders noted in `plan.md`
 
 ---
 

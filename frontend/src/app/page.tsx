@@ -366,7 +366,7 @@ function VendorBalanceStrip() {
   return (
     <Link href="/vendor/earnings" className="grid grid-cols-1 gap-4 sm:grid-cols-3">
       <StatCard label="Available balance" value={formatCurrency(total("available_balance"))} />
-      <StatCard label="Pending delivery" value={formatCurrency(total("pending_earnings"))} />
+      <StatCard label="Pending earnings" value={formatCurrency(total("pending_earnings"))} />
       <StatCard label="Paid to you" value={formatCurrency(total("paid_out"))} />
     </Link>
   );

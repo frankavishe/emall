@@ -57,7 +57,7 @@ export default function AdminFinancePage() {
     <PageShell
       size="xl"
       title="Finance"
-      description="Customers pay the mall. The mall keeps its commission and pays each shop the rest once an order line is delivered."
+      description="Customers pay the mall. The mall keeps its commission and pays each shop the rest once an order line is delivered or a booking is completed."
       actions={
         <>
           <Button asChild variant="secondary" size="sm">
@@ -118,12 +118,12 @@ export default function AdminFinancePage() {
           <StatCard
             label="Mall commission earned"
             value={formatCurrency(figures.commission_earned)}
-            trend={{ text: "delivered lines", tone: "positive" }}
+            trend={{ text: "delivered lines and completed bookings", tone: "positive" }}
           />
           <StatCard
             label="Commission on the way"
             value={formatCurrency(figures.commission_pending)}
-            trend={{ text: "not delivered yet" }}
+            trend={{ text: "not delivered or completed yet" }}
           />
           <StatCard
             label="Owed to shops now"
@@ -133,7 +133,7 @@ export default function AdminFinancePage() {
           <StatCard
             label="Shops' pending earnings"
             value={formatCurrency(figures.pending_earnings)}
-            trend={{ text: "awaiting delivery" }}
+            trend={{ text: "awaiting delivery or completion" }}
           />
           <StatCard
             label="Paid out to shops"
@@ -433,7 +433,7 @@ function ShopBalanceRow({
           label={`Commission (${formatRate(shop.commission_rate)})`}
           value={shop.commission_earned}
         />
-        <Figure label="Pending delivery" value={shop.pending_earnings} />
+        <Figure label="Pending" value={shop.pending_earnings} />
         <Figure label="Paid out" value={shop.paid_out} />
       </dl>
 

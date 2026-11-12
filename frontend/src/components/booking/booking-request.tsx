@@ -134,8 +134,8 @@ function BookingForm({ service, user }: { service: CatalogService; user: AuthUse
           </p>
           {isGuest && (
             <p className="text-sm text-text-muted">
-              No account needed: we&apos;ll email you a private link to follow your booking. Have
-              an account?{" "}
+              No account needed: we&apos;ll email you a private link to follow your booking. Have an
+              account?{" "}
               <Link href="/login" className="font-medium text-text-primary underline">
                 Sign in
               </Link>

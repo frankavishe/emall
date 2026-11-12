@@ -78,7 +78,7 @@ export function SlotPicker({
                     className={cn(
                       "rounded-pill px-3 py-1.5 text-sm font-medium transition-colors",
                       selected?.starts_at === slot.starts_at
-                        ? "bg-primary text-on-primary"
+                        ? "bg-navy-900 text-on-primary"
                         : "bg-hover text-text-primary hover:bg-card-muted",
                     )}
                   >

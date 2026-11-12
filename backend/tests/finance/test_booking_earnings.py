@@ -70,9 +70,7 @@ def _booking(shop, status, **fields):
         starts_at=now - timedelta(hours=1),
         respond_by=now - timedelta(days=2),
         confirmed_at=now - timedelta(days=1) if paid else None,
-        completed_at=now
-        if status in (Booking.Status.COMPLETED, Booking.Status.NO_SHOW)
-        else None,
+        completed_at=now if status in (Booking.Status.COMPLETED, Booking.Status.NO_SHOW) else None,
         **fields,
     )
 
@@ -172,7 +170,9 @@ def test_bookings_alone_decide_the_balance_order():
     booking_shop = _shop()
     _booking(booking_shop, Booking.Status.COMPLETED)  # 180 available
 
-    order = [shop.pk for shop in shops_with_balances().filter(pk__in=[goods_shop.pk, booking_shop.pk])]
+    order = [
+        shop.pk for shop in shops_with_balances().filter(pk__in=[goods_shop.pk, booking_shop.pk])
+    ]
 
     assert order == [booking_shop.pk, goods_shop.pk]
 

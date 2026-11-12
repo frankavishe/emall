@@ -163,6 +163,42 @@ python manage.py set_admin_role someone@example.com SUPPORT_ADMIN   # or SUPER_A
     moderation across every shop; deleting a review is immediately reflected in the catalog
     aggregate and the Vendor view since both recompute on read.
 
+## Service Bookings (`bookings` app)
+
+- New Django app (`specs/008-service-bookings/`). Shops with `business_type = SERVICES` list
+  `Service`s (price, duration, category), set weekly `OpeningHours`, a `booking_capacity` and
+  one-off `ShopClosure`s. The public sees open times computed on read (`apps/bookings/slots.py`).
+  Stored times are UTC, and everything people read is in `MARKET_TIME_ZONE`
+  (`Africa/Dar_es_Salaam`, `+03:00`).
+- Booking lifecycle: `REQUESTED → AWAITING_PAYMENT → CONFIRMED → COMPLETED | NO_SHOW`, plus
+  `DECLINED`, `EXPIRED` and `CANCELLED`. Only `apps/bookings/services.py` changes a status, under
+  row locks, and every change goes into `BookingStatusEvent` (append-only, `PROTECT` FK).
+  Guests can book without an account and reach the booking through its `access_token` link.
+- Payment works like goods orders (mobile money push or Lipa Namba confirmed by an
+  administrator). The server always charges `Booking.amount_due()`. Money owed back on a
+  cancellation is tracked as `RefundDue` and paid from `/admin/refunds`. Commission and vendor
+  earning are fixed when the booking is requested. They become available for payout when the
+  visit is marked completed or a no-show, and appear in payout statements and transaction reports
+  next to order lines.
+- Settings (env, defaults in `config/settings.py`): `BOOKING_SLOT_MINUTES` (30),
+  `BOOKING_MIN_NOTICE_HOURS` (3), `BOOKING_MAX_ADVANCE_DAYS` (60), `BOOKING_RESPONSE_HOURS` (12)
+  and `BOOKING_RESPONSE_BUFFER_MINUTES` (90), `BOOKING_PAYMENT_HOURS` (6) and
+  `BOOKING_PAYMENT_BUFFER_MINUTES` (60), `BOOKING_MAX_ACTIVE_UNPAID` (3),
+  `BOOKING_CUSTOMER_CANCEL_HOURS` (24), `BOOKING_LIPA_MIN_HOURS` (3).
+- `python manage.py expire_bookings` fails timed-out mobile-money pushes, then expires bookings
+  past their response or payment deadline. It's safe to run repeatedly. Production runs it every
+  5 minutes from cron (`docs/deploy-contabo.md`). Lists and detail views also refresh the rows
+  they show, so the API is correct even between runs.
+- Endpoints:
+  - Public: `GET /api/catalog/services`, `/services/{id}`, `/services/{id}/slots?date=YYYY-MM-DD`.
+  - Provider: `/api/vendor/services` (CRUD, publish/unpublish),
+    `/api/vendor/shops/{id}/schedule` and `/closures`, `/api/vendor/bookings` (accept, decline,
+    cancel, complete, no-show).
+  - Customer and guest: `/api/bookings` (list/request), `/api/bookings/{id}` (detail, cancel,
+    payment-methods, pay, payment-status), and the same under `/api/bookings/track/{token}`.
+  - Administrator: `/api/admin/bookings` (search, filters, detail, cancel with optional refund,
+    Lipa Namba payment confirm/reject).
+
 ## Running the frontend alongside
 
 ```powershell

@@ -174,7 +174,10 @@ export function BookingPaymentPanel({
       {payment?.status === "FAILED" && (
         <ErrorText>
           Your last payment didn&apos;t go through
-          {payment.failure_reason ? `: ${payment.failure_reason}` : "."} You can try again.
+          {payment.failure_reason
+            ? `: ${payment.failure_reason}${/[.!?]$/.test(payment.failure_reason) ? "" : "."}`
+            : "."}{" "}
+          You can try again.
         </ErrorText>
       )}
 
