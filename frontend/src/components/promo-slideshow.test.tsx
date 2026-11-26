@@ -153,6 +153,25 @@ describe("PromoSlideshow", () => {
     expect(selectedTab()?.textContent).toBe("Books");
   });
 
+  it("changes slide on horizontal swipe but ignores vertical scrolls", async () => {
+    await renderLoaded();
+    const wrapper = screen
+      .getByRole("heading", { name: "Shop Beauty" })
+      .closest("article")!.parentElement!;
+
+    fireEvent.touchStart(wrapper, { touches: [{ clientX: 300, clientY: 100 }] });
+    fireEvent.touchEnd(wrapper, { changedTouches: [{ clientX: 290, clientY: 300 }] });
+    expect(selectedTab()?.textContent).toBe("Beauty");
+
+    fireEvent.touchStart(wrapper, { touches: [{ clientX: 300, clientY: 100 }] });
+    fireEvent.touchEnd(wrapper, { changedTouches: [{ clientX: 150, clientY: 110 }] });
+    expect(selectedTab()?.textContent).toBe("Books");
+
+    fireEvent.touchStart(wrapper, { touches: [{ clientX: 100, clientY: 100 }] });
+    fireEvent.touchEnd(wrapper, { changedTouches: [{ clientX: 250, clientY: 100 }] });
+    expect(selectedTab()?.textContent).toBe("Beauty");
+  });
+
   it("renders nothing when the catalog request fails", async () => {
     listProducts.mockRejectedValue(new Error("network down"));
     await renderLoaded();
