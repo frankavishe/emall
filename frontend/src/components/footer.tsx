@@ -7,17 +7,12 @@ type FooterLink = { label: string; href: string };
 const ABOUT_LINKS: FooterLink[] = [
   { label: "About Us", href: "/about" },
   { label: "Our Merchants", href: "/shops" },
-  { label: "Careers & Internships", href: "#" },
-  { label: "Press & Media", href: "#" },
-  { label: "Sustainability Impact", href: "#" },
 ];
 
 const CARE_LINKS: FooterLink[] = [
   { label: "Help Center & FAQ", href: "/help" },
   { label: "Track Your Order", href: "/orders/track" },
   { label: "Returns & Refunds", href: "#" },
-  { label: "Delivery Rates", href: "#" },
-  { label: "Buyer Protection", href: "#" },
 ];
 
 const LEGAL_LINKS: FooterLink[] = [
