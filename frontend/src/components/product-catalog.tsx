@@ -15,18 +15,24 @@ import { Button } from "@/components/ui/button";
 import { FormField, inputClassName } from "@/components/ui/form-field";
 import { LoadingText, EmptyText, ErrorText } from "@/components/ui/status-text";
 
-export function ProductCatalog({ initialCategory = "" }: { initialCategory?: string }) {
+export function ProductCatalog({
+  initialCategory = "",
+  initialQuery = "",
+}: {
+  initialCategory?: string;
+  initialQuery?: string;
+}) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<CatalogProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(initialQuery);
   const [category, setCategory] = useState(initialCategory);
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [appliedFilters, setAppliedFilters] = useState({
-    q: "",
+    q: initialQuery,
     category: initialCategory,
     minPrice: "",
     maxPrice: "",
@@ -86,7 +92,7 @@ export function ProductCatalog({ initialCategory = "" }: { initialCategory?: str
       <Card as="form" onSubmit={handleFilterSubmit} className="flex flex-wrap items-end gap-3">
         <FormField label="Search">
           <input
-            type="text"
+            type="search"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Keyword…"

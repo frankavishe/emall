@@ -45,6 +45,29 @@ def test_shop_list_shows_only_approved_shops_alphabetically(api_client):
     assert response.data["results"][1]["description"] == "Stripes"
 
 
+def test_shop_list_search_matches_name_or_description(api_client):
+    by_name = ShopFactory(status=Shop.Status.APPROVED, name="Kariakoo Fabrics")
+    by_description = ShopFactory(
+        status=Shop.Status.APPROVED, name="Mama Neema", description="Kitenge fabrics and more"
+    )
+    ShopFactory(status=Shop.Status.APPROVED, name="Bolt Hardware", description="Nails")
+    ShopFactory(status=Shop.Status.PENDING, name="Fabrics Pending")
+
+    response = api_client.get("/api/catalog/shops", {"q": " fabric "})
+
+    assert response.status_code == 200
+    assert {shop["id"] for shop in response.data["results"]} == {by_name.id, by_description.id}
+
+
+def test_shop_list_search_with_no_match_is_empty(api_client):
+    ShopFactory(status=Shop.Status.APPROVED, name="Apple Corner")
+
+    response = api_client.get("/api/catalog/shops", {"q": "zzz"})
+
+    assert response.status_code == 200
+    assert response.data["count"] == 0
+
+
 def test_shop_list_counts_only_published_live_products(api_client):
     shop = ShopFactory(status=Shop.Status.APPROVED)
     ProductFactory(shop=shop, is_published=True)

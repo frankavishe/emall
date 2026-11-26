@@ -11,10 +11,16 @@ import { Card } from "@/components/ui/card";
 import { FormField, inputClassName } from "@/components/ui/form-field";
 import { EmptyText, ErrorText, LoadingText } from "@/components/ui/status-text";
 
-export function ServiceCatalog({ initialCategory = "" }: { initialCategory?: string }) {
-  const [search, setSearch] = useState("");
+export function ServiceCatalog({
+  initialCategory = "",
+  initialQuery = "",
+}: {
+  initialCategory?: string;
+  initialQuery?: string;
+}) {
+  const [search, setSearch] = useState(initialQuery);
   const [category, setCategory] = useState(initialCategory);
-  const [applied, setApplied] = useState({ search: "", category: initialCategory });
+  const [applied, setApplied] = useState({ search: initialQuery, category: initialCategory });
   const [page, setPage] = useState(1);
 
   const categories = useApi(() => listCategories("SERVICE"), "service-categories", true);
@@ -37,7 +43,7 @@ export function ServiceCatalog({ initialCategory = "" }: { initialCategory?: str
       <Card as="form" onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3">
         <FormField label="Search">
           <input
-            type="text"
+            type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Haircut, oil change…"

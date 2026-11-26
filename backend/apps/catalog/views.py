@@ -241,15 +241,21 @@ class CatalogRelatedProductsView(APIView):
 
 class CatalogShopListView(ListAPIView):
     """Public merchants directory: every APPROVED shop, alphabetically, with its counts of
-    published products and services."""
+    published products and services. An optional `?q=` matches the shop name or description."""
 
     permission_classes = [AllowAny]
     serializer_class = CatalogShopListSerializer
     pagination_class = LimitedPageNumberPagination
 
     def get_queryset(self):
+        queryset = Shop.objects.filter(status=Shop.Status.APPROVED)
+        q = self.request.query_params.get("q", "").strip()
+        if q:
+            queryset = queryset.filter(
+                models.Q(name__icontains=q) | models.Q(description__icontains=q)
+            )
         return (
-            Shop.objects.filter(status=Shop.Status.APPROVED)
+            queryset
             .annotate(
                 product_count=models.Count(
                     "products",

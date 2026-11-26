@@ -7,6 +7,7 @@ import {
   getAccessToken,
   getPaymentStatus,
   listAdminAuditEvents,
+  listPublicShops,
   refreshAccessToken,
   setAccessToken,
   settleOrderPayment,
@@ -255,5 +256,39 @@ describe("listAdminAuditEvents", () => {
       action: "shop.",
       actor_role: "VENDOR",
     });
+  });
+});
+
+describe("listPublicShops", () => {
+  const fetchMock = vi.fn();
+
+  beforeEach(() => {
+    vi.stubGlobal("fetch", fetchMock);
+    fetchMock.mockImplementation(
+      async () =>
+        new Response(JSON.stringify({ count: 0, next: null, previous: null, results: [] }), {
+          status: 200,
+        }),
+    );
+  });
+
+  afterEach(() => {
+    fetchMock.mockReset();
+    vi.unstubAllGlobals();
+  });
+
+  it("sends no query for the first unfiltered page", async () => {
+    await listPublicShops();
+
+    const url = new URL(String(fetchMock.mock.calls.at(-1)?.[0]));
+    expect(url.pathname).toBe("/api/catalog/shops");
+    expect(url.search).toBe("");
+  });
+
+  it("sends a trimmed search term and the page", async () => {
+    await listPublicShops(2, "  fabrics ");
+
+    const url = new URL(String(fetchMock.mock.calls.at(-1)?.[0]));
+    expect(Object.fromEntries(url.searchParams)).toEqual({ q: "fabrics", page: "2" });
   });
 });

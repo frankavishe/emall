@@ -362,10 +362,19 @@ export type CatalogShopListItem = CatalogShop & {
   service_count: number;
 };
 
-/** `GET /api/catalog/shops` — approved shops, alphabetically, paginated. */
-export async function listPublicShops(page = 1): Promise<PaginatedResponse<CatalogShopListItem>> {
-  const query = page > 1 ? `?page=${page}` : "";
-  return apiFetch<PaginatedResponse<CatalogShopListItem>>(`/api/catalog/shops${query}`);
+/** `GET /api/catalog/shops` — approved shops, alphabetically, paginated; `q` matches the shop
+ * name or description. */
+export async function listPublicShops(
+  page = 1,
+  q?: string,
+): Promise<PaginatedResponse<CatalogShopListItem>> {
+  const params = new URLSearchParams();
+  if (q?.trim()) params.set("q", q.trim());
+  if (page > 1) params.set("page", String(page));
+  const query = params.toString();
+  return apiFetch<PaginatedResponse<CatalogShopListItem>>(
+    `/api/catalog/shops${query ? `?${query}` : ""}`,
+  );
 }
 
 /** `GET /api/catalog/shops/:id` — `404` unless the shop is approved. */

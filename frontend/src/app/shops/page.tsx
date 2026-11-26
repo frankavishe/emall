@@ -1,17 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { listPublicShops, type CatalogShopListItem } from "@/lib/api-client";
-import { shopThemeStyle } from "@/lib/shop-theme";
-import { ShopLogo } from "@/components/shop-logo";
+import { ShopCard } from "@/components/shop-card";
 import { PageShell } from "@/components/ui/page-shell";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EmptyText, ErrorText, LoadingText } from "@/components/ui/status-text";
 
 /** Public merchants directory: every approved shop, each card in the shop's own colors. */
-export default function ShopsPage() {
+export default function ShopsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const { q } = use(searchParams);
+  const query = typeof q === "string" ? q.trim() : "";
+  // Keyed so a new ?q= starts the list over.
+  return <ShopDirectory key={query} query={query} />;
+}
+
+function ShopDirectory({ query }: { query: string }) {
   const [shops, setShops] = useState<CatalogShopListItem[]>([]);
   const [count, setCount] = useState(0);
   const [nextPage, setNextPage] = useState<number | null>(null);
@@ -21,7 +30,7 @@ export default function ShopsPage() {
 
   useEffect(() => {
     let cancelled = false;
-    listPublicShops()
+    listPublicShops(1, query)
       .then((result) => {
         if (cancelled) return;
         setShops(result.results);
@@ -37,13 +46,13 @@ export default function ShopsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [query]);
 
   async function loadMore() {
     if (!nextPage) return;
     setIsLoadingMore(true);
     try {
-      const result = await listPublicShops(nextPage);
+      const result = await listPublicShops(nextPage, query);
       setShops((current) => [...current, ...result.results]);
       setNextPage(result.next ? nextPage + 1 : null);
     } catch {
@@ -56,11 +65,22 @@ export default function ShopsPage() {
   return (
     <PageShell size="xl">
       <div>
-        <h1 className="text-2xl font-semibold text-text-primary">Our merchants</h1>
+        <h1 className="text-2xl font-semibold text-text-primary">
+          {query ? `Shops matching “${query}”` : "Our merchants"}
+        </h1>
         <p className="text-sm text-text-muted">
-          {isLoading
-            ? "Meet the shops selling on MangiMall."
-            : `${count} shops selling on MangiMall.`}
+          {query ? (
+            <>
+              {isLoading ? "Searching…" : `${count} ${count === 1 ? "shop" : "shops"} found. `}
+              <Link href="/shops" className="font-medium text-text-primary underline">
+                Show all shops
+              </Link>
+            </>
+          ) : isLoading ? (
+            "Meet the shops selling on MangiMall."
+          ) : (
+            `${count} shops selling on MangiMall.`
+          )}
         </p>
       </div>
 
@@ -69,32 +89,11 @@ export default function ShopsPage() {
       ) : error ? (
         <ErrorText>{error}</ErrorText>
       ) : shops.length === 0 ? (
-        <EmptyText>No shops are open yet.</EmptyText>
+        <EmptyText>{query ? "No shops match your search." : "No shops are open yet."}</EmptyText>
       ) : (
         <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {shops.map((shop) => (
-            <li key={shop.id} style={shopThemeStyle(shop)}>
-              <Link href={`/shops/${shop.id}`} className="block h-full">
-                <Card className="flex h-full flex-col gap-3 transition-shadow hover:shadow-md">
-                  <div className="flex items-center gap-3">
-                    <ShopLogo url={shop.logo_url} name={shop.name} size="md" />
-                    <div className="min-w-0">
-                      <h2 className="truncate font-semibold text-text-primary">{shop.name}</h2>
-                      <p className="text-xs text-text-muted">
-                        {shop.business_type === "SERVICES"
-                          ? `${shop.service_count} ${shop.service_count === 1 ? "service" : "services"}`
-                          : `${shop.product_count} ${shop.product_count === 1 ? "product" : "products"}`}
-                      </p>
-                    </div>
-                  </div>
-                  {shop.description && (
-                    <p className="line-clamp-3 text-sm text-text-muted">{shop.description}</p>
-                  )}
-                  <span className="mt-auto h-1 w-12 rounded-pill bg-teal-400" aria-hidden />
-                  <span className="text-sm font-medium text-text-primary">Visit shop →</span>
-                </Card>
-              </Link>
-            </li>
+            <ShopCard key={shop.id} shop={shop} />
           ))}
         </ul>
       )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
@@ -9,6 +9,7 @@ import type { AuthUser, Role } from "@/lib/auth-context";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/brand-logo";
+import { SiteSearch } from "@/components/site-search";
 import { cn } from "@/lib/cn";
 import { useTheme } from "@/lib/theme";
 import { AdminNavSections, isLinkActive, visibleAdminSections } from "@/components/admin-sidebar";
@@ -181,10 +182,33 @@ export function Nav() {
   const { itemCount } = useCart();
   const links = linksForRole(activeRole, user);
   const [mobileOpen, setMobileOpen] = useState(false);
+  // The search panel remembers the page it was opened on, so it closes itself on navigation.
+  const [searchOpenOn, setSearchOpenOn] = useState<string | null>(null);
+  const searchOpen = searchOpenOn === pathname;
   const canSwitch = !!user && user.roles.length > 1;
   // Administrators have too many destinations for an inline row: they get the sidebar and top bar
   // on large screens (AdminSidebar, AdminTopBar) and this nav's grouped menu below that.
   const isAdmin = activeRole === "ADMINISTRATOR";
+
+  function toggleSearch() {
+    setMobileOpen(false);
+    setSearchOpenOn(searchOpen ? null : pathname);
+  }
+
+  // "/" opens search from anywhere, unless the customer is already typing in a field.
+  useEffect(() => {
+    if (isAdmin) return;
+    function handleKey(event: KeyboardEvent) {
+      if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
+      event.preventDefault();
+      setMobileOpen(false);
+      setSearchOpenOn(pathname);
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [isAdmin, pathname]);
 
   function handleSwitch(role: Role) {
     if (role === activeRole) return;
@@ -283,12 +307,41 @@ export function Nav() {
               </Button>
             </div>
           )}
+          {!isAdmin && (
+            <button
+              type="button"
+              aria-label={searchOpen ? "Close search" : "Search"}
+              aria-expanded={searchOpen}
+              title="Search (/)"
+              onClick={toggleSearch}
+              className={cn(
+                "flex h-9 w-9 items-center justify-center rounded-full text-text-muted hover:bg-hover hover:text-text-primary",
+                searchOpen && "bg-hover text-text-primary",
+              )}
+            >
+              <svg
+                viewBox="0 0 20 20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.6}
+                strokeLinecap="round"
+                className="h-5 w-5"
+                aria-hidden
+              >
+                <circle cx="9" cy="9" r="5.5" />
+                <path d="M13 13l4 4" />
+              </svg>
+            </button>
+          )}
           <ThemeToggle />
           <button
             type="button"
             aria-label="Toggle menu"
             aria-expanded={mobileOpen}
-            onClick={() => setMobileOpen((open) => !open)}
+            onClick={() => {
+              setSearchOpenOn(null);
+              setMobileOpen((open) => !open);
+            }}
             className={cn(
               "flex h-9 w-9 items-center justify-center rounded-full text-text-muted hover:bg-hover",
               isAdmin ? "lg:hidden" : "md:hidden",
@@ -315,6 +368,16 @@ export function Nav() {
           </button>
         </div>
       </nav>
+
+      {searchOpen && !isAdmin && (
+        <div className="mx-auto mt-2 max-w-6xl rounded-card bg-card p-3 shadow-nav">
+          <SiteSearch
+            autoFocus
+            onNavigate={() => setSearchOpenOn(null)}
+            onEscape={() => setSearchOpenOn(null)}
+          />
+        </div>
+      )}
 
       {mobileOpen && (
         <div
