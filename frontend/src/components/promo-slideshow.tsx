@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type TouchEvent } from "react";
 import { ShopLogo } from "@/components/shop-logo";
 import Link from "next/link";
 import { listCategories, listProducts, type CatalogProduct, type Category } from "@/lib/api-client";
@@ -14,6 +14,8 @@ const AUTOPLAY_MS = 5000;
 const PRODUCT_SAMPLE_SIZE = 24;
 const MAX_SLIDES = 5;
 const PRODUCTS_PER_SLIDE = 2;
+// Minimum horizontal travel (px) for a touch gesture to count as a swipe.
+const SWIPE_THRESHOLD_PX = 50;
 
 const THEMES = [
   {
@@ -130,6 +132,36 @@ export function PromoSlideshow() {
     return () => clearInterval(id);
   }, [paused, current, total]);
 
+  // Keep the active category tab centred in the (horizontally scrollable) tab strip. Sets
+  // scrollLeft directly rather than scrollIntoView so autoplay never scrolls the page itself.
+  const tablistRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const list = tablistRef.current;
+    const tab = list?.children[active] as HTMLElement | undefined;
+    if (!list || !tab) return;
+    // offsetLeft is relative to the positioned card, so subtract the strip's own offset.
+    const left = tab.offsetLeft - list.offsetLeft - (list.clientWidth - tab.offsetWidth) / 2;
+    list.scrollTo?.({ left: Math.max(0, left), behavior: "smooth" });
+  }, [active]);
+
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  function handleTouchStart(event: TouchEvent) {
+    const touch = event.touches[0];
+    touchStart.current = { x: touch.clientX, y: touch.clientY };
+    setPaused(true);
+  }
+  function handleTouchEnd(event: TouchEvent) {
+    const start = touchStart.current;
+    touchStart.current = null;
+    setPaused(false);
+    const touch = event.changedTouches[0];
+    if (!start || !touch) return;
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+    if (Math.abs(dx) < SWIPE_THRESHOLD_PX || Math.abs(dx) < Math.abs(dy)) return;
+    goTo(dx < 0 ? active + 1 : active - 1);
+  }
+
   if (total === 0) return null;
 
   return (
@@ -140,8 +172,13 @@ export function PromoSlideshow() {
       aria-label="Shop by category"
       className="relative overflow-hidden border border-border"
     >
-      <div className="flex items-center justify-between gap-3 overflow-x-auto border-b border-border bg-card-muted px-6 py-3 text-xs font-medium sm:text-sm">
-        <div className="flex items-center gap-2" role="tablist" aria-label="Categories">
+      <div className="flex items-center gap-1 border-b border-border bg-card-muted py-3 pl-1 pr-3 text-xs font-medium sm:gap-2 sm:pl-2 sm:pr-6 sm:text-sm">
+        <div
+          ref={tablistRef}
+          className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto px-4 [mask-image:linear-gradient(to_right,transparent,black_16px,black_calc(100%-16px),transparent)] [scrollbar-width:none] sm:gap-2 [&::-webkit-scrollbar]:hidden"
+          role="tablist"
+          aria-label="Categories"
+        >
           {slides.map((slide, index) => (
             <button
               key={slide.category.slug}
@@ -150,7 +187,7 @@ export function PromoSlideshow() {
               aria-selected={index === active}
               onClick={() => goTo(index)}
               className={cn(
-                "whitespace-nowrap rounded-pill px-3.5 py-1.5 transition",
+                "shrink-0 whitespace-nowrap rounded-pill px-3 py-1.5 transition sm:px-3.5",
                 index === active
                   ? "bg-navy-900 font-semibold text-text-inverse shadow-card"
                   : "text-text-muted hover:bg-card hover:text-text-primary",
@@ -161,7 +198,7 @@ export function PromoSlideshow() {
           ))}
         </div>
         {total > 1 && (
-          <div className="flex items-center gap-1">
+          <div className="flex shrink-0 items-center gap-1">
             <ArrowButton
               label="Previous slide"
               onClick={() => goTo(active - 1)}
@@ -176,6 +213,12 @@ export function PromoSlideshow() {
         className="grid [&>*]:col-start-1 [&>*]:row-start-1"
         onMouseEnter={() => setPaused(true)}
         onMouseLeave={() => setPaused(false)}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={() => {
+          touchStart.current = null;
+          setPaused(false);
+        }}
       >
         {slides.map((slide, index) => {
           const isActive = index === active;
@@ -188,12 +231,12 @@ export function PromoSlideshow() {
               aria-hidden={!isActive}
               inert={!isActive}
               className={cn(
-                "flex flex-col items-center justify-between gap-8 bg-gradient-to-r p-6 transition duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none sm:p-8 lg:flex-row lg:p-10",
+                "flex flex-col items-center justify-between gap-6 bg-gradient-to-r p-5 transition duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none sm:p-8 lg:flex-row lg:gap-8 lg:p-10",
                 theme.gradient,
                 isActive ? "scale-100 opacity-100" : "pointer-events-none scale-[0.98] opacity-0",
               )}
             >
-              <div className="max-w-xl space-y-4 text-left">
+              <div className="w-full max-w-xl space-y-3 text-left sm:space-y-4">
                 <div className="flex flex-wrap items-center gap-2.5">
                   <span
                     className={cn(
@@ -258,7 +301,7 @@ export function PromoSlideshow() {
 
 function ProductTile({ product }: { product: CatalogProduct }) {
   return (
-    <li className="w-40 sm:w-44">
+    <li className="min-w-0 lg:w-44">
       <Link
         href={`/products/${product.id}`}
         className="flex h-full flex-col gap-1.5 rounded-card border border-border bg-card/95 p-3 shadow-card transition-shadow hover:shadow-card-hover"
@@ -276,9 +319,9 @@ function ProductTile({ product }: { product: CatalogProduct }) {
           </div>
         )}
         <p className="line-clamp-2 text-sm font-semibold text-text-primary">{product.name}</p>
-        <p className="flex items-center gap-1 text-xs text-text-muted">
+        <p className="flex min-w-0 items-center gap-1 text-xs text-text-muted">
           <ShopLogo url={product.shop_logo_url} name={product.shop_name} size="xs" />
-          {product.shop_name}
+          <span className="truncate">{product.shop_name}</span>
         </p>
         <p className="text-sm font-bold text-text-primary">{formatCurrency(product.price)}</p>
         <StarRating rating={product.average_rating} reviewCount={product.review_count} />
